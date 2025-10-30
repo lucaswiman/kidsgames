@@ -46,14 +46,26 @@ class GameBoard {
         const ticker = document.createElement('div');
         ticker.className = 'day-ticker';
         ticker.id = 'day-ticker';
-        ticker.textContent = `Day ${this.dayCount}`;
+        ticker.innerHTML = `
+            <div>Day ${this.dayCount}</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="day-progress"></div>
+            </div>
+        `;
         document.body.appendChild(ticker);
     }
 
     updateDayTicker() {
         const ticker = document.getElementById('day-ticker');
         if (ticker) {
-            ticker.textContent = `Day ${this.dayCount}`;
+            const now = Date.now();
+            const dayProgress = ((now - this.lastDayUpdate) / 10000) * 100; // 10 seconds = 1 day
+            const progressFill = document.getElementById('day-progress');
+            
+            ticker.querySelector('div').textContent = `Day ${this.dayCount}`;
+            if (progressFill) {
+                progressFill.style.width = Math.min(100, dayProgress) + '%';
+            }
         }
     }
 
@@ -80,7 +92,7 @@ class GameBoard {
             x: Math.random() * (window.innerWidth - 20),
             y: Math.random() * (window.innerHeight - 20),
             state: 'unripe',
-            ripeTime: Math.random() * 24 * 60 * 60 * 1000 // Random time within 24 hours
+            ripeTime: Math.random() * 10000 // Random time within current day (0-10 seconds)
         };
     }
 
@@ -142,7 +154,7 @@ class GameBoard {
     harvestFruit(tree, specificLalu = null) {
         if (tree.state === 'ripe') {
             tree.state = 'unripe';
-            tree.ripeTime = Math.random() * 24 * 60 * 60 * 1000;
+            tree.ripeTime = Math.random() * 10000; // Reset ripening time
             
             // Feed specific lalu or the hungriest one
             let laluToFeed = specificLalu;
@@ -349,11 +361,14 @@ class GameBoard {
                 sprite.ripeTime -= 100;
                 if (sprite.ripeTime <= 0) {
                     sprite.state = 'ripe';
-                    sprite.ripeTime = Math.random() * 24 * 60 * 60 * 1000;
+                    sprite.ripeTime = Math.random() * 10000; // Reset for next ripening
                     needsRender = true;
                 }
             }
         });
+
+        // Update day progress bar
+        this.updateDayTicker();
 
         if (needsRender) {
             this.renderSprites();
