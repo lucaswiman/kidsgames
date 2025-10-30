@@ -362,7 +362,7 @@ class GameBoard {
     moveHungryLalus() {
         const ripeTrees = this.sprites.filter(s => s.type === 'tree' && s.state === 'ripe');
         let needsRender = false;
-        const moveSpeed = 1; // pixels per update
+        const moveSpeed = 3; // pixels per update
         const centerX = window.innerWidth / 2;
         const centerY = window.innerHeight / 2;
 
