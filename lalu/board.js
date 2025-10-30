@@ -136,7 +136,6 @@ class GameBoard {
                 element.title = `Tree (${sprite.state})`;
                 element.addEventListener('click', () => this.harvestFruit(sprite));
             } else if (sprite.type === 'lalu') {
-                element.style.backgroundColor = '#FFB366';
                 element.title = `Lalu (${sprite.state})`;
                 element.classList.add('lalu');
                 
@@ -146,8 +145,8 @@ class GameBoard {
                 } else if (sprite.state === 'starving') {
                     element.style.border = '2px solid #FF0000';
                 } else if (sprite.state === 'dead') {
-                    element.style.backgroundColor = '#666666';
                     element.style.opacity = '0.5';
+                    element.style.filter = 'grayscale(100%)';
                 }
             }
             
@@ -293,8 +292,10 @@ class GameBoard {
         e.preventDefault();
         const coords = this.getEventCoords(e);
         
-        const newX = Math.max(0, Math.min(window.innerWidth - 20, coords.x - this.dragState.offsetX));
-        const newY = Math.max(0, Math.min(window.innerHeight - 20, coords.y - this.dragState.offsetY));
+        const spriteWidth = this.dragState.dragSprite.type === 'lalu' ? 50 : 20;
+        const spriteHeight = this.dragState.dragSprite.type === 'lalu' ? 50 : 20;
+        const newX = Math.max(0, Math.min(window.innerWidth - spriteWidth, coords.x - this.dragState.offsetX));
+        const newY = Math.max(0, Math.min(window.innerHeight - spriteHeight, coords.y - this.dragState.offsetY));
         
         this.dragState.dragSprite.x = newX;
         this.dragState.dragSprite.y = newY;
@@ -322,8 +323,8 @@ class GameBoard {
     }
 
     checkFruitIntersection(lalu) {
-        const laluCenterX = lalu.x + 10;
-        const laluCenterY = lalu.y + 10;
+        const laluCenterX = lalu.x + 25; // 50px width / 2
+        const laluCenterY = lalu.y + 25; // 50px height / 2
         
         this.sprites.forEach(sprite => {
             if (sprite.type === 'tree' && sprite.state === 'ripe') {
@@ -334,8 +335,8 @@ class GameBoard {
                     Math.pow(laluCenterY - treeCenterY, 2)
                 );
                 
-                // If sprites are touching (distance less than combined radii)
-                if (distance < 20) {
+                // If sprites are touching (distance less than combined radii: lalu=25 + tree=10)
+                if (distance < 35) {
                     this.harvestFruit(sprite, lalu);
                 }
             }
@@ -348,15 +349,15 @@ class GameBoard {
         
         this.sprites.forEach(sprite => {
             if (sprite.type === 'lalu' && sprite.state !== 'dead') {
-                const laluCenterX = sprite.x + 10;
-                const laluCenterY = sprite.y + 10;
+                const laluCenterX = sprite.x + 25;
+                const laluCenterY = sprite.y + 25;
                 const distance = Math.sqrt(
                     Math.pow(treeCenterX - laluCenterX, 2) + 
                     Math.pow(treeCenterY - laluCenterY, 2)
                 );
                 
                 // If sprites are touching when tree ripens
-                if (distance < 20) {
+                if (distance < 35) {
                     this.harvestFruit(tree, sprite);
                 }
             }
@@ -380,8 +381,8 @@ class GameBoard {
                     
                     ripeTrees.forEach(tree => {
                         const distance = Math.sqrt(
-                            Math.pow((lalu.x + 10) - (tree.x + 10), 2) + 
-                            Math.pow((lalu.y + 10) - (tree.y + 10), 2)
+                            Math.pow((lalu.x + 25) - (tree.x + 10), 2) + 
+                            Math.pow((lalu.y + 25) - (tree.y + 10), 2)
                         );
                         if (distance < minDistance) {
                             minDistance = distance;
@@ -389,7 +390,7 @@ class GameBoard {
                         }
                     });
 
-                    if (nearestTree && minDistance > 20) {
+                    if (nearestTree && minDistance > 35) {
                         targetX = nearestTree.x + 10;
                         targetY = nearestTree.y + 10;
                     } else {
@@ -399,14 +400,14 @@ class GameBoard {
                     }
                 } else if (lalu.state === 'healthy') {
                     // Head towards home position
-                    targetX = lalu.homeX + 10;
-                    targetY = lalu.homeY + 10;
+                    targetX = lalu.homeX + 25;
+                    targetY = lalu.homeY + 25;
                 }
 
                 if (targetX !== undefined && targetY !== undefined) {
                     // Calculate direction vector
-                    const dx = targetX - (lalu.x + 10);
-                    const dy = targetY - (lalu.y + 10);
+                    const dx = targetX - (lalu.x + 25);
+                    const dy = targetY - (lalu.y + 25);
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
                     // Only move if not already at target
@@ -416,8 +417,8 @@ class GameBoard {
                         const moveY = (dy / distance) * moveSpeed;
                         
                         // Update position with bounds checking
-                        lalu.x = Math.max(0, Math.min(window.innerWidth - 20, lalu.x + moveX));
-                        lalu.y = Math.max(0, Math.min(window.innerHeight - 20, lalu.y + moveY));
+                        lalu.x = Math.max(0, Math.min(window.innerWidth - 50, lalu.x + moveX));
+                        lalu.y = Math.max(0, Math.min(window.innerHeight - 50, lalu.y + moveY));
                         
                         needsRender = true;
                     }

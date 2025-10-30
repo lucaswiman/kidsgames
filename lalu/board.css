@@ -40,6 +40,14 @@ body, html {
 
 .sprite.lalu {
     user-select: none;
+    background-image: url('lalu-transparent.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 50px !important;
+    height: 50px !important;
+    background-color: transparent !important;
+    border-radius: 0 !important;
 }
 
 .day-ticker {
