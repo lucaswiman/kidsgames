@@ -97,11 +97,15 @@ class GameBoard {
     }
 
     createLalu() {
+        const homeX = Math.random() * (window.innerWidth - 20);
+        const homeY = Math.random() * (window.innerHeight - 20);
         return {
             id: 'lalu_' + Math.random().toString(36).substr(2, 9),
             type: 'lalu',
-            x: Math.random() * (window.innerWidth - 20),
-            y: Math.random() * (window.innerHeight - 20),
+            x: homeX,
+            y: homeY,
+            homeX: homeX,
+            homeY: homeY,
             state: 'healthy',
             hungerLevel: 0
         };
@@ -363,8 +367,6 @@ class GameBoard {
         const ripeTrees = this.sprites.filter(s => s.type === 'tree' && s.state === 'ripe');
         let needsRender = false;
         const moveSpeed = 3; // pixels per update
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
 
         this.sprites.forEach(lalu => {
             if (lalu.type === 'lalu' && lalu.state !== 'dead' && !this.dragState.isDragging) {
@@ -391,14 +393,14 @@ class GameBoard {
                         targetX = nearestTree.x + 10;
                         targetY = nearestTree.y + 10;
                     } else {
-                        // No ripe trees or already at tree, head to center
-                        targetX = centerX;
-                        targetY = centerY;
+                        // No ripe trees or already at tree, head to home
+                        targetX = lalu.homeX + 10;
+                        targetY = lalu.homeY + 10;
                     }
                 } else if (lalu.state === 'healthy') {
-                    // Head towards center
-                    targetX = centerX;
-                    targetY = centerY;
+                    // Head towards home position
+                    targetX = lalu.homeX + 10;
+                    targetY = lalu.homeY + 10;
                 }
 
                 if (targetX !== undefined && targetY !== undefined) {
