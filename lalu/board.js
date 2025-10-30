@@ -3,9 +3,20 @@ class GameBoard {
         this.sprites = [];
         this.config = this.loadConfig();
         this.lastDayUpdate = Date.now();
+        this.dayCount = 1;
+        this.dragState = {
+            isDragging: false,
+            dragSprite: null,
+            startX: 0,
+            startY: 0,
+            offsetX: 0,
+            offsetY: 0
+        };
         this.setupBoard();
         this.generateSprites();
         this.setupModal();
+        this.setupDayTicker();
+        this.setupDragHandlers();
         this.startGameLoop();
     }
 
@@ -29,6 +40,21 @@ class GameBoard {
         board.style.position = 'relative';
         board.style.overflow = 'hidden';
         board.style.backgroundColor = '#87CEEB';
+    }
+
+    setupDayTicker() {
+        const ticker = document.createElement('div');
+        ticker.className = 'day-ticker';
+        ticker.id = 'day-ticker';
+        ticker.textContent = `Day ${this.dayCount}`;
+        document.body.appendChild(ticker);
+    }
+
+    updateDayTicker() {
+        const ticker = document.getElementById('day-ticker');
+        if (ticker) {
+            ticker.textContent = `Day ${this.dayCount}`;
+        }
     }
 
     generateSprites() {
@@ -96,6 +122,7 @@ class GameBoard {
             } else if (sprite.type === 'lalu') {
                 element.style.backgroundColor = '#FFB366';
                 element.title = `Lalu (${sprite.state})`;
+                element.classList.add('lalu');
                 
                 // Add visual indicator for lalu state
                 if (sprite.state === 'hungry') {
@@ -112,20 +139,23 @@ class GameBoard {
         });
     }
 
-    harvestFruit(tree) {
+    harvestFruit(tree, specificLalu = null) {
         if (tree.state === 'ripe') {
             tree.state = 'unripe';
             tree.ripeTime = Math.random() * 24 * 60 * 60 * 1000;
             
-            // Feed the hungriest lalu
-            const hungryLalus = this.sprites
-                .filter(s => s.type === 'lalu' && s.state !== 'dead')
-                .sort((a, b) => b.hungerLevel - a.hungerLevel);
+            // Feed specific lalu or the hungriest one
+            let laluToFeed = specificLalu;
+            if (!laluToFeed) {
+                const hungryLalus = this.sprites
+                    .filter(s => s.type === 'lalu' && s.state !== 'dead')
+                    .sort((a, b) => b.hungerLevel - a.hungerLevel);
+                laluToFeed = hungryLalus[0];
+            }
             
-            if (hungryLalus.length > 0) {
-                const lalu = hungryLalus[0];
-                lalu.hungerLevel = Math.max(0, lalu.hungerLevel - 1);
-                this.updateLaluState(lalu);
+            if (laluToFeed && laluToFeed.state !== 'dead') {
+                laluToFeed.hungerLevel = Math.max(0, laluToFeed.hungerLevel - 1);
+                this.updateLaluState(laluToFeed);
             }
             
             this.renderSprites();
@@ -200,6 +230,102 @@ class GameBoard {
         this.hideModal();
     }
 
+    setupDragHandlers() {
+        const board = document.getElementById('game-board');
+        
+        // Mouse events
+        board.addEventListener('mousedown', (e) => this.handleDragStart(e));
+        board.addEventListener('mousemove', (e) => this.handleDragMove(e));
+        board.addEventListener('mouseup', (e) => this.handleDragEnd(e));
+        
+        // Touch events
+        board.addEventListener('touchstart', (e) => this.handleDragStart(e), { passive: false });
+        board.addEventListener('touchmove', (e) => this.handleDragMove(e), { passive: false });
+        board.addEventListener('touchend', (e) => this.handleDragEnd(e));
+    }
+
+    getEventCoords(e) {
+        if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    handleDragStart(e) {
+        const target = e.target;
+        if (!target.classList.contains('lalu')) return;
+        
+        const sprite = this.sprites.find(s => s.id === target.id);
+        if (!sprite || sprite.state === 'dead') return;
+        
+        e.preventDefault();
+        const coords = this.getEventCoords(e);
+        
+        this.dragState.isDragging = true;
+        this.dragState.dragSprite = sprite;
+        this.dragState.startX = coords.x;
+        this.dragState.startY = coords.y;
+        this.dragState.offsetX = coords.x - sprite.x;
+        this.dragState.offsetY = coords.y - sprite.y;
+        
+        target.classList.add('dragging');
+    }
+
+    handleDragMove(e) {
+        if (!this.dragState.isDragging || !this.dragState.dragSprite) return;
+        
+        e.preventDefault();
+        const coords = this.getEventCoords(e);
+        
+        const newX = Math.max(0, Math.min(window.innerWidth - 20, coords.x - this.dragState.offsetX));
+        const newY = Math.max(0, Math.min(window.innerHeight - 20, coords.y - this.dragState.offsetY));
+        
+        this.dragState.dragSprite.x = newX;
+        this.dragState.dragSprite.y = newY;
+        
+        const element = document.getElementById(this.dragState.dragSprite.id);
+        if (element) {
+            element.style.left = newX + 'px';
+            element.style.top = newY + 'px';
+        }
+        
+        // Check for fruit tree intersections
+        this.checkFruitIntersection(this.dragState.dragSprite);
+    }
+
+    handleDragEnd(e) {
+        if (!this.dragState.isDragging) return;
+        
+        const element = document.getElementById(this.dragState.dragSprite.id);
+        if (element) {
+            element.classList.remove('dragging');
+        }
+        
+        this.dragState.isDragging = false;
+        this.dragState.dragSprite = null;
+    }
+
+    checkFruitIntersection(lalu) {
+        const laluCenterX = lalu.x + 10;
+        const laluCenterY = lalu.y + 10;
+        
+        this.sprites.forEach(sprite => {
+            if (sprite.type === 'tree' && sprite.state === 'ripe') {
+                const treeCenterX = sprite.x + 10;
+                const treeCenterY = sprite.y + 10;
+                const distance = Math.sqrt(
+                    Math.pow(laluCenterX - treeCenterX, 2) + 
+                    Math.pow(laluCenterY - treeCenterY, 2)
+                );
+                
+                // If sprites are touching (distance less than combined radii)
+                if (distance < 20) {
+                    this.harvestFruit(sprite, lalu);
+                }
+            }
+        });
+    }
+
     startGameLoop() {
         setInterval(() => {
             this.updateGame();
@@ -242,6 +368,10 @@ class GameBoard {
                 this.updateLaluState(sprite);
             }
         });
+        
+        // Increment day counter
+        this.dayCount++;
+        this.updateDayTicker();
     }
 }
 
@@ -258,3 +388,10 @@ window.addEventListener('resize', () => {
         game.renderSprites();
     }
 });
+
+// Prevent default touch behaviors that might interfere with dragging
+document.addEventListener('touchmove', (e) => {
+    if (e.target.classList.contains('lalu')) {
+        e.preventDefault();
+    }
+}, { passive: false });
