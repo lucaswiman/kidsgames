@@ -338,6 +338,60 @@ class GameBoard {
         });
     }
 
+    moveHungryLalus() {
+        const ripeTrees = this.sprites.filter(s => s.type === 'tree' && s.state === 'ripe');
+        if (ripeTrees.length === 0) return;
+
+        let needsRender = false;
+        const moveSpeed = 1; // pixels per update
+
+        this.sprites.forEach(lalu => {
+            if (lalu.type === 'lalu' && 
+                (lalu.state === 'hungry' || lalu.state === 'starving') && 
+                !this.dragState.isDragging) {
+                
+                // Find nearest ripe tree
+                let nearestTree = null;
+                let minDistance = Infinity;
+                
+                ripeTrees.forEach(tree => {
+                    const distance = Math.sqrt(
+                        Math.pow((lalu.x + 10) - (tree.x + 10), 2) + 
+                        Math.pow((lalu.y + 10) - (tree.y + 10), 2)
+                    );
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestTree = tree;
+                    }
+                });
+
+                if (nearestTree && minDistance > 20) {
+                    // Calculate direction vector
+                    const dx = (nearestTree.x + 10) - (lalu.x + 10);
+                    const dy = (nearestTree.y + 10) - (lalu.y + 10);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Normalize and apply movement
+                    const moveX = (dx / distance) * moveSpeed;
+                    const moveY = (dy / distance) * moveSpeed;
+                    
+                    // Update position with bounds checking
+                    lalu.x = Math.max(0, Math.min(window.innerWidth - 20, lalu.x + moveX));
+                    lalu.y = Math.max(0, Math.min(window.innerHeight - 20, lalu.y + moveY));
+                    
+                    needsRender = true;
+                    
+                    // Check if lalu reached the tree
+                    this.checkFruitIntersection(lalu);
+                }
+            }
+        });
+
+        if (needsRender) {
+            this.renderSprites();
+        }
+    }
+
     startGameLoop() {
         setInterval(() => {
             this.updateGame();
@@ -366,6 +420,9 @@ class GameBoard {
                 }
             }
         });
+
+        // Move hungry lalus towards nearest ripe tree
+        this.moveHungryLalus();
 
         // Update day progress bar
         this.updateDayTicker();
