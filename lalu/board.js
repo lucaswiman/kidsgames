@@ -338,50 +338,89 @@ class GameBoard {
         });
     }
 
+    checkTreeRipeningIntersections(tree) {
+        const treeCenterX = tree.x + 10;
+        const treeCenterY = tree.y + 10;
+        
+        this.sprites.forEach(sprite => {
+            if (sprite.type === 'lalu' && sprite.state !== 'dead') {
+                const laluCenterX = sprite.x + 10;
+                const laluCenterY = sprite.y + 10;
+                const distance = Math.sqrt(
+                    Math.pow(treeCenterX - laluCenterX, 2) + 
+                    Math.pow(treeCenterY - laluCenterY, 2)
+                );
+                
+                // If sprites are touching when tree ripens
+                if (distance < 20) {
+                    this.harvestFruit(tree, sprite);
+                }
+            }
+        });
+    }
+
     moveHungryLalus() {
         const ripeTrees = this.sprites.filter(s => s.type === 'tree' && s.state === 'ripe');
-        if (ripeTrees.length === 0) return;
-
         let needsRender = false;
         const moveSpeed = 1; // pixels per update
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
 
         this.sprites.forEach(lalu => {
-            if (lalu.type === 'lalu' && 
-                (lalu.state === 'hungry' || lalu.state === 'starving') && 
-                !this.dragState.isDragging) {
+            if (lalu.type === 'lalu' && lalu.state !== 'dead' && !this.dragState.isDragging) {
                 
-                // Find nearest ripe tree
-                let nearestTree = null;
-                let minDistance = Infinity;
+                let targetX, targetY;
                 
-                ripeTrees.forEach(tree => {
-                    const distance = Math.sqrt(
-                        Math.pow((lalu.x + 10) - (tree.x + 10), 2) + 
-                        Math.pow((lalu.y + 10) - (tree.y + 10), 2)
-                    );
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        nearestTree = tree;
-                    }
-                });
+                if (lalu.state === 'hungry' || lalu.state === 'starving') {
+                    // Find nearest ripe tree
+                    let nearestTree = null;
+                    let minDistance = Infinity;
+                    
+                    ripeTrees.forEach(tree => {
+                        const distance = Math.sqrt(
+                            Math.pow((lalu.x + 10) - (tree.x + 10), 2) + 
+                            Math.pow((lalu.y + 10) - (tree.y + 10), 2)
+                        );
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestTree = tree;
+                        }
+                    });
 
-                if (nearestTree && minDistance > 20) {
+                    if (nearestTree && minDistance > 20) {
+                        targetX = nearestTree.x + 10;
+                        targetY = nearestTree.y + 10;
+                    } else {
+                        // No ripe trees or already at tree, head to center
+                        targetX = centerX;
+                        targetY = centerY;
+                    }
+                } else if (lalu.state === 'healthy') {
+                    // Head towards center
+                    targetX = centerX;
+                    targetY = centerY;
+                }
+
+                if (targetX !== undefined && targetY !== undefined) {
                     // Calculate direction vector
-                    const dx = (nearestTree.x + 10) - (lalu.x + 10);
-                    const dy = (nearestTree.y + 10) - (lalu.y + 10);
+                    const dx = targetX - (lalu.x + 10);
+                    const dy = targetY - (lalu.y + 10);
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
-                    // Normalize and apply movement
-                    const moveX = (dx / distance) * moveSpeed;
-                    const moveY = (dy / distance) * moveSpeed;
+                    // Only move if not already at target
+                    if (distance > 5) {
+                        // Normalize and apply movement
+                        const moveX = (dx / distance) * moveSpeed;
+                        const moveY = (dy / distance) * moveSpeed;
+                        
+                        // Update position with bounds checking
+                        lalu.x = Math.max(0, Math.min(window.innerWidth - 20, lalu.x + moveX));
+                        lalu.y = Math.max(0, Math.min(window.innerHeight - 20, lalu.y + moveY));
+                        
+                        needsRender = true;
+                    }
                     
-                    // Update position with bounds checking
-                    lalu.x = Math.max(0, Math.min(window.innerWidth - 20, lalu.x + moveX));
-                    lalu.y = Math.max(0, Math.min(window.innerHeight - 20, lalu.y + moveY));
-                    
-                    needsRender = true;
-                    
-                    // Check if lalu reached the tree
+                    // Check if lalu reached a tree
                     this.checkFruitIntersection(lalu);
                 }
             }
@@ -417,6 +456,9 @@ class GameBoard {
                     sprite.state = 'ripe';
                     sprite.ripeTime = Math.random() * 10000; // Reset for next ripening
                     needsRender = true;
+                    
+                    // Check if any lalu is touching this tree when it ripens
+                    this.checkTreeRipeningIntersections(sprite);
                 }
             }
         });
