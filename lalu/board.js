@@ -91,7 +91,7 @@ class GameBoard {
             type: 'tree',
             x: Math.random() * (window.innerWidth - 20),
             y: Math.random() * (window.innerHeight - 20),
-            state: 'unripe',
+            fruitCount: Math.floor(Math.random() * 3), // 0, 1, or 2 pieces of fruit
             ripeTime: Math.random() * 10000 // Random time within current day (0-10 seconds)
         };
     }
@@ -107,7 +107,8 @@ class GameBoard {
             homeX: homeX,
             homeY: homeY,
             state: 'healthy',
-            hungerLevel: 0
+            hungerLevel: 0,
+            fruitEaten: 0 // Track fruit eaten within current hunger level
         };
     }
 
@@ -132,8 +133,15 @@ class GameBoard {
             element.style.cursor = 'pointer';
             
             if (sprite.type === 'tree') {
-                element.style.backgroundColor = sprite.state === 'ripe' ? '#FF4444' : '#44AA44';
-                element.title = `Tree (${sprite.state})`;
+                // Color based on fruit count: no fruit = brown, 1 fruit = yellow, 2 fruit = red
+                if (sprite.fruitCount === 0) {
+                    element.style.backgroundColor = '#8B4513'; // Brown - no fruit
+                } else if (sprite.fruitCount === 1) {
+                    element.style.backgroundColor = '#FFD700'; // Gold - 1 fruit
+                } else {
+                    element.style.backgroundColor = '#FF4444'; // Red - 2 fruit
+                }
+                element.title = `Tree (${sprite.fruitCount} fruit)`;
                 element.addEventListener('click', () => this.harvestFruit(sprite));
             } else if (sprite.type === 'lalu') {
                 element.title = `Lalu (${sprite.state})`;
@@ -155,9 +163,8 @@ class GameBoard {
     }
 
     harvestFruit(tree, specificLalu = null) {
-        if (tree.state === 'ripe') {
-            tree.state = 'unripe';
-            tree.ripeTime = Math.random() * 10000; // Reset ripening time
+        if (tree.fruitCount > 0) {
+            tree.fruitCount--;
             
             // Feed specific lalu or the hungriest one
             let laluToFeed = specificLalu;
@@ -169,8 +176,14 @@ class GameBoard {
             }
             
             if (laluToFeed && laluToFeed.state !== 'dead') {
-                laluToFeed.hungerLevel = Math.max(0, laluToFeed.hungerLevel - 1);
-                this.updateLaluState(laluToFeed);
+                laluToFeed.fruitEaten++;
+                
+                // Check if lalu has eaten enough fruit to reduce hunger level
+                if (laluToFeed.fruitEaten >= 3) {
+                    laluToFeed.hungerLevel = Math.max(0, laluToFeed.hungerLevel - 1);
+                    laluToFeed.fruitEaten = 0; // Reset fruit counter
+                    this.updateLaluState(laluToFeed);
+                }
             }
             
             this.renderSprites();
@@ -327,7 +340,7 @@ class GameBoard {
         const laluCenterY = lalu.y + 25; // 50px height / 2
         
         this.sprites.forEach(sprite => {
-            if (sprite.type === 'tree' && sprite.state === 'ripe') {
+            if (sprite.type === 'tree' && sprite.fruitCount > 0) {
                 const treeCenterX = sprite.x + 10;
                 const treeCenterY = sprite.y + 10;
                 const distance = Math.sqrt(
@@ -356,7 +369,7 @@ class GameBoard {
                     Math.pow(treeCenterY - laluCenterY, 2)
                 );
                 
-                // If sprites are touching when tree ripens
+                // If sprites are touching when tree grows fruit
                 if (distance < 35) {
                     this.harvestFruit(tree, sprite);
                 }
@@ -365,7 +378,7 @@ class GameBoard {
     }
 
     moveHungryLalus() {
-        const ripeTrees = this.sprites.filter(s => s.type === 'tree' && s.state === 'ripe');
+        const fruitTrees = this.sprites.filter(s => s.type === 'tree' && s.fruitCount > 0);
         let needsRender = false;
         const moveSpeed = 3; // pixels per update
 
@@ -375,11 +388,11 @@ class GameBoard {
                 let targetX, targetY;
                 
                 if (lalu.state === 'hungry' || lalu.state === 'starving') {
-                    // Find nearest ripe tree
+                    // Find nearest tree with fruit
                     let nearestTree = null;
                     let minDistance = Infinity;
                     
-                    ripeTrees.forEach(tree => {
+                    fruitTrees.forEach(tree => {
                         const distance = Math.sqrt(
                             Math.pow((lalu.x + 25) - (tree.x + 10), 2) + 
                             Math.pow((lalu.y + 25) - (tree.y + 10), 2)
@@ -394,7 +407,7 @@ class GameBoard {
                         targetX = nearestTree.x + 10;
                         targetY = nearestTree.y + 10;
                     } else {
-                        // No ripe trees or already at tree, head to home
+                        // No fruit trees or already at tree, head to home
                         targetX = lalu.homeX + 10;
                         targetY = lalu.homeY + 10;
                     }
@@ -451,16 +464,16 @@ class GameBoard {
             needsRender = true;
         }
 
-        // Update tree ripening
+        // Update tree fruit growing
         this.sprites.forEach(sprite => {
-            if (sprite.type === 'tree' && sprite.state === 'unripe') {
+            if (sprite.type === 'tree' && sprite.fruitCount < 2) {
                 sprite.ripeTime -= 100;
                 if (sprite.ripeTime <= 0) {
-                    sprite.state = 'ripe';
-                    sprite.ripeTime = Math.random() * 10000; // Reset for next ripening
+                    sprite.fruitCount++;
+                    sprite.ripeTime = Math.random() * 10000; // Reset for next fruit growth
                     needsRender = true;
                     
-                    // Check if any lalu is touching this tree when it ripens
+                    // Check if any lalu is touching this tree when fruit grows
                     this.checkTreeRipeningIntersections(sprite);
                 }
             }
