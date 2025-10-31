@@ -167,25 +167,31 @@ class GameBoard {
 
     harvestFruit(tree, specificLalu = null) {
         if (tree.fruitCount > 0) {
-            tree.fruitCount--;
-            
             // Feed specific lalu or the hungriest one
             let laluToFeed = specificLalu;
             if (!laluToFeed) {
                 const hungryLalus = this.sprites
-                    .filter(s => s.type === 'lalu' && s.state !== 'dead')
+                    .filter(s => s.type === 'lalu' && s.state !== 'dead' && s.hungerLevel > 0)
                     .sort((a, b) => b.hungerLevel - a.hungerLevel);
                 laluToFeed = hungryLalus[0];
             }
             
-            if (laluToFeed && laluToFeed.state !== 'dead') {
-                laluToFeed.fruitEaten++;
+            // Only harvest if there's a lalu that needs food
+            if (laluToFeed && laluToFeed.state !== 'dead' && laluToFeed.hungerLevel > 0) {
+                // Calculate how much fruit this lalu needs to get to healthy (hunger level 0)
+                const fruitNeeded = (laluToFeed.hungerLevel * 3) - laluToFeed.fruitEaten;
                 
-                // Check if lalu has eaten enough fruit to reduce hunger level
-                if (laluToFeed.fruitEaten >= 3) {
-                    laluToFeed.hungerLevel = Math.max(0, laluToFeed.hungerLevel - 1);
-                    laluToFeed.fruitEaten = 0; // Reset fruit counter
-                    this.updateLaluState(laluToFeed);
+                // Only eat if the lalu actually needs fruit
+                if (fruitNeeded > 0) {
+                    tree.fruitCount--;
+                    laluToFeed.fruitEaten++;
+                    
+                    // Check if lalu has eaten enough fruit to reduce hunger level
+                    if (laluToFeed.fruitEaten >= 3) {
+                        laluToFeed.hungerLevel = Math.max(0, laluToFeed.hungerLevel - 1);
+                        laluToFeed.fruitEaten = 0; // Reset fruit counter
+                        this.updateLaluState(laluToFeed);
+                    }
                 }
             }
             
