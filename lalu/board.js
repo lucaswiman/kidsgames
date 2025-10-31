@@ -89,8 +89,8 @@ class GameBoard {
         return {
             id: 'tree_' + Math.random().toString(36).substr(2, 9),
             type: 'tree',
-            x: Math.random() * (window.innerWidth - 20),
-            y: Math.random() * (window.innerHeight - 20),
+            x: Math.random() * (window.innerWidth - 40),
+            y: Math.random() * (window.innerHeight - 40),
             fruitCount: Math.floor(Math.random() * 3), // 0, 1, or 2 pieces of fruit
             ripeTime: Math.random() * 10000 // Random time within current day (0-10 seconds)
         };
@@ -133,14 +133,17 @@ class GameBoard {
             element.style.cursor = 'pointer';
             
             if (sprite.type === 'tree') {
-                // Color based on fruit count: no fruit = brown, 1 fruit = yellow, 2 fruit = red
+                element.classList.add('tree');
+                
+                // Set background image based on fruit count
                 if (sprite.fruitCount === 0) {
-                    element.style.backgroundColor = '#8B4513'; // Brown - no fruit
+                    element.style.backgroundImage = 'url("tree-no-fruit-transparent.png")';
                 } else if (sprite.fruitCount === 1) {
-                    element.style.backgroundColor = '#FFD700'; // Gold - 1 fruit
+                    element.style.backgroundImage = 'url("tree-1-fruit-transparent.png")';
                 } else {
-                    element.style.backgroundColor = '#FF4444'; // Red - 2 fruit
+                    element.style.backgroundImage = 'url("tree-2-fruit-transparent.png")';
                 }
+                
                 element.title = `Tree (${sprite.fruitCount} fruit)`;
                 element.addEventListener('click', () => this.harvestFruit(sprite));
             } else if (sprite.type === 'lalu') {
@@ -341,15 +344,15 @@ class GameBoard {
         
         this.sprites.forEach(sprite => {
             if (sprite.type === 'tree' && sprite.fruitCount > 0) {
-                const treeCenterX = sprite.x + 10;
-                const treeCenterY = sprite.y + 10;
+                const treeCenterX = sprite.x + 20; // 40px width / 2
+                const treeCenterY = sprite.y + 20; // 40px height / 2
                 const distance = Math.sqrt(
                     Math.pow(laluCenterX - treeCenterX, 2) + 
                     Math.pow(laluCenterY - treeCenterY, 2)
                 );
                 
-                // If sprites are touching (distance less than combined radii: lalu=25 + tree=10)
-                if (distance < 35) {
+                // If sprites are touching (distance less than combined radii: lalu=25 + tree=20)
+                if (distance < 45) {
                     this.harvestFruit(sprite, lalu);
                 }
             }
@@ -357,8 +360,8 @@ class GameBoard {
     }
 
     checkTreeRipeningIntersections(tree) {
-        const treeCenterX = tree.x + 10;
-        const treeCenterY = tree.y + 10;
+        const treeCenterX = tree.x + 20; // 40px width / 2
+        const treeCenterY = tree.y + 20; // 40px height / 2
         
         this.sprites.forEach(sprite => {
             if (sprite.type === 'lalu' && sprite.state !== 'dead') {
@@ -370,7 +373,7 @@ class GameBoard {
                 );
                 
                 // If sprites are touching when tree grows fruit
-                if (distance < 35) {
+                if (distance < 45) {
                     this.harvestFruit(tree, sprite);
                 }
             }
@@ -394,8 +397,8 @@ class GameBoard {
                     
                     fruitTrees.forEach(tree => {
                         const distance = Math.sqrt(
-                            Math.pow((lalu.x + 25) - (tree.x + 10), 2) + 
-                            Math.pow((lalu.y + 25) - (tree.y + 10), 2)
+                            Math.pow((lalu.x + 25) - (tree.x + 20), 2) + 
+                            Math.pow((lalu.y + 25) - (tree.y + 20), 2)
                         );
                         if (distance < minDistance) {
                             minDistance = distance;
@@ -403,9 +406,9 @@ class GameBoard {
                         }
                     });
 
-                    if (nearestTree && minDistance > 35) {
-                        targetX = nearestTree.x + 10;
-                        targetY = nearestTree.y + 10;
+                    if (nearestTree && minDistance > 45) {
+                        targetX = nearestTree.x + 20;
+                        targetY = nearestTree.y + 20;
                     } else {
                         // No fruit trees or already at tree, head to home
                         targetX = lalu.homeX + 10;

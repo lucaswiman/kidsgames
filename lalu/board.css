@@ -27,6 +27,17 @@ body, html {
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+.sprite.tree {
+    user-select: none;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 40px !important;
+    height: 40px !important;
+    background-color: transparent !important;
+    border-radius: 0 !important;
+}
+
 .sprite:hover {
     transform: scale(1.2);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
