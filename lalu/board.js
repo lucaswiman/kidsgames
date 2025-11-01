@@ -144,25 +144,6 @@ class GameBoard {
         });
     }
 
-    harvestFruit(tree, specificLalu = null) {
-        if (tree.fruitCount > 0) {
-            // Feed specific lalu or the hungriest one
-            let laluToFeed = specificLalu;
-            if (!laluToFeed) {
-                const hungryLalus = this.sprites
-                    .filter(s => s.type === 'lalu' && s.needsFood())
-                    .sort((a, b) => b.hungerLevel - a.hungerLevel);
-                laluToFeed = hungryLalus[0];
-            }
-            
-            // Only harvest if there's a lalu that needs food
-            if (laluToFeed && laluToFeed.needsFood()) {
-                if (laluToFeed.onCollision(tree)) {
-                    this.renderSprites();
-                }
-            }
-        }
-    }
 
     setupModal() {
         // Create settings button
@@ -278,8 +259,10 @@ class GameBoard {
             element.style.top = this.dragState.dragSprite.y + 'px';
         }
         
-        // Check for collisions
-        this.checkCollisions(this.dragState.dragSprite);
+        // Check for collisions and render if needed
+        if (this.checkCollisions(this.dragState.dragSprite)) {
+            this.renderSprites();
+        }
     }
 
     handleDragEnd(e) {
@@ -305,18 +288,9 @@ class GameBoard {
             }
         });
         
-        if (needsRender) {
-            this.renderSprites();
-        }
+        return needsRender;
     }
 
-    checkTreeRipeningCollisions(tree) {
-        this.sprites.forEach(sprite => {
-            if (sprite.type === 'lalu' && sprite.isAlive() && tree.isCollidingWith(sprite)) {
-                sprite.onCollision(tree);
-            }
-        });
-    }
 
     moveSprites(numTicks) {
         let needsRender = false;
@@ -332,7 +306,9 @@ class GameBoard {
                 needsRender = true;
                 
                 // Check for collisions after movement
-                this.checkCollisions(sprite);
+                if (this.checkCollisions(sprite)) {
+                    needsRender = true;
+                }
             }
         });
 
@@ -365,7 +341,13 @@ class GameBoard {
                     needsRender = true;
                     
                     // Check if any lalu is touching this tree when fruit grows
-                    this.checkTreeRipeningCollisions(sprite);
+                    this.sprites.forEach(otherSprite => {
+                        if (otherSprite.type === 'lalu' && otherSprite.isAlive() && sprite.isCollidingWith(otherSprite)) {
+                            if (otherSprite.onCollision(sprite)) {
+                                needsRender = true;
+                            }
+                        }
+                    });
                 }
             }
         });
