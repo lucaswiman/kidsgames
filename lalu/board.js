@@ -69,6 +69,11 @@ class GameBoard {
         }
     }
 
+    getVisibleSprites(sprite) {
+        // Default behavior returns all sprites except the requesting sprite
+        return this.sprites.filter(s => s !== sprite);
+    }
+
     generateSprites() {
         this.sprites = [];
         
@@ -88,13 +93,13 @@ class GameBoard {
     createTree() {
         const x = Math.random() * (window.innerWidth - 80);
         const y = Math.random() * (window.innerHeight - 80);
-        return createSprite('tree', x, y);
+        return createSprite('tree', x, y, this.getVisibleSprites.bind(this));
     }
 
     createLalu() {
         const x = Math.random() * (window.innerWidth - 50);
         const y = Math.random() * (window.innerHeight - 50);
-        return createSprite('lalu', x, y);
+        return createSprite('lalu', x, y, this.getVisibleSprites.bind(this));
     }
 
     renderSprites() {

@@ -1,10 +1,11 @@
 // Base Sprite class
 class Sprite {
-    constructor(id, type, x, y) {
+    constructor(id, type, x, y, getVisibleSprites) {
         this.id = id;
         this.type = type;
         this.x = x;
         this.y = y;
+        this.getVisibleSprites = getVisibleSprites;
     }
 
     // Override in subclasses
@@ -81,8 +82,8 @@ class Sprite {
 
 // Tree sprite with fruit state machine
 class TreeSprite extends Sprite {
-    constructor(id, x, y) {
-        super(id, 'tree', x, y);
+    constructor(id, x, y, getVisibleSprites) {
+        super(id, 'tree', x, y, getVisibleSprites);
         this.fruitCount = Math.floor(Math.random() * 3); // 0, 1, or 2 pieces of fruit
         this.ripeTime = Math.random() * 10000; // Random time within current day
     }
@@ -154,8 +155,8 @@ class TreeSprite extends Sprite {
 
 // Lalu sprite with hunger state machine
 class LaluSprite extends Sprite {
-    constructor(id, x, y) {
-        super(id, 'lalu', x, y);
+    constructor(id, x, y, getVisibleSprites) {
+        super(id, 'lalu', x, y, getVisibleSprites);
         this.homeX = x;
         this.homeY = y;
         this.state = 'healthy';
@@ -253,8 +254,12 @@ class LaluSprite extends Sprite {
     }
 
     // Movement logic for hungry lalus
-    getTargetPosition(fruitTrees) {
+    getTargetPosition() {
         if (this.state === 'hungry' || this.state === 'starving') {
+            // Get visible sprites and find trees with fruit
+            const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
+            const fruitTrees = visibleSprites.filter(s => s.type === 'tree' && s.fruitCount > 0);
+            
             // Find nearest tree with fruit
             let nearestTree = null;
             let minDistance = Infinity;
@@ -339,9 +344,7 @@ class LaluSprite extends Sprite {
             return false; // Dead lalus don't move
         }
 
-        // Get available fruit trees
-        const fruitTrees = window.game ? window.game.sprites.filter(s => s.type === 'tree' && s.fruitCount > 0) : [];
-        const target = this.getTargetPosition(fruitTrees);
+        const target = this.getTargetPosition();
         
         if (target) {
             return this.moveTowards(target.x, target.y);
@@ -352,14 +355,14 @@ class LaluSprite extends Sprite {
 }
 
 // Factory function to create sprites
-function createSprite(type, x, y) {
+function createSprite(type, x, y, getVisibleSprites) {
     const id = `${type}_${Math.random().toString(36).substr(2, 9)}`;
     
     switch (type) {
         case 'tree':
-            return new TreeSprite(id, x, y);
+            return new TreeSprite(id, x, y, getVisibleSprites);
         case 'lalu':
-            return new LaluSprite(id, x, y);
+            return new LaluSprite(id, x, y, getVisibleSprites);
         default:
             throw new Error(`Unknown sprite type: ${type}`);
     }
