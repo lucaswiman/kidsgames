@@ -1,15 +1,18 @@
 // Lalu sprite with hunger state machine
 class LaluSprite extends Sprite {
-    constructor(id, x, y, getVisibleSprites, nest) {
+    constructor(id, x, y, getVisibleSprites, nest, mother = null) {
         super(id, 'lalu', x, y, getVisibleSprites);
         this.nest = nest;
         this.homeX = nest ? nest.x : x;
         this.homeY = nest ? nest.y : y;
-        this.state = 'healthy';
+        this.state = mother ? 'baby' : 'healthy';
         this.hungerLevel = 0;
         this.fruitEaten = 0; // Track fruit eaten within current hunger level
         this.gender = Math.random() < 0.5 ? 'male' : 'female';
         this.inNest = true; // Start in nest
+        this.mother = mother; // Reference to mother for babies
+        this.babyAge = 0; // Days as a baby
+        this.hasReproduced = false; // Track if this lalu has reproduced this day
     }
 
     computeClassNames() {
@@ -21,15 +24,18 @@ class LaluSprite extends Sprite {
     }
 
     getTitle() {
+        if (this.state === 'baby') {
+            return `Baby Lalu (${this.gender}, ${this.babyAge} days)`;
+        }
         return `Lalu (${this.state}, ${this.gender})`;
     }
 
     getWidth() {
-        return 50;
+        return this.state === 'baby' ? 25 : 50;
     }
 
     getHeight() {
-        return 50;
+        return this.state === 'baby' ? 25 : 50;
     }
 
     getBackgroundImage() {
@@ -43,7 +49,9 @@ class LaluSprite extends Sprite {
         };
 
         // Add visual indicator for lalu state
-        if (this.state === 'hungry') {
+        if (this.state === 'baby') {
+            style.border = '2px solid #FFB6C1';
+        } else if (this.state === 'hungry') {
             style.border = '2px solid #FFA500';
         } else if (this.state === 'starving') {
             style.border = '2px solid #FF0000';
@@ -55,8 +63,13 @@ class LaluSprite extends Sprite {
         return style;
     }
 
-    // Lalu state machine: healthy -> hungry -> starving -> dead
+    // Lalu state machine: baby -> healthy -> hungry -> starving -> dead
     updateHungerState() {
+        if (this.state === 'baby') {
+            // Babies don't get hungry, they follow their mother
+            return;
+        }
+        
         if (this.hungerLevel === 0) {
             this.state = 'healthy';
         } else if (this.hungerLevel === 1) {
@@ -69,10 +82,20 @@ class LaluSprite extends Sprite {
     }
 
     increaseHunger() {
-        if (this.state !== 'dead') {
+        if (this.state === 'baby') {
+            this.babyAge++;
+            if (this.babyAge >= 5) {
+                // Baby grows up after 5 days
+                this.state = 'healthy';
+                this.mother = null; // No longer needs to follow mother
+            }
+        } else if (this.state !== 'dead') {
             this.hungerLevel++;
             this.updateHungerState();
         }
+        
+        // Reset reproduction flag each day
+        this.hasReproduced = false;
     }
 
     eatFruit() {
@@ -97,7 +120,7 @@ class LaluSprite extends Sprite {
     }
 
     needsFood() {
-        return this.state !== 'dead' && this.hungerLevel > 0;
+        return this.state !== 'dead' && this.state !== 'baby' && this.hungerLevel > 0;
     }
 
     isAlive() {
@@ -116,7 +139,10 @@ class LaluSprite extends Sprite {
 
     // Override getTargetPosition for lalu-specific movement logic
     getTargetPosition() {
-        if (this.state === 'hungry' || this.state === 'starving') {
+        if (this.state === 'baby' && this.mother && this.mother.isAlive()) {
+            // Babies follow their mother
+            return { x: this.mother.getCenterX(), y: this.mother.getCenterY() };
+        } else if (this.state === 'hungry' || this.state === 'starving') {
             this.inNest = false; // Leave nest when hungry
             
             // Get visible sprites and find trees with fruit
@@ -183,6 +209,22 @@ class LaluSprite extends Sprite {
             }
             
             return fruitEaten > 0; // Return true if any fruit was consumed
+        } else if (otherSprite.type === 'lalu' && this.canReproduce() && otherSprite.canReproduce()) {
+            // Check if this is a male-female pair that can reproduce
+            if (this.gender !== otherSprite.gender && !this.hasReproduced && !otherSprite.hasReproduced) {
+                // Determine which is the female (will be the mother)
+                const female = this.gender === 'female' ? this : otherSprite;
+                const male = this.gender === 'male' ? this : otherSprite;
+                
+                // Create baby near the female
+                this.createBaby(female);
+                
+                // Mark both parents as having reproduced this day
+                this.hasReproduced = true;
+                otherSprite.hasReproduced = true;
+                
+                return true; // Indicate state change for re-rendering
+            }
         }
         return false;
     }
@@ -191,6 +233,27 @@ class LaluSprite extends Sprite {
         const genderLabel = document.createElement('div');
         genderLabel.className = `gender-label gender-${this.gender}`;
         return genderLabel;
+    }
+
+    canReproduce() {
+        return this.state === 'healthy' && this.isAlive();
+    }
+
+    createBaby(mother) {
+        // Access the global game instance to add a new sprite
+        if (window.game) {
+            const babyX = mother.x + Math.random() * 20 - 10; // Near mother
+            const babyY = mother.y + Math.random() * 20 - 10;
+            const baby = new LaluSprite(
+                `lalu_${Math.random().toString(36).substr(2, 9)}`,
+                babyX,
+                babyY,
+                this.getVisibleSprites,
+                mother.nest,
+                mother
+            );
+            window.game.sprites.push(baby);
+        }
     }
 
     // Override move to handle dead lalus
