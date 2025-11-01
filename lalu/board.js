@@ -93,8 +93,15 @@ class GameBoard {
         
         // Generate lalus and assign them to nests
         for (let i = 0; i < this.config.numLalus; i++) {
-            const nestIndex = i % nests.length;
-            this.sprites.push(this.createLalu(nests[nestIndex]));
+            if (nests.length > 0) {
+                const nestIndex = i % nests.length;
+                this.sprites.push(this.createLalu(nests[nestIndex]));
+            } else {
+                // Fallback: create lalu without nest if no nests exist
+                const x = Math.random() * (window.innerWidth - 50);
+                const y = Math.random() * (window.innerHeight - 50);
+                this.sprites.push(createSprite('lalu', x, y, this.getVisibleSprites.bind(this)));
+            }
         }
         
         this.renderSprites();
