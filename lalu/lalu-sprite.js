@@ -114,7 +114,7 @@ class LaluSprite extends Sprite {
         return distance < 25; // Within nest radius
     }
 
-    // Movement logic for hungry lalus
+    // Override getTargetPosition for lalu-specific movement logic
     getTargetPosition() {
         if (this.state === 'hungry' || this.state === 'starving') {
             this.inNest = false; // Leave nest when hungry
@@ -164,26 +164,6 @@ class LaluSprite extends Sprite {
         return null; // Dead or no target
     }
 
-    moveTowards(targetX, targetY, moveSpeed = 4) {
-        // Calculate direction vector
-        const dx = targetX - this.getCenterX();
-        const dy = targetY - this.getCenterY();
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Only move if not already at target
-        if (distance > 5) {
-            // Normalize and apply movement
-            const moveX = (dx / distance) * moveSpeed;
-            const moveY = (dy / distance) * moveSpeed;
-            
-            // Update position using the base class method
-            this.updatePosition(this.x + moveX, this.y + moveY);
-            
-            return true; // Moved
-        }
-        
-        return false; // Already at target
-    }
 
     // Handle collision with other sprites
     onCollision(otherSprite) {
@@ -213,18 +193,13 @@ class LaluSprite extends Sprite {
         return genderLabel;
     }
 
-    // Movement logic called each game tick
+    // Override move to handle dead lalus
     move(numTicks) {
         if (!this.isAlive()) {
             return false; // Dead lalus don't move
         }
-
-        const target = this.getTargetPosition();
         
-        if (target) {
-            return this.moveTowards(target.x, target.y);
-        }
-        
-        return false;
+        // Use base class movement logic
+        return super.move(numTicks);
     }
 }

@@ -27,8 +27,8 @@ class NestSprite extends Sprite {
         };
     }
 
-    // Nests don't move
-    move(numTicks) {
-        return false;
+    // Nests stay at their current position
+    getTargetPosition() {
+        return { x: this.getCenterX(), y: this.getCenterY() };
     }
 }

@@ -65,8 +65,8 @@ class TreeSprite extends Sprite {
         // Trees don't initiate actions on collision
     }
 
-    // Trees don't move
-    move(numTicks) {
-        return false;
+    // Trees stay at their current position
+    getTargetPosition() {
+        return { x: this.getCenterX(), y: this.getCenterY() };
     }
 }

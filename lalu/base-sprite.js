@@ -43,10 +43,48 @@ class Sprite {
         // Base implementation does nothing
     }
 
-    // Override in subclasses - called each game tick for movement
+    // Override in subclasses to specify where sprite wants to move
+    getTargetPosition() {
+        // Default: stay at current position
+        return { x: this.getCenterX(), y: this.getCenterY() };
+    }
+
+    // Get maximum movement speed per tick
+    getMaxVelocity() {
+        return 4; // Default movement speed
+    }
+
+    // Move towards target position - called each game tick
     move(numTicks) {
-        // Base implementation does nothing
-        return false; // Return true if position changed
+        const target = this.getTargetPosition();
+        
+        if (!target) {
+            return false; // No target, don't move
+        }
+
+        return this.moveTowards(target.x, target.y, this.getMaxVelocity());
+    }
+
+    // Helper method to move towards a target position
+    moveTowards(targetX, targetY, moveSpeed) {
+        // Calculate direction vector
+        const dx = targetX - this.getCenterX();
+        const dy = targetY - this.getCenterY();
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Only move if not already at target
+        if (distance > 5) {
+            // Normalize and apply movement
+            const moveX = (dx / distance) * moveSpeed;
+            const moveY = (dy / distance) * moveSpeed;
+            
+            // Update position using the base class method
+            this.updatePosition(this.x + moveX, this.y + moveY);
+            
+            return true; // Moved
+        }
+        
+        return false; // Already at target
     }
 
     // Position updating method
