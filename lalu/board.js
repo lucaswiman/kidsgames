@@ -108,7 +108,8 @@ class GameBoard {
             homeY: homeY,
             state: 'healthy',
             hungerLevel: 0,
-            fruitEaten: 0 // Track fruit eaten within current hunger level
+            fruitEaten: 0, // Track fruit eaten within current hunger level
+            gender: Math.random() < 0.5 ? 'male' : 'female'
         };
     }
 
@@ -147,7 +148,7 @@ class GameBoard {
                 element.title = `Tree (${sprite.fruitCount} fruit)`;
                 element.addEventListener('click', () => this.harvestFruit(sprite));
             } else if (sprite.type === 'lalu') {
-                element.title = `Lalu (${sprite.state})`;
+                element.title = `Lalu (${sprite.state}, ${sprite.gender})`;
                 element.classList.add('lalu');
                 
                 // Add visual indicator for lalu state
@@ -159,6 +160,12 @@ class GameBoard {
                     element.style.opacity = '0.5';
                     element.style.filter = 'grayscale(100%)';
                 }
+                
+                // Add gender label
+                const genderLabel = document.createElement('div');
+                genderLabel.className = 'gender-label';
+                genderLabel.textContent = sprite.gender === 'male' ? 'M' : 'F';
+                element.appendChild(genderLabel);
             }
             
             board.appendChild(element);

@@ -61,6 +61,25 @@ body, html {
     border-radius: 0 !important;
 }
 
+.gender-label {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 16px;
+    height: 16px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #333;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    pointer-events: none;
+    z-index: 10;
+}
+
 .day-ticker {
     position: fixed;
     top: 20px;
