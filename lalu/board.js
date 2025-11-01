@@ -83,9 +83,9 @@ class GameBoard {
     generateSprites() {
         this.sprites = [];
         
-        // Generate nests first
+        // Generate nests first - one for each lalu
         const nests = [];
-        for (let i = 0; i < this.config.numNests; i++) {
+        for (let i = 0; i < this.config.numLalus; i++) {
             const nest = this.createNest();
             this.sprites.push(nest);
             nests.push(nest);
@@ -96,17 +96,9 @@ class GameBoard {
             this.sprites.push(this.createTree());
         }
         
-        // Generate lalus and assign them to nests
+        // Generate lalus and assign each to their own nest
         for (let i = 0; i < this.config.numLalus; i++) {
-            if (nests.length > 0) {
-                const nestIndex = i % nests.length;
-                this.sprites.push(this.createLalu(nests[nestIndex]));
-            } else {
-                // Fallback: create lalu without nest if no nests exist
-                const x = Math.random() * (window.innerWidth - 50);
-                const y = Math.random() * (window.innerHeight - 50);
-                this.sprites.push(createSprite('lalu', x, y, this.getVisibleSprites.bind(this)));
-            }
+            this.sprites.push(this.createLalu(nests[i]));
         }
         
         this.renderSprites();
@@ -195,10 +187,6 @@ class GameBoard {
                     <label for="num-lalus">Number of Lalus:</label>
                     <input type="number" id="num-lalus" min="1" max="10" value="${this.config.numLalus}">
                 </div>
-                <div class="setting">
-                    <label for="num-nests">Number of Nests:</label>
-                    <input type="number" id="num-nests" min="1" max="5" value="${this.config.numNests}">
-                </div>
                 <button onclick="game.saveSettings()">Save Settings</button>
             </div>
         `;
@@ -222,11 +210,9 @@ class GameBoard {
     saveSettings() {
         const numTrees = parseInt(document.getElementById('num-trees').value);
         const numLalus = parseInt(document.getElementById('num-lalus').value);
-        const numNests = parseInt(document.getElementById('num-nests').value);
         
         this.config.numTrees = numTrees;
         this.config.numLalus = numLalus;
-        this.config.numNests = numNests;
         this.saveConfig();
         
         this.generateSprites();
