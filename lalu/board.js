@@ -27,7 +27,12 @@ class GameBoard {
             numNests: 2
         };
         const saved = localStorage.getItem('laluGameConfig');
-        return saved ? JSON.parse(saved) : defaultConfig;
+        if (saved) {
+            const config = JSON.parse(saved);
+            // Ensure all default properties exist (for backwards compatibility)
+            return { ...defaultConfig, ...config };
+        }
+        return defaultConfig;
     }
 
     saveConfig() {
