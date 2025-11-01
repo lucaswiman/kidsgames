@@ -186,7 +186,8 @@ class LaluSprite extends Sprite {
                     sprite.gender !== this.gender &&
                     sprite.isAlive() &&
                     !sprite.hasReproduced &&
-                    !this.hasReproduced
+                    !this.hasReproduced &&
+                    !sprite.hasCurrentBaby()
                 );
 
                 // Find nearest potential mate
@@ -244,7 +245,10 @@ class LaluSprite extends Sprite {
             return fruitEaten > 0; // Return true if any fruit was consumed
         } else if (otherSprite.type === 'lalu' && this.canReproduce() && otherSprite.canReproduce()) {
             // Check if this is a male-female pair that can reproduce
-            if (this.gender !== otherSprite.gender && !this.hasReproduced && !otherSprite.hasReproduced) {
+            if (this.gender !== otherSprite.gender && 
+                !this.hasReproduced && !otherSprite.hasReproduced &&
+                !this.hasCurrentBaby() && !otherSprite.hasCurrentBaby()) {
+                
                 // Determine which is the female (will be the mother)
                 const female = this.gender === 'female' ? this : otherSprite;
                 const male = this.gender === 'male' ? this : otherSprite;
