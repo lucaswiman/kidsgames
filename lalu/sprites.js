@@ -41,6 +41,36 @@ class Sprite {
     update(deltaTime) {
         // Base implementation does nothing
     }
+
+    // Position updating method
+    updatePosition(newX, newY) {
+        this.x = Math.max(0, Math.min(window.innerWidth - this.getWidth(), newX));
+        this.y = Math.max(0, Math.min(window.innerHeight - this.getHeight(), newY));
+    }
+
+    // Get center coordinates
+    getCenterX() {
+        return this.x + this.getWidth() / 2;
+    }
+
+    getCenterY() {
+        return this.y + this.getHeight() / 2;
+    }
+
+    // Check collision with another sprite
+    isCollidingWith(otherSprite) {
+        const distance = Math.sqrt(
+            Math.pow(this.getCenterX() - otherSprite.getCenterX(), 2) + 
+            Math.pow(this.getCenterY() - otherSprite.getCenterY(), 2)
+        );
+        const combinedRadius = (this.getWidth() + otherSprite.getWidth()) / 4; // Approximate radius
+        return distance < combinedRadius;
+    }
+
+    // Override in subclasses to handle collisions
+    onCollision(otherSprite) {
+        // Base implementation does nothing
+    }
 }
 
 // Tree sprite with fruit state machine
@@ -103,6 +133,11 @@ class TreeSprite extends Sprite {
             return true; // Successfully harvested
         }
         return false; // No fruit to harvest
+    }
+
+    // Handle collision with other sprites
+    onCollision(otherSprite) {
+        // Trees don't initiate actions on collision
     }
 }
 
@@ -215,8 +250,8 @@ class LaluSprite extends Sprite {
             
             fruitTrees.forEach(tree => {
                 const distance = Math.sqrt(
-                    Math.pow((this.x + 25) - (tree.x + 40), 2) + 
-                    Math.pow((this.y + 25) - (tree.y + 40), 2)
+                    Math.pow(this.getCenterX() - tree.getCenterX(), 2) + 
+                    Math.pow(this.getCenterY() - tree.getCenterY(), 2)
                 );
                 if (distance < minDistance) {
                     minDistance = distance;
@@ -224,15 +259,15 @@ class LaluSprite extends Sprite {
                 }
             });
 
-            if (nearestTree && minDistance > 65) {
-                return { x: nearestTree.x + 40, y: nearestTree.y + 40 };
+            if (nearestTree && !this.isCollidingWith(nearestTree)) {
+                return { x: nearestTree.getCenterX(), y: nearestTree.getCenterY() };
             } else {
                 // No fruit trees or already at tree, head to home
-                return { x: this.homeX + 10, y: this.homeY + 10 };
+                return { x: this.homeX + this.getWidth()/2, y: this.homeY + this.getHeight()/2 };
             }
         } else if (this.state === 'healthy') {
             // Head towards home position
-            return { x: this.homeX + 25, y: this.homeY + 25 };
+            return { x: this.homeX + this.getWidth()/2, y: this.homeY + this.getHeight()/2 };
         }
         
         return null; // Dead or no target
@@ -240,8 +275,8 @@ class LaluSprite extends Sprite {
 
     moveTowards(targetX, targetY, moveSpeed = 3) {
         // Calculate direction vector
-        const dx = targetX - (this.x + 25);
-        const dy = targetY - (this.y + 25);
+        const dx = targetX - this.getCenterX();
+        const dy = targetY - this.getCenterY();
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         // Only move if not already at target
@@ -250,14 +285,35 @@ class LaluSprite extends Sprite {
             const moveX = (dx / distance) * moveSpeed;
             const moveY = (dy / distance) * moveSpeed;
             
-            // Update position with bounds checking
-            this.x = Math.max(0, Math.min(window.innerWidth - 50, this.x + moveX));
-            this.y = Math.max(0, Math.min(window.innerHeight - 50, this.y + moveY));
+            // Update position using the base class method
+            this.updatePosition(this.x + moveX, this.y + moveY);
             
             return true; // Moved
         }
         
         return false; // Already at target
+    }
+
+    // Handle collision with other sprites
+    onCollision(otherSprite) {
+        if (otherSprite.type === 'tree' && this.needsFood()) {
+            // Calculate how much fruit this lalu can eat
+            const fruitNeeded = Math.min(
+                (this.hungerLevel * 3) - this.fruitEaten,
+                otherSprite.fruitCount
+            );
+            
+            // Eat fruit one by one until satisfied or tree is empty
+            let fruitEaten = 0;
+            while (fruitEaten < fruitNeeded && otherSprite.fruitCount > 0 && this.needsFood()) {
+                if (otherSprite.harvestFruit() && this.eatFruit()) {
+                    fruitEaten++;
+                }
+            }
+            
+            return fruitEaten > 0; // Return true if any fruit was consumed
+        }
+        return false;
     }
 
     createGenderLabel() {

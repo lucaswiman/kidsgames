@@ -154,7 +154,7 @@ class GameBoard {
             
             // Only harvest if there's a lalu that needs food
             if (laluToFeed && laluToFeed.needsFood()) {
-                if (tree.harvestFruit() && laluToFeed.eatFruit()) {
+                if (laluToFeed.onCollision(tree)) {
                     this.renderSprites();
                 }
             }
@@ -264,22 +264,19 @@ class GameBoard {
         e.preventDefault();
         const coords = this.getEventCoords(e);
         
-        const spriteWidth = this.dragState.dragSprite.getWidth();
-        const spriteHeight = this.dragState.dragSprite.getHeight();
-        const newX = Math.max(0, Math.min(window.innerWidth - spriteWidth, coords.x - this.dragState.offsetX));
-        const newY = Math.max(0, Math.min(window.innerHeight - spriteHeight, coords.y - this.dragState.offsetY));
+        const newX = coords.x - this.dragState.offsetX;
+        const newY = coords.y - this.dragState.offsetY;
         
-        this.dragState.dragSprite.x = newX;
-        this.dragState.dragSprite.y = newY;
+        this.dragState.dragSprite.updatePosition(newX, newY);
         
         const element = document.getElementById(this.dragState.dragSprite.id);
         if (element) {
-            element.style.left = newX + 'px';
-            element.style.top = newY + 'px';
+            element.style.left = this.dragState.dragSprite.x + 'px';
+            element.style.top = this.dragState.dragSprite.y + 'px';
         }
         
-        // Check for fruit tree intersections
-        this.checkFruitIntersection(this.dragState.dragSprite);
+        // Check for collisions
+        this.checkCollisions(this.dragState.dragSprite);
     }
 
     handleDragEnd(e) {
@@ -294,44 +291,26 @@ class GameBoard {
         this.dragState.dragSprite = null;
     }
 
-    checkFruitIntersection(lalu) {
-        const laluCenterX = lalu.x + 25; // 50px width / 2
-        const laluCenterY = lalu.y + 25; // 50px height / 2
+    checkCollisions(sprite) {
+        let needsRender = false;
         
-        this.sprites.forEach(sprite => {
-            if (sprite.type === 'tree' && sprite.fruitCount > 0) {
-                const treeCenterX = sprite.x + 40; // 80px width / 2
-                const treeCenterY = sprite.y + 40; // 80px height / 2
-                const distance = Math.sqrt(
-                    Math.pow(laluCenterX - treeCenterX, 2) + 
-                    Math.pow(laluCenterY - treeCenterY, 2)
-                );
-                
-                // If sprites are touching (distance less than combined radii: lalu=25 + tree=40)
-                if (distance < 65) {
-                    this.harvestFruit(sprite, lalu);
+        this.sprites.forEach(otherSprite => {
+            if (sprite !== otherSprite && sprite.isCollidingWith(otherSprite)) {
+                if (sprite.onCollision(otherSprite)) {
+                    needsRender = true;
                 }
             }
         });
+        
+        if (needsRender) {
+            this.renderSprites();
+        }
     }
 
-    checkTreeRipeningIntersections(tree) {
-        const treeCenterX = tree.x + 40; // 80px width / 2
-        const treeCenterY = tree.y + 40; // 80px height / 2
-        
+    checkTreeRipeningCollisions(tree) {
         this.sprites.forEach(sprite => {
-            if (sprite.type === 'lalu' && sprite.isAlive()) {
-                const laluCenterX = sprite.x + 25;
-                const laluCenterY = sprite.y + 25;
-                const distance = Math.sqrt(
-                    Math.pow(treeCenterX - laluCenterX, 2) + 
-                    Math.pow(treeCenterY - laluCenterY, 2)
-                );
-                
-                // If sprites are touching when tree grows fruit
-                if (distance < 65) {
-                    this.harvestFruit(tree, sprite);
-                }
+            if (sprite.type === 'lalu' && sprite.isAlive() && tree.isCollidingWith(sprite)) {
+                sprite.onCollision(tree);
             }
         });
     }
@@ -349,8 +328,8 @@ class GameBoard {
                         needsRender = true;
                     }
                     
-                    // Check if lalu reached a tree
-                    this.checkFruitIntersection(lalu);
+                    // Check for collisions after movement
+                    this.checkCollisions(lalu);
                 }
             }
         });
@@ -384,12 +363,12 @@ class GameBoard {
                     needsRender = true;
                     
                     // Check if any lalu is touching this tree when fruit grows
-                    this.checkTreeRipeningIntersections(sprite);
+                    this.checkTreeRipeningCollisions(sprite);
                 }
             }
         });
 
-        // Move hungry lalus towards nearest ripe tree
+        // Move hungry lalus towards nearest ripe tree and check collisions
         this.moveHungryLalus();
 
         // Update day progress bar
