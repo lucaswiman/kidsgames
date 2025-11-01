@@ -80,6 +80,14 @@ body, html {
     z-index: 10;
 }
 
+.gender-male::after {
+    content: 'M';
+}
+
+.gender-female::after {
+    content: 'F';
+}
+
 .day-ticker {
     position: fixed;
     top: 20px;

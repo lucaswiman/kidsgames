@@ -163,8 +163,7 @@ class GameBoard {
                 
                 // Add gender label
                 const genderLabel = document.createElement('div');
-                genderLabel.className = 'gender-label';
-                genderLabel.textContent = sprite.gender === 'male' ? 'M' : 'F';
+                genderLabel.className = `gender-label gender-${sprite.gender}`;
                 element.appendChild(genderLabel);
             }
             
