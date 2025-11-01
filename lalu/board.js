@@ -75,30 +75,6 @@ class GameBoard {
         return this.sprites.filter(s => s !== sprite);
     }
 
-    generateSprites() {
-        this.sprites = [];
-        
-        // Generate nests first
-        const nests = [];
-        for (let i = 0; i < this.config.numNests; i++) {
-            const nest = this.createNest();
-            this.sprites.push(nest);
-            nests.push(nest);
-        }
-        
-        // Generate trees
-        for (let i = 0; i < this.config.numTrees; i++) {
-            this.sprites.push(this.createTree());
-        }
-        
-        // Generate lalus and assign them to nests
-        for (let i = 0; i < this.config.numLalus; i++) {
-            const nestIndex = i % nests.length;
-            this.sprites.push(this.createLalu(nests[nestIndex]));
-        }
-        
-        this.renderSprites();
-    }
 
     createNest() {
         const x = Math.random() * (window.innerWidth - 40);
