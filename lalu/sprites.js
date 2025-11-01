@@ -1,0 +1,282 @@
+// Base Sprite class
+class Sprite {
+    constructor(id, type, x, y) {
+        this.id = id;
+        this.type = type;
+        this.x = x;
+        this.y = y;
+    }
+
+    // Override in subclasses
+    computeClassNames() {
+        return ['sprite', this.type];
+    }
+
+    // Override in subclasses
+    getTitle() {
+        return `${this.type}`;
+    }
+
+    // Override in subclasses
+    getWidth() {
+        return 20;
+    }
+
+    // Override in subclasses
+    getHeight() {
+        return 20;
+    }
+
+    // Override in subclasses
+    getBackgroundImage() {
+        return null;
+    }
+
+    // Override in subclasses
+    getStyle() {
+        return {};
+    }
+
+    // Override in subclasses
+    update(deltaTime) {
+        // Base implementation does nothing
+    }
+}
+
+// Tree sprite with fruit state machine
+class TreeSprite extends Sprite {
+    constructor(id, x, y) {
+        super(id, 'tree', x, y);
+        this.fruitCount = Math.floor(Math.random() * 3); // 0, 1, or 2 pieces of fruit
+        this.ripeTime = Math.random() * 10000; // Random time within current day
+    }
+
+    computeClassNames() {
+        return ['sprite', 'tree'];
+    }
+
+    getTitle() {
+        return `Tree (${this.fruitCount} fruit)`;
+    }
+
+    getWidth() {
+        return 80;
+    }
+
+    getHeight() {
+        return 80;
+    }
+
+    getBackgroundImage() {
+        if (this.fruitCount === 0) {
+            return 'url("tree-no-fruit-transparent.png")';
+        } else if (this.fruitCount === 1) {
+            return 'url("tree-1-fruit-transparent.png")';
+        } else {
+            return 'url("tree-2-fruit-transparent.png")';
+        }
+    }
+
+    getStyle() {
+        return {
+            backgroundColor: 'transparent',
+            borderRadius: '0'
+        };
+    }
+
+    // Tree state machine: growing fruit over time
+    update(deltaTime) {
+        if (this.fruitCount < 2) {
+            this.ripeTime -= deltaTime;
+            if (this.ripeTime <= 0) {
+                this.fruitCount++;
+                this.ripeTime = Math.random() * 10000; // Reset for next fruit growth
+                return true; // Indicate state changed
+            }
+        }
+        return false;
+    }
+
+    harvestFruit() {
+        if (this.fruitCount > 0) {
+            this.fruitCount--;
+            return true; // Successfully harvested
+        }
+        return false; // No fruit to harvest
+    }
+}
+
+// Lalu sprite with hunger state machine
+class LaluSprite extends Sprite {
+    constructor(id, x, y) {
+        super(id, 'lalu', x, y);
+        this.homeX = x;
+        this.homeY = y;
+        this.state = 'healthy';
+        this.hungerLevel = 0;
+        this.fruitEaten = 0; // Track fruit eaten within current hunger level
+        this.gender = Math.random() < 0.5 ? 'male' : 'female';
+    }
+
+    computeClassNames() {
+        return ['sprite', 'lalu'];
+    }
+
+    getTitle() {
+        return `Lalu (${this.state}, ${this.gender})`;
+    }
+
+    getWidth() {
+        return 50;
+    }
+
+    getHeight() {
+        return 50;
+    }
+
+    getBackgroundImage() {
+        return 'url("lalu-transparent.png")';
+    }
+
+    getStyle() {
+        const style = {
+            backgroundColor: 'transparent',
+            borderRadius: '0'
+        };
+
+        // Add visual indicator for lalu state
+        if (this.state === 'hungry') {
+            style.border = '2px solid #FFA500';
+        } else if (this.state === 'starving') {
+            style.border = '2px solid #FF0000';
+        } else if (this.state === 'dead') {
+            style.opacity = '0.5';
+            style.filter = 'grayscale(100%)';
+        }
+
+        return style;
+    }
+
+    // Lalu state machine: healthy -> hungry -> starving -> dead
+    updateHungerState() {
+        if (this.hungerLevel === 0) {
+            this.state = 'healthy';
+        } else if (this.hungerLevel === 1) {
+            this.state = 'hungry';
+        } else if (this.hungerLevel === 2) {
+            this.state = 'starving';
+        } else if (this.hungerLevel >= 3) {
+            this.state = 'dead';
+        }
+    }
+
+    increaseHunger() {
+        if (this.state !== 'dead') {
+            this.hungerLevel++;
+            this.updateHungerState();
+        }
+    }
+
+    eatFruit() {
+        if (this.state !== 'dead' && this.hungerLevel > 0) {
+            // Calculate how much fruit this lalu needs to get to healthy (hunger level 0)
+            const fruitNeeded = (this.hungerLevel * 3) - this.fruitEaten;
+            
+            // Only eat if the lalu actually needs fruit
+            if (fruitNeeded > 0) {
+                this.fruitEaten++;
+                
+                // Check if lalu has eaten enough fruit to reduce hunger level
+                if (this.fruitEaten >= 3) {
+                    this.hungerLevel = Math.max(0, this.hungerLevel - 1);
+                    this.fruitEaten = 0; // Reset fruit counter
+                    this.updateHungerState();
+                }
+                return true; // Successfully ate fruit
+            }
+        }
+        return false; // Couldn't eat fruit
+    }
+
+    needsFood() {
+        return this.state !== 'dead' && this.hungerLevel > 0;
+    }
+
+    isAlive() {
+        return this.state !== 'dead';
+    }
+
+    // Movement logic for hungry lalus
+    getTargetPosition(fruitTrees) {
+        if (this.state === 'hungry' || this.state === 'starving') {
+            // Find nearest tree with fruit
+            let nearestTree = null;
+            let minDistance = Infinity;
+            
+            fruitTrees.forEach(tree => {
+                const distance = Math.sqrt(
+                    Math.pow((this.x + 25) - (tree.x + 40), 2) + 
+                    Math.pow((this.y + 25) - (tree.y + 40), 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestTree = tree;
+                }
+            });
+
+            if (nearestTree && minDistance > 65) {
+                return { x: nearestTree.x + 40, y: nearestTree.y + 40 };
+            } else {
+                // No fruit trees or already at tree, head to home
+                return { x: this.homeX + 10, y: this.homeY + 10 };
+            }
+        } else if (this.state === 'healthy') {
+            // Head towards home position
+            return { x: this.homeX + 25, y: this.homeY + 25 };
+        }
+        
+        return null; // Dead or no target
+    }
+
+    moveTowards(targetX, targetY, moveSpeed = 3) {
+        // Calculate direction vector
+        const dx = targetX - (this.x + 25);
+        const dy = targetY - (this.y + 25);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Only move if not already at target
+        if (distance > 5) {
+            // Normalize and apply movement
+            const moveX = (dx / distance) * moveSpeed;
+            const moveY = (dy / distance) * moveSpeed;
+            
+            // Update position with bounds checking
+            this.x = Math.max(0, Math.min(window.innerWidth - 50, this.x + moveX));
+            this.y = Math.max(0, Math.min(window.innerHeight - 50, this.y + moveY));
+            
+            return true; // Moved
+        }
+        
+        return false; // Already at target
+    }
+
+    createGenderLabel() {
+        const genderLabel = document.createElement('div');
+        genderLabel.className = `gender-label gender-${this.gender}`;
+        return genderLabel;
+    }
+}
+
+// Factory function to create sprites
+function createSprite(type, x, y) {
+    const id = `${type}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    switch (type) {
+        case 'tree':
+            return new TreeSprite(id, x, y);
+        case 'lalu':
+            return new LaluSprite(id, x, y);
+        default:
+            throw new Error(`Unknown sprite type: ${type}`);
+    }
+}

@@ -86,31 +86,15 @@ class GameBoard {
     }
 
     createTree() {
-        return {
-            id: 'tree_' + Math.random().toString(36).substr(2, 9),
-            type: 'tree',
-            x: Math.random() * (window.innerWidth - 80),
-            y: Math.random() * (window.innerHeight - 80),
-            fruitCount: Math.floor(Math.random() * 3), // 0, 1, or 2 pieces of fruit
-            ripeTime: Math.random() * 10000 // Random time within current day (0-10 seconds)
-        };
+        const x = Math.random() * (window.innerWidth - 80);
+        const y = Math.random() * (window.innerHeight - 80);
+        return createSprite('tree', x, y);
     }
 
     createLalu() {
-        const homeX = Math.random() * (window.innerWidth - 20);
-        const homeY = Math.random() * (window.innerHeight - 20);
-        return {
-            id: 'lalu_' + Math.random().toString(36).substr(2, 9),
-            type: 'lalu',
-            x: homeX,
-            y: homeY,
-            homeX: homeX,
-            homeY: homeY,
-            state: 'healthy',
-            hungerLevel: 0,
-            fruitEaten: 0, // Track fruit eaten within current hunger level
-            gender: Math.random() < 0.5 ? 'male' : 'female'
-        };
+        const x = Math.random() * (window.innerWidth - 50);
+        const y = Math.random() * (window.innerHeight - 50);
+        return createSprite('lalu', x, y);
     }
 
     renderSprites() {
@@ -123,48 +107,34 @@ class GameBoard {
         // Render all sprites
         this.sprites.forEach(sprite => {
             const element = document.createElement('div');
-            element.className = 'sprite';
+            element.className = sprite.computeClassNames().join(' ');
             element.id = sprite.id;
             element.style.position = 'absolute';
             element.style.left = sprite.x + 'px';
             element.style.top = sprite.y + 'px';
-            element.style.width = '20px';
-            element.style.height = '20px';
-            element.style.borderRadius = '50%';
+            element.style.width = sprite.getWidth() + 'px';
+            element.style.height = sprite.getHeight() + 'px';
             element.style.cursor = 'pointer';
+            element.title = sprite.getTitle();
+            
+            // Apply sprite-specific styles
+            const spriteStyle = sprite.getStyle();
+            Object.assign(element.style, spriteStyle);
+            
+            // Set background image if provided
+            const backgroundImage = sprite.getBackgroundImage();
+            if (backgroundImage) {
+                element.style.backgroundImage = backgroundImage;
+                element.style.backgroundSize = 'contain';
+                element.style.backgroundRepeat = 'no-repeat';
+                element.style.backgroundPosition = 'center';
+            }
             
             if (sprite.type === 'tree') {
-                element.classList.add('tree');
-                
-                // Set background image based on fruit count
-                if (sprite.fruitCount === 0) {
-                    element.style.backgroundImage = 'url("tree-no-fruit-transparent.png")';
-                } else if (sprite.fruitCount === 1) {
-                    element.style.backgroundImage = 'url("tree-1-fruit-transparent.png")';
-                } else {
-                    element.style.backgroundImage = 'url("tree-2-fruit-transparent.png")';
-                }
-                
-                element.title = `Tree (${sprite.fruitCount} fruit)`;
                 element.addEventListener('click', () => this.harvestFruit(sprite));
             } else if (sprite.type === 'lalu') {
-                element.title = `Lalu (${sprite.state}, ${sprite.gender})`;
-                element.classList.add('lalu');
-                
-                // Add visual indicator for lalu state
-                if (sprite.state === 'hungry') {
-                    element.style.border = '2px solid #FFA500';
-                } else if (sprite.state === 'starving') {
-                    element.style.border = '2px solid #FF0000';
-                } else if (sprite.state === 'dead') {
-                    element.style.opacity = '0.5';
-                    element.style.filter = 'grayscale(100%)';
-                }
-                
                 // Add gender label
-                const genderLabel = document.createElement('div');
-                genderLabel.className = `gender-label gender-${sprite.gender}`;
-                element.appendChild(genderLabel);
+                element.appendChild(sprite.createGenderLabel());
             }
             
             board.appendChild(element);
@@ -177,43 +147,17 @@ class GameBoard {
             let laluToFeed = specificLalu;
             if (!laluToFeed) {
                 const hungryLalus = this.sprites
-                    .filter(s => s.type === 'lalu' && s.state !== 'dead' && s.hungerLevel > 0)
+                    .filter(s => s.type === 'lalu' && s.needsFood())
                     .sort((a, b) => b.hungerLevel - a.hungerLevel);
                 laluToFeed = hungryLalus[0];
             }
             
             // Only harvest if there's a lalu that needs food
-            if (laluToFeed && laluToFeed.state !== 'dead' && laluToFeed.hungerLevel > 0) {
-                // Calculate how much fruit this lalu needs to get to healthy (hunger level 0)
-                const fruitNeeded = (laluToFeed.hungerLevel * 3) - laluToFeed.fruitEaten;
-                
-                // Only eat if the lalu actually needs fruit
-                if (fruitNeeded > 0) {
-                    tree.fruitCount--;
-                    laluToFeed.fruitEaten++;
-                    
-                    // Check if lalu has eaten enough fruit to reduce hunger level
-                    if (laluToFeed.fruitEaten >= 3) {
-                        laluToFeed.hungerLevel = Math.max(0, laluToFeed.hungerLevel - 1);
-                        laluToFeed.fruitEaten = 0; // Reset fruit counter
-                        this.updateLaluState(laluToFeed);
-                    }
+            if (laluToFeed && laluToFeed.needsFood()) {
+                if (tree.harvestFruit() && laluToFeed.eatFruit()) {
+                    this.renderSprites();
                 }
             }
-            
-            this.renderSprites();
-        }
-    }
-
-    updateLaluState(lalu) {
-        if (lalu.hungerLevel === 0) {
-            lalu.state = 'healthy';
-        } else if (lalu.hungerLevel === 1) {
-            lalu.state = 'hungry';
-        } else if (lalu.hungerLevel === 2) {
-            lalu.state = 'starving';
-        } else if (lalu.hungerLevel >= 3) {
-            lalu.state = 'dead';
         }
     }
 
@@ -299,7 +243,7 @@ class GameBoard {
         if (!target.classList.contains('lalu')) return;
         
         const sprite = this.sprites.find(s => s.id === target.id);
-        if (!sprite || sprite.state === 'dead') return;
+        if (!sprite || !sprite.isAlive()) return;
         
         e.preventDefault();
         const coords = this.getEventCoords(e);
@@ -320,8 +264,8 @@ class GameBoard {
         e.preventDefault();
         const coords = this.getEventCoords(e);
         
-        const spriteWidth = this.dragState.dragSprite.type === 'lalu' ? 50 : 80;
-        const spriteHeight = this.dragState.dragSprite.type === 'lalu' ? 50 : 80;
+        const spriteWidth = this.dragState.dragSprite.getWidth();
+        const spriteHeight = this.dragState.dragSprite.getHeight();
         const newX = Math.max(0, Math.min(window.innerWidth - spriteWidth, coords.x - this.dragState.offsetX));
         const newY = Math.max(0, Math.min(window.innerHeight - spriteHeight, coords.y - this.dragState.offsetY));
         
@@ -376,7 +320,7 @@ class GameBoard {
         const treeCenterY = tree.y + 40; // 80px height / 2
         
         this.sprites.forEach(sprite => {
-            if (sprite.type === 'lalu' && sprite.state !== 'dead') {
+            if (sprite.type === 'lalu' && sprite.isAlive()) {
                 const laluCenterX = sprite.x + 25;
                 const laluCenterY = sprite.y + 25;
                 const distance = Math.sqrt(
@@ -395,59 +339,13 @@ class GameBoard {
     moveHungryLalus() {
         const fruitTrees = this.sprites.filter(s => s.type === 'tree' && s.fruitCount > 0);
         let needsRender = false;
-        const moveSpeed = 3; // pixels per update
 
         this.sprites.forEach(lalu => {
-            if (lalu.type === 'lalu' && lalu.state !== 'dead' && !this.dragState.isDragging) {
+            if (lalu.type === 'lalu' && lalu.isAlive() && !this.dragState.isDragging) {
+                const target = lalu.getTargetPosition(fruitTrees);
                 
-                let targetX, targetY;
-                
-                if (lalu.state === 'hungry' || lalu.state === 'starving') {
-                    // Find nearest tree with fruit
-                    let nearestTree = null;
-                    let minDistance = Infinity;
-                    
-                    fruitTrees.forEach(tree => {
-                        const distance = Math.sqrt(
-                            Math.pow((lalu.x + 25) - (tree.x + 40), 2) + 
-                            Math.pow((lalu.y + 25) - (tree.y + 40), 2)
-                        );
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            nearestTree = tree;
-                        }
-                    });
-
-                    if (nearestTree && minDistance > 65) {
-                        targetX = nearestTree.x + 40;
-                        targetY = nearestTree.y + 40;
-                    } else {
-                        // No fruit trees or already at tree, head to home
-                        targetX = lalu.homeX + 10;
-                        targetY = lalu.homeY + 10;
-                    }
-                } else if (lalu.state === 'healthy') {
-                    // Head towards home position
-                    targetX = lalu.homeX + 25;
-                    targetY = lalu.homeY + 25;
-                }
-
-                if (targetX !== undefined && targetY !== undefined) {
-                    // Calculate direction vector
-                    const dx = targetX - (lalu.x + 25);
-                    const dy = targetY - (lalu.y + 25);
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    // Only move if not already at target
-                    if (distance > 5) {
-                        // Normalize and apply movement
-                        const moveX = (dx / distance) * moveSpeed;
-                        const moveY = (dy / distance) * moveSpeed;
-                        
-                        // Update position with bounds checking
-                        lalu.x = Math.max(0, Math.min(window.innerWidth - 50, lalu.x + moveX));
-                        lalu.y = Math.max(0, Math.min(window.innerHeight - 50, lalu.y + moveY));
-                        
+                if (target) {
+                    if (lalu.moveTowards(target.x, target.y)) {
                         needsRender = true;
                     }
                     
@@ -481,11 +379,8 @@ class GameBoard {
 
         // Update tree fruit growing
         this.sprites.forEach(sprite => {
-            if (sprite.type === 'tree' && sprite.fruitCount < 2) {
-                sprite.ripeTime -= 100;
-                if (sprite.ripeTime <= 0) {
-                    sprite.fruitCount++;
-                    sprite.ripeTime = Math.random() * 10000; // Reset for next fruit growth
+            if (sprite.type === 'tree') {
+                if (sprite.update(100)) {
                     needsRender = true;
                     
                     // Check if any lalu is touching this tree when fruit grows
@@ -508,9 +403,8 @@ class GameBoard {
     processDayEnd() {
         // Increase hunger for all living lalus
         this.sprites.forEach(sprite => {
-            if (sprite.type === 'lalu' && sprite.state !== 'dead') {
-                sprite.hungerLevel++;
-                this.updateLaluState(sprite);
+            if (sprite.type === 'lalu') {
+                sprite.increaseHunger();
             }
         });
         
