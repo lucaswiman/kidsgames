@@ -135,9 +135,7 @@ class GameBoard {
                 element.style.backgroundPosition = 'center';
             }
             
-            if (sprite.type === 'tree') {
-                element.addEventListener('click', () => this.harvestFruit(sprite));
-            } else if (sprite.type === 'lalu') {
+            if (sprite.type === 'lalu') {
                 // Add gender label
                 element.appendChild(sprite.createGenderLabel());
             }
