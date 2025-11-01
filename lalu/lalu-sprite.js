@@ -177,7 +177,40 @@ class LaluSprite extends Sprite {
                 return { x: this.homeX + this.getWidth()/2, y: this.homeY + this.getHeight()/2 };
             }
         } else if (this.state === 'healthy') {
-            // Head towards home position (nest)
+            // If not a mother with a current baby, seek potential mates
+            if (!this.hasCurrentBaby()) {
+                const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
+                const potentialMates = visibleSprites.filter(sprite => 
+                    sprite.type === 'lalu' && 
+                    sprite.state === 'healthy' && 
+                    sprite.gender !== this.gender &&
+                    sprite.isAlive() &&
+                    !sprite.hasReproduced &&
+                    !this.hasReproduced
+                );
+
+                // Find nearest potential mate
+                let nearestMate = null;
+                let minDistance = Infinity;
+                
+                potentialMates.forEach(mate => {
+                    const distance = Math.sqrt(
+                        Math.pow(this.getCenterX() - mate.getCenterX(), 2) + 
+                        Math.pow(this.getCenterY() - mate.getCenterY(), 2)
+                    );
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestMate = mate;
+                    }
+                });
+
+                if (nearestMate) {
+                    this.inNest = false;
+                    return { x: nearestMate.getCenterX(), y: nearestMate.getCenterY() };
+                }
+            }
+            
+            // Default behavior: head towards home position (nest)
             if (this.isAtNest()) {
                 this.inNest = true;
                 return null; // Already at nest, don't move
@@ -237,6 +270,18 @@ class LaluSprite extends Sprite {
 
     canReproduce() {
         return this.state === 'healthy' && this.isAlive();
+    }
+
+    hasCurrentBaby() {
+        // Check if this lalu is currently a mother with a baby following them
+        if (this.gender !== 'female') return false;
+        
+        const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
+        return visibleSprites.some(sprite => 
+            sprite.type === 'lalu' && 
+            sprite.state === 'baby' && 
+            sprite.mother === this
+        );
     }
 
     createBaby(mother) {
