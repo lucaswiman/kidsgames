@@ -59,6 +59,19 @@ body, html {
     height: 50px !important;
     background-color: transparent !important;
     border-radius: 0 !important;
+    transition: width 0.3s ease, height 0.3s ease;
+}
+
+.sprite.lalu.in-nest {
+    width: 12.5px !important;
+    height: 12.5px !important;
+}
+
+.sprite.nest {
+    background-color: #8B4513;
+    border-radius: 50%;
+    width: 40px !important;
+    height: 40px !important;
 }
 
 .gender-label {

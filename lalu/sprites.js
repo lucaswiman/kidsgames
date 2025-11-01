@@ -153,20 +153,61 @@ class TreeSprite extends Sprite {
     }
 }
 
+// Nest sprite
+class NestSprite extends Sprite {
+    constructor(id, x, y, getVisibleSprites) {
+        super(id, 'nest', x, y, getVisibleSprites);
+    }
+
+    computeClassNames() {
+        return ['sprite', 'nest'];
+    }
+
+    getTitle() {
+        return 'Nest';
+    }
+
+    getWidth() {
+        return 40;
+    }
+
+    getHeight() {
+        return 40;
+    }
+
+    getStyle() {
+        return {
+            backgroundColor: '#8B4513',
+            borderRadius: '50%'
+        };
+    }
+
+    // Nests don't move
+    move(numTicks) {
+        return false;
+    }
+}
+
 // Lalu sprite with hunger state machine
 class LaluSprite extends Sprite {
-    constructor(id, x, y, getVisibleSprites) {
+    constructor(id, x, y, getVisibleSprites, nest) {
         super(id, 'lalu', x, y, getVisibleSprites);
-        this.homeX = x;
-        this.homeY = y;
+        this.nest = nest;
+        this.homeX = nest ? nest.x : x;
+        this.homeY = nest ? nest.y : y;
         this.state = 'healthy';
         this.hungerLevel = 0;
         this.fruitEaten = 0; // Track fruit eaten within current hunger level
         this.gender = Math.random() < 0.5 ? 'male' : 'female';
+        this.inNest = true; // Start in nest
     }
 
     computeClassNames() {
-        return ['sprite', 'lalu'];
+        const classes = ['sprite', 'lalu'];
+        if (this.inNest) {
+            classes.push('in-nest');
+        }
+        return classes;
     }
 
     getTitle() {
@@ -253,9 +294,21 @@ class LaluSprite extends Sprite {
         return this.state !== 'dead';
     }
 
+    // Check if lalu is at nest position
+    isAtNest() {
+        if (!this.nest) return false;
+        const distance = Math.sqrt(
+            Math.pow(this.getCenterX() - this.nest.getCenterX(), 2) + 
+            Math.pow(this.getCenterY() - this.nest.getCenterY(), 2)
+        );
+        return distance < 25; // Within nest radius
+    }
+
     // Movement logic for hungry lalus
     getTargetPosition() {
         if (this.state === 'hungry' || this.state === 'starving') {
+            this.inNest = false; // Leave nest when hungry
+            
             // Get visible sprites and find trees with fruit
             const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
             const fruitTrees = visibleSprites.filter(s => s.type === 'tree' && s.fruitCount > 0);
@@ -288,8 +341,14 @@ class LaluSprite extends Sprite {
                 return { x: this.homeX + this.getWidth()/2, y: this.homeY + this.getHeight()/2 };
             }
         } else if (this.state === 'healthy') {
-            // Head towards home position
-            return { x: this.homeX + this.getWidth()/2, y: this.homeY + this.getHeight()/2 };
+            // Head towards home position (nest)
+            if (this.isAtNest()) {
+                this.inNest = true;
+                return null; // Already at nest, don't move
+            } else {
+                this.inNest = false;
+                return { x: this.homeX + this.getWidth()/2, y: this.homeY + this.getHeight()/2 };
+            }
         }
         
         return null; // Dead or no target
@@ -361,14 +420,16 @@ class LaluSprite extends Sprite {
 }
 
 // Factory function to create sprites
-function createSprite(type, x, y, getVisibleSprites) {
+function createSprite(type, x, y, getVisibleSprites, nest = null) {
     const id = `${type}_${Math.random().toString(36).substr(2, 9)}`;
     
     switch (type) {
+        case 'nest':
+            return new NestSprite(id, x, y, getVisibleSprites);
         case 'tree':
             return new TreeSprite(id, x, y, getVisibleSprites);
         case 'lalu':
-            return new LaluSprite(id, x, y, getVisibleSprites);
+            return new LaluSprite(id, x, y, getVisibleSprites, nest);
         default:
             throw new Error(`Unknown sprite type: ${type}`);
     }
