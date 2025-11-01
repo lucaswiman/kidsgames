@@ -88,10 +88,16 @@ class LaluSprite extends Sprite {
                 // Baby grows up after 5 days
                 this.state = 'healthy';
                 this.mother = null; // No longer needs to follow mother
+                this.createNewNest(); // Create a new nest when growing up
             }
         } else if (this.state !== 'dead') {
             this.hungerLevel++;
             this.updateHungerState();
+            
+            // If lalu just died, handle death consequences
+            if (this.state === 'dead') {
+                this.handleDeath();
+            }
         }
         
         // Reset reproduction flag each day
@@ -302,6 +308,48 @@ class LaluSprite extends Sprite {
                 mother
             );
             window.game.sprites.push(baby);
+        }
+    }
+
+    createNewNest() {
+        // Create a new nest at a random location when lalu grows up
+        if (window.game) {
+            const nestX = Math.random() * (window.innerWidth - 40);
+            const nestY = Math.random() * (window.innerHeight - 40);
+            const newNest = new NestSprite(
+                `nest_${Math.random().toString(36).substr(2, 9)}`,
+                nestX,
+                nestY,
+                this.getVisibleSprites
+            );
+            
+            // Update this lalu's nest reference
+            this.nest = newNest;
+            this.homeX = nestX;
+            this.homeY = nestY;
+            
+            // Add nest to game
+            window.game.sprites.push(newNest);
+        }
+    }
+
+    handleDeath() {
+        // When a lalu dies, handle the consequences
+        if (window.game) {
+            // Remove this lalu's nest
+            const nestIndex = window.game.sprites.findIndex(sprite => 
+                sprite.type === 'nest' && sprite === this.nest
+            );
+            if (nestIndex !== -1) {
+                window.game.sprites.splice(nestIndex, 1);
+            }
+            
+            // Kill any babies that have this lalu as their mother
+            window.game.sprites.forEach(sprite => {
+                if (sprite.type === 'lalu' && sprite.state === 'baby' && sprite.mother === this) {
+                    sprite.state = 'dead';
+                }
+            });
         }
     }
 
