@@ -42,6 +42,12 @@ class Sprite {
         // Base implementation does nothing
     }
 
+    // Override in subclasses - called each game tick for movement
+    move(numTicks) {
+        // Base implementation does nothing
+        return false; // Return true if position changed
+    }
+
     // Position updating method
     updatePosition(newX, newY) {
         this.x = Math.max(0, Math.min(window.innerWidth - this.getWidth(), newX));
@@ -138,6 +144,11 @@ class TreeSprite extends Sprite {
     // Handle collision with other sprites
     onCollision(otherSprite) {
         // Trees don't initiate actions on collision
+    }
+
+    // Trees don't move
+    move(numTicks) {
+        return false;
     }
 }
 
@@ -320,6 +331,23 @@ class LaluSprite extends Sprite {
         const genderLabel = document.createElement('div');
         genderLabel.className = `gender-label gender-${this.gender}`;
         return genderLabel;
+    }
+
+    // Movement logic called each game tick
+    move(numTicks) {
+        if (!this.isAlive()) {
+            return false; // Dead lalus don't move
+        }
+
+        // Get available fruit trees
+        const fruitTrees = window.game ? window.game.sprites.filter(s => s.type === 'tree' && s.fruitCount > 0) : [];
+        const target = this.getTargetPosition(fruitTrees);
+        
+        if (target) {
+            return this.moveTowards(target.x, target.y);
+        }
+        
+        return false;
     }
 }
 

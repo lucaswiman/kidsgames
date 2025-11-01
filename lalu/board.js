@@ -315,22 +315,21 @@ class GameBoard {
         });
     }
 
-    moveHungryLalus() {
-        const fruitTrees = this.sprites.filter(s => s.type === 'tree' && s.fruitCount > 0);
+    moveSprites(numTicks) {
         let needsRender = false;
 
-        this.sprites.forEach(lalu => {
-            if (lalu.type === 'lalu' && lalu.isAlive() && !this.dragState.isDragging) {
-                const target = lalu.getTargetPosition(fruitTrees);
+        this.sprites.forEach(sprite => {
+            // Skip movement if sprite is being dragged
+            if (this.dragState.isDragging && sprite === this.dragState.dragSprite) {
+                return;
+            }
+            
+            // Call move method on each sprite
+            if (sprite.move(numTicks)) {
+                needsRender = true;
                 
-                if (target) {
-                    if (lalu.moveTowards(target.x, target.y)) {
-                        needsRender = true;
-                    }
-                    
-                    // Check for collisions after movement
-                    this.checkCollisions(lalu);
-                }
+                // Check for collisions after movement
+                this.checkCollisions(sprite);
             }
         });
 
@@ -368,8 +367,8 @@ class GameBoard {
             }
         });
 
-        // Move hungry lalus towards nearest ripe tree and check collisions
-        this.moveHungryLalus();
+        // Move all sprites and check collisions
+        this.moveSprites(1);
 
         // Update day progress bar
         this.updateDayTicker();
@@ -397,6 +396,8 @@ class GameBoard {
 let game;
 window.addEventListener('load', () => {
     game = new GameBoard();
+    // Make game globally accessible for sprites
+    window.game = game;
 });
 
 // Handle window resize
