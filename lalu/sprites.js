@@ -275,10 +275,16 @@ class LaluSprite extends Sprite {
                 }
             });
 
-            if (nearestTree && !this.isCollidingWith(nearestTree)) {
-                return { x: nearestTree.getCenterX(), y: nearestTree.getCenterY() };
+            if (nearestTree) {
+                if (!this.isCollidingWith(nearestTree)) {
+                    // Move towards the tree
+                    return { x: nearestTree.getCenterX(), y: nearestTree.getCenterY() };
+                } else {
+                    // Already at tree, stay here to harvest fruit
+                    return null; // Don't move, let collision system handle fruit eating
+                }
             } else {
-                // No fruit trees or already at tree, head to home
+                // No fruit trees available, head to home
                 return { x: this.homeX + this.getWidth()/2, y: this.homeY + this.getHeight()/2 };
             }
         } else if (this.state === 'healthy') {
