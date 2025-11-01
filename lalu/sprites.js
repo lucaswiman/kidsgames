@@ -354,7 +354,7 @@ class LaluSprite extends Sprite {
         return null; // Dead or no target
     }
 
-    moveTowards(targetX, targetY, moveSpeed = 3) {
+    moveTowards(targetX, targetY, moveSpeed = 4) {
         // Calculate direction vector
         const dx = targetX - this.getCenterX();
         const dy = targetY - this.getCenterY();
