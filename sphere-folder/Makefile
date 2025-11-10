@@ -1,4 +1,4 @@
 .PHONY: test
 
 test:
-	@node test-fold-geomtry.js
+	@node test-fold-geometry.js
