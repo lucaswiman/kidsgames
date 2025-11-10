@@ -362,7 +362,7 @@ class CurveFolderApp {
             });
             
             // Triangulate the face (simple fan triangulation)
-            for (let i = 1; i < transformedVertices.length - 1; i++) {
+            for (let i = 1; i < foldedVertsPx.length - 1; i++) {
                 indices.push(0, i, i + 1);
             }
             
