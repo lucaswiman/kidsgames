@@ -101,7 +101,6 @@ const GeometryUtils = {
 
                 out = out.map(v => {
                     const r = v.clone().applyMatrix4(rotM);
-                    r.z += faceIndex * 0.1;   // lift a little to avoid z-fighting
                     return r;
                 });
             }
