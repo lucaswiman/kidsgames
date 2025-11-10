@@ -123,7 +123,13 @@ const GeometryUtils = {
 
         faces.forEach((face, fIdx) => {
             const verts2d = face.points.map(p => new THREE.Vector3(p.x, p.y, 0));
-            const folded  = this.applyFoldTransforms(verts2d, face, faceIndexOffset);
+            /* Keep the first (base) face fixed; fold only the others.             */
+            const faceForFold = (fIdx === 0) ? { adjacentFolds: [] } : face;
+            const folded  = this.applyFoldTransforms(
+                verts2d,
+                faceForFold,
+                faceIndexOffset + fIdx
+            );
 
             folded.forEach((v, i) => {
                 const key = `${face.points[i].x},${face.points[i].y}`;
