@@ -107,6 +107,32 @@ const GeometryUtils = {
             }
         });
         return out;
+    },
+
+    /**
+     * Fold an entire 2-D net into 3-D space.
+     *
+     * points – Array of {x,y} making a closed polygon (the outline).
+     * folds  – Array whose items are two-element arrays of {x,y} with an
+     *          additional `angle` property (degrees, RH-rule).
+     *
+     * Returns a Map keyed by "x,y" → THREE.Vector3 after folding.
+     */
+    foldNet(points, folds, faceIndexOffset = 0) {
+        const faces = this.findEnclosedRegions(points, folds);
+        const vertexMap = new Map();
+
+        faces.forEach((face, fIdx) => {
+            const verts2d = face.points.map(p => new THREE.Vector3(p.x, p.y, 0));
+            const folded  = this.applyFoldTransforms(verts2d, face, faceIndexOffset);
+
+            folded.forEach((v, i) => {
+                const key = `${face.points[i].x},${face.points[i].y}`;
+                if (!vertexMap.has(key)) vertexMap.set(key, v);
+            });
+        });
+
+        return vertexMap;
     }
 };
 
