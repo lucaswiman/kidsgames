@@ -132,6 +132,21 @@ const GeometryUtils = {
             });
         });
 
+        /* Some fold-line endpoints may not belong to any face returned by
+           findEnclosedRegions (e.g. when the outline “cuts through” itself
+           like the plus-shaped cube net).  Add them explicitly so that every
+           hinge pivot is represented in the final 3-D vertex set. */
+        folds.forEach(f => {
+            if (f.length === 2) {
+                f.forEach(p => {
+                    const key = `${p.x},${p.y}`;
+                    if (!vertexMap.has(key)) {
+                        vertexMap.set(key, new THREE.Vector3(p.x, p.y, 0));
+                    }
+                });
+            }
+        });
+
         return vertexMap;
     }
 };
