@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piecewise Linear Curve Folder</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .canvas-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .canvas-section {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        canvas {
+            border: 1px solid #ccc;
+            cursor: crosshair;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .mode-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .mode-draw { background: #28a745; color: white; }
+        .mode-fold { background: #ffc107; color: black; }
+        .mode-view { background: #17a2b8; color: white; }
+        
+        h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .instructions {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Piecewise Linear Curve Folder</h1>
+        
+        <div class="controls">
+            <button id="drawMode">Draw Mode</button>
+            <button id="foldMode">Fold Mode</button>
+            <button id="clearBtn">Clear All</button>
+            <button id="closeCurve">Close Curve</button>
+            <button id="foldUp">Fold Up!</button>
+            <span class="mode-indicator" id="modeIndicator">Draw Mode</span>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="canvas-section">
+                <h3>2D Drawing Canvas</h3>
+                <div class="instructions" id="instructions">
+                    Click to add points to create a piecewise-linear curve. Click "Close Curve" when done.
+                </div>
+                <canvas id="canvas2d" width="500" height="400"></canvas>
+            </div>
+            
+            <div class="canvas-section">
+                <h3>3D Folded Result</h3>
+                <div class="instructions">
+                    The folded 3D structure will appear here after defining folds and clicking "Fold Up!".
+                </div>
+                <canvas id="canvas3d" width="500" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="fold-geometry.js"></script>
+</body>
+</html>
