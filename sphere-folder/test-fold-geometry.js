@@ -144,6 +144,14 @@ function testCubeNetFolding() {
         Math.abs(v.z - tgt[2]) < tol;
 
     const foldedVerts = Array.from(vertexMap.values());
+    console.log('\n--- Cube Net Folding Debug ---');
+    console.log('Outline points:', points);
+    console.log('Folds:', folds.map(f => ({ p1: f[0], p2: f[1], angle: f.angle })));
+    console.log('Folded vertices (x,y,z):',
+        foldedVerts.map(v => [v.x.toFixed(3), v.y.toFixed(3), v.z.toFixed(3)]));
+    console.log('Expected vertices (x,y,z):',
+        expected.map(c => c.map(n => n.toFixed(3))));
+    console.log('--------------------------------\n');
 
     expected.forEach(coord => {
         const ok = foldedVerts.some(v => approxEq(v, coord));
