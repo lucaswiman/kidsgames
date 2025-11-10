@@ -8,6 +8,7 @@ class CurveFolderApp {
         this.folds = [];
         this.isClosed = false;
         this.mode = 'draw'; // 'draw', 'fold', 'view'
+        this.faces = []; // Detected faces between fold lines
         
         this.setupEventListeners();
         this.setup3D();
@@ -100,7 +101,7 @@ class CurveFolderApp {
                 if (!this.isClosed) {
                     instructions.textContent = 'Please close the curve first before defining folds.';
                 } else {
-                    instructions.textContent = 'Click two points on the curve to define a fold line. Click "Fold Up!" when ready.';
+                    instructions.textContent = 'Click two points on the curve to define a fold line, or click existing fold lines to set angles. Click "Fold Up!" when ready.';
                 }
                 break;
             case 'view':
@@ -123,7 +124,23 @@ class CurveFolderApp {
     }
     
     handleFoldClick(x, y) {
-        // Find the closest point on the curve
+        // First check if clicking on an existing fold line to set angle
+        for (let i = 0; i < this.folds.length; i++) {
+            const fold = this.folds[i];
+            if (fold.length === 2) {
+                const distToFold = this.distanceToLineSegment(x, y, fold[0].x, fold[0].y, fold[1].x, fold[1].y);
+                if (distToFold < 15) {
+                    const angle = prompt(`Set fold angle in degrees (current: ${fold.angle || 0}°):`);
+                    if (angle !== null && !isNaN(parseFloat(angle))) {
+                        fold.angle = parseFloat(angle);
+                        this.draw2D();
+                    }
+                    return;
+                }
+            }
+        }
+        
+        // Find the closest point on the curve to add new fold
         let closestPoint = null;
         let minDistance = Infinity;
         let segmentIndex = -1;
@@ -148,7 +165,9 @@ class CurveFolderApp {
                 this.currentFold = [{ ...closestPoint, segmentIndex }];
             } else {
                 this.currentFold.push({ ...closestPoint, segmentIndex });
-                this.folds.push([...this.currentFold]);
+                const newFold = [...this.currentFold];
+                newFold.angle = 0; // Default angle
+                this.folds.push(newFold);
                 this.currentFold = null;
             }
             this.draw2D();
@@ -168,6 +187,11 @@ class CurveFolderApp {
             x: x1 + t * dx,
             y: y1 + t * dy
         };
+    }
+    
+    distanceToLineSegment(px, py, x1, y1, x2, y2) {
+        const closestPoint = this.closestPointOnSegment(px, py, x1, y1, x2, y2);
+        return Math.sqrt((px - closestPoint.x) ** 2 + (py - closestPoint.y) ** 2);
     }
     
     closeCurve() {
@@ -233,7 +257,7 @@ class CurveFolderApp {
             this.ctx2d.fill();
         }
         
-        // Draw fold lines
+        // Draw fold lines with angle labels
         this.ctx2d.strokeStyle = '#ffc107';
         this.ctx2d.lineWidth = 3;
         for (const fold of this.folds) {
@@ -242,6 +266,13 @@ class CurveFolderApp {
                 this.ctx2d.moveTo(fold[0].x, fold[0].y);
                 this.ctx2d.lineTo(fold[1].x, fold[1].y);
                 this.ctx2d.stroke();
+                
+                // Draw angle label
+                const midX = (fold[0].x + fold[1].x) / 2;
+                const midY = (fold[0].y + fold[1].y) / 2;
+                this.ctx2d.fillStyle = '#000';
+                this.ctx2d.font = '12px Arial';
+                this.ctx2d.fillText(`${fold.angle || 0}°`, midX + 5, midY - 5);
             }
         }
         
@@ -263,6 +294,7 @@ class CurveFolderApp {
             return;
         }
         
+        this.detectFaces();
         this.create3DGeometry();
         this.setMode('view');
     }
@@ -271,7 +303,7 @@ class CurveFolderApp {
         // Clear existing 3D objects
         const objectsToRemove = [];
         this.scene.traverse((child) => {
-            if (child.isMesh) {
+            if (child.isMesh || child.isLine) {
                 objectsToRemove.push(child);
             }
         });
@@ -289,30 +321,38 @@ class CurveFolderApp {
         directionalLight.position.set(1, 1, 1);
         this.scene.add(directionalLight);
         
-        // Create a simple folded representation
-        // For demonstration, we'll create segments between fold lines and rotate them
-        const segments = this.createSegments();
+        // Create 3D representation using detected faces and fold angles
+        const scale = 0.01;
+        const centerX = this.canvas2d.width / 2;
+        const centerY = this.canvas2d.height / 2;
         
-        segments.forEach((segment, index) => {
+        this.faces.forEach((face, index) => {
+            if (face.points.length < 3) return;
+            
+            // Create geometry for this face
             const geometry = new THREE.BufferGeometry();
             const vertices = [];
             const indices = [];
             
-            // Convert 2D points to 3D, normalize coordinates
-            const scale = 0.01; // Scale down for better 3D viewing
-            const centerX = this.canvas2d.width / 2;
-            const centerY = this.canvas2d.height / 2;
+            // Convert face points to 3D
+            const faceVertices3D = face.points.map(point => {
+                return new THREE.Vector3(
+                    (point.x - centerX) * scale,
+                    -(point.y - centerY) * scale,
+                    0
+                );
+            });
             
-            // Create triangulated mesh from segment points
-            for (let i = 0; i < segment.length; i++) {
-                const x = (segment[i].x - centerX) * scale;
-                const y = -(segment[i].y - centerY) * scale; // Flip Y for 3D
-                const z = Math.sin(index * 0.5) * 0.5; // Simple folding effect
-                vertices.push(x, y, z);
-            }
+            // Apply folding transformations
+            const transformedVertices = this.applyFoldTransforms(faceVertices3D, face, index);
             
-            // Create simple triangulation for the segment
-            for (let i = 1; i < segment.length - 1; i++) {
+            // Add vertices to geometry
+            transformedVertices.forEach(vertex => {
+                vertices.push(vertex.x, vertex.y, vertex.z);
+            });
+            
+            // Triangulate the face (simple fan triangulation)
+            for (let i = 1; i < transformedVertices.length - 1; i++) {
                 indices.push(0, i, i + 1);
             }
             
@@ -321,41 +361,16 @@ class CurveFolderApp {
             geometry.computeVertexNormals();
             
             const material = new THREE.MeshLambertMaterial({
-                color: new THREE.Color().setHSL((index * 0.2) % 1, 0.7, 0.6),
+                color: new THREE.Color().setHSL((index * 0.3) % 1, 0.7, 0.6),
                 side: THREE.DoubleSide
             });
             
             const mesh = new THREE.Mesh(geometry, material);
-            
-            // Apply rotation based on fold
-            if (index > 0) {
-                mesh.rotation.x = Math.sin(index * 0.3) * 0.5;
-                mesh.rotation.z = Math.cos(index * 0.3) * 0.3;
-            }
-            
             this.scene.add(mesh);
         });
         
-        // Add wireframe of original curve
-        const curveGeometry = new THREE.BufferGeometry();
-        const curveVertices = [];
-        const scale = 0.01;
-        const centerX = this.canvas2d.width / 2;
-        const centerY = this.canvas2d.height / 2;
-        
-        for (const point of this.points) {
-            const x = (point.x - centerX) * scale;
-            const y = -(point.y - centerY) * scale;
-            curveVertices.push(x, y, 0);
-        }
-        // Close the curve
-        curveVertices.push(curveVertices[0], curveVertices[1], curveVertices[2]);
-        
-        curveGeometry.setAttribute('position', new THREE.Float32BufferAttribute(curveVertices, 3));
-        
-        const curveMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
-        const curveLine = new THREE.Line(curveGeometry, curveMaterial);
-        this.scene.add(curveLine);
+        // Add wireframe edges
+        this.addWireframeEdges(scale, centerX, centerY);
     }
     
     createSegments() {
@@ -406,6 +421,133 @@ class CurveFolderApp {
         );
         
         return distance < threshold;
+    }
+    
+    detectFaces() {
+        if (this.folds.length === 0) {
+            // No folds, entire curve is one face
+            this.faces = [{ points: [...this.points], adjacentFolds: [] }];
+            return;
+        }
+        
+        // Create a graph of edges (curve segments and fold lines)
+        const edges = [];
+        const vertices = new Map();
+        
+        // Add curve edges
+        for (let i = 0; i < this.points.length; i++) {
+            const p1 = this.points[i];
+            const p2 = this.points[(i + 1) % this.points.length];
+            edges.push({ p1, p2, type: 'curve' });
+            
+            const key1 = `${p1.x},${p1.y}`;
+            const key2 = `${p2.x},${p2.y}`;
+            if (!vertices.has(key1)) vertices.set(key1, p1);
+            if (!vertices.has(key2)) vertices.set(key2, p2);
+        }
+        
+        // Add fold edges
+        this.folds.forEach(fold => {
+            if (fold.length === 2) {
+                edges.push({ p1: fold[0], p2: fold[1], type: 'fold', angle: fold.angle });
+                
+                const key1 = `${fold[0].x},${fold[0].y}`;
+                const key2 = `${fold[1].x},${fold[1].y}`;
+                if (!vertices.has(key1)) vertices.set(key1, fold[0]);
+                if (!vertices.has(key2)) vertices.set(key2, fold[1]);
+            }
+        });
+        
+        // Find faces using a simple region detection
+        this.faces = this.findEnclosedRegions(edges, vertices);
+    }
+    
+    findEnclosedRegions(edges, vertices) {
+        // Simplified face detection - in a real implementation you'd use a proper
+        // planar graph face detection algorithm
+        const faces = [];
+        
+        // For now, create faces by dividing the original curve with fold lines
+        if (this.folds.length === 0) {
+            return [{ points: [...this.points], adjacentFolds: [] }];
+        }
+        
+        // Simple approach: create one face per "segment" between folds
+        const segments = this.createSegments();
+        segments.forEach((segment, index) => {
+            if (segment.length >= 3) {
+                const adjacentFolds = this.folds.filter(fold => 
+                    segment.some(point => this.isPointNearFoldLine(point, fold, 15))
+                );
+                faces.push({ points: segment, adjacentFolds });
+            }
+        });
+        
+        return faces.length > 0 ? faces : [{ points: [...this.points], adjacentFolds: [] }];
+    }
+    
+    applyFoldTransforms(vertices, face, faceIndex) {
+        // Apply rotations based on adjacent fold angles
+        let transformedVertices = [...vertices];
+        
+        // For each adjacent fold, apply a rotation
+        face.adjacentFolds.forEach((fold, foldIndex) => {
+            if (fold.angle && fold.angle !== 0) {
+                const angle = (fold.angle * Math.PI) / 180; // Convert to radians
+                
+                // Create rotation axis from fold line
+                const foldDir = new THREE.Vector3(
+                    fold[1].x - fold[0].x,
+                    fold[1].y - fold[0].y,
+                    0
+                ).normalize();
+                
+                // Apply rotation around fold axis
+                const rotationMatrix = new THREE.Matrix4().makeRotationAxis(foldDir, angle);
+                
+                transformedVertices = transformedVertices.map(vertex => {
+                    const rotated = vertex.clone().applyMatrix4(rotationMatrix);
+                    // Add some offset based on face index to separate faces
+                    rotated.z += faceIndex * 0.1;
+                    return rotated;
+                });
+            }
+        });
+        
+        return transformedVertices;
+    }
+    
+    addWireframeEdges(scale, centerX, centerY) {
+        // Add original curve as wireframe
+        const curveGeometry = new THREE.BufferGeometry();
+        const curveVertices = [];
+        
+        for (const point of this.points) {
+            const x = (point.x - centerX) * scale;
+            const y = -(point.y - centerY) * scale;
+            curveVertices.push(x, y, 0);
+        }
+        curveVertices.push(curveVertices[0], curveVertices[1], curveVertices[2]);
+        
+        curveGeometry.setAttribute('position', new THREE.Float32BufferAttribute(curveVertices, 3));
+        const curveMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+        const curveLine = new THREE.Line(curveGeometry, curveMaterial);
+        this.scene.add(curveLine);
+        
+        // Add fold lines
+        this.folds.forEach(fold => {
+            if (fold.length === 2) {
+                const foldGeometry = new THREE.BufferGeometry();
+                const foldVertices = [
+                    (fold[0].x - centerX) * scale, -(fold[0].y - centerY) * scale, 0,
+                    (fold[1].x - centerX) * scale, -(fold[1].y - centerY) * scale, 0
+                ];
+                foldGeometry.setAttribute('position', new THREE.Float32BufferAttribute(foldVertices, 3));
+                const foldMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 });
+                const foldLine = new THREE.Line(foldGeometry, foldMaterial);
+                this.scene.add(foldLine);
+            }
+        });
     }
 }
 
