@@ -2,6 +2,11 @@
  * Geometry / graph-theory helper functions for the curve-folding demo.
  * Exposed globally as `GeometryUtils`.
  */
+
+const THREE = (typeof window !== 'undefined' && window.THREE)
+    ? window.THREE
+    : require('three');
+
 const GeometryUtils = {
     closestPointOnSegment(px, py, x1, y1, x2, y2) {
         const dx = x2 - x1;
