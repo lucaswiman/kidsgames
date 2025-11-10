@@ -98,5 +98,6 @@ const GeometryUtils = {
     }
 };
 
-// make available to other scripts
+ // make available to other scripts
 if (typeof window !== 'undefined') window.GeometryUtils = GeometryUtils;
+if (typeof module !== 'undefined' && module.exports) module.exports = GeometryUtils;
