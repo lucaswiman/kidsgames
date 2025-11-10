@@ -90,7 +90,14 @@ const GeometryUtils = {
                     f[1].y - f[0].y,
                     0
                 ).normalize();
-                const rotM = new THREE.Matrix4().makeRotationAxis(axis, ang);
+
+                /* Rotate around the actual fold line (pivot) instead of the
+                   world-origin:  T(p)⁻¹ · R(axis,θ) · T(p) */
+                const pivot = new THREE.Vector3(f[0].x, f[0].y, 0);
+                const T1 = new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, 0);
+                const R  = new THREE.Matrix4().makeRotationAxis(axis, ang);
+                const T2 = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, 0);
+                const rotM = new THREE.Matrix4().multiplyMatrices(T2, R).multiply(T1);
 
                 out = out.map(v => {
                     const r = v.clone().applyMatrix4(rotM);
