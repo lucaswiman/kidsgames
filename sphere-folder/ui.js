@@ -344,21 +344,21 @@ class CurveFolderApp {
             const vertices = [];
             const indices = [];
             
-            // Convert face points to 3D
-            const faceVertices3D = face.points.map(point => {
-                return new THREE.Vector3(
-                    (point.x - centerX) * scale,
-                    -(point.y - centerY) * scale,
-                    0
+            // Build vertices in the *same* 2-D pixel coordinate system that
+            // the folds/curve are defined in.  Apply the fold transforms
+            // there, then convert to scene units (centred + scaled).
+            const faceVertsPx = face.points.map(p => new THREE.Vector3(p.x, p.y, 0));
+        
+            // Apply folding transformations in pixel space
+            const foldedVertsPx = this.applyFoldTransforms(faceVertsPx, face, index);
+        
+            // Convert to scene coordinates
+            foldedVertsPx.forEach(v => {
+                vertices.push(
+                    (v.x - centerX) * scale,   // centre and scale X
+                    -(v.y - centerY) * scale,  // centre, flip Y and scale
+                    v.z * scale                // scale Z too
                 );
-            });
-            
-            // Apply folding transformations
-            const transformedVertices = this.applyFoldTransforms(faceVertices3D, face, index);
-            
-            // Add vertices to geometry
-            transformedVertices.forEach(vertex => {
-                vertices.push(vertex.x, vertex.y, vertex.z);
             });
             
             // Triangulate the face (simple fan triangulation)
