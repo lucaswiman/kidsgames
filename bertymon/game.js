@@ -1,6 +1,6 @@
 // Bertymon - A Pokemon-inspired adventure game for Berty!
-// Initialize Kaboom
-kaboom({
+// Initialize KAPLAY
+kaplay({
     width: 800,
     height: 600,
     background: [135, 206, 235], // Sky blue
