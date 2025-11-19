@@ -1,8 +1,20 @@
 // Bertymon - A Pokemon-inspired adventure game for Berty!
-// Initialize KAPLAY
+// Device detection
+const isTouchDevice = () => {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+};
+
+const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+// Initialize KAPLAY with responsive sizing
+const gameWidth = isMobile() ? Math.min(window.innerWidth, 800) : 800;
+const gameHeight = isMobile() ? Math.min(window.innerHeight, 600) : 600;
+
 kaplay({
-    width: 800,
-    height: 600,
+    width: gameWidth,
+    height: gameHeight,
     background: [135, 206, 235], // Sky blue
     crisp: true,
 });
@@ -49,6 +61,144 @@ let gameState = {
     currentScene: "intro"
 };
 
+// Touch control state
+let touchControls = {
+    isMoving: false,
+    moveDirection: { x: 0, y: 0 },
+    actionPressed: false
+};
+
+// Helper function to create touch controls UI
+function createTouchControls() {
+    if (!isTouchDevice()) return;
+
+    // Virtual D-pad
+    const dpadSize = 80;
+    const dpadX = 60;
+    const dpadY = height() - 120;
+
+    // D-pad background
+    add([
+        circle(dpadSize / 2),
+        pos(dpadX, dpadY),
+        color(100, 100, 100, 0.5),
+        "touch-ui",
+        "dpad-bg"
+    ]);
+
+    // D-pad center
+    add([
+        circle(20),
+        pos(dpadX, dpadY),
+        color(150, 150, 150, 0.7),
+        "touch-ui",
+        "dpad-center"
+    ]);
+
+    // Action button
+    const actionX = width() - 80;
+    const actionY = height() - 120;
+
+    add([
+        circle(35),
+        pos(actionX, actionY),
+        color(255, 100, 100, 0.7),
+        area(),
+        "touch-ui",
+        "action-button"
+    ]);
+
+    add([
+        text("ACT", {
+            size: 12,
+            font: "monospace"
+        }),
+        pos(actionX, actionY),
+        anchor("center"),
+        color(255, 255, 255),
+        "touch-ui"
+    ]);
+}
+
+// Touch input handlers
+function setupTouchInput(player) {
+    if (!isTouchDevice()) return;
+
+    // Handle touch movement (virtual D-pad)
+    onTouchStart((pos, touch) => {
+        const dpadCenter = vec2(60, height() - 120);
+        const actionButton = vec2(width() - 80, height() - 120);
+        
+        // Check if touching D-pad area
+        if (pos.dist(dpadCenter) < 40) {
+            touchControls.isMoving = true;
+            updateTouchMovement(pos, dpadCenter);
+        }
+        
+        // Check if touching action button
+        if (pos.dist(actionButton) < 35) {
+            touchControls.actionPressed = true;
+            // Trigger interaction
+            handleInteraction(player);
+        }
+    });
+
+    onTouchMove((pos, touch) => {
+        if (touchControls.isMoving) {
+            const dpadCenter = vec2(60, height() - 120);
+            updateTouchMovement(pos, dpadCenter);
+        }
+    });
+
+    onTouchEnd((pos, touch) => {
+        touchControls.isMoving = false;
+        touchControls.moveDirection = { x: 0, y: 0 };
+        touchControls.actionPressed = false;
+    });
+}
+
+function updateTouchMovement(touchPos, dpadCenter) {
+    const diff = touchPos.sub(dpadCenter);
+    const distance = diff.len();
+    
+    if (distance > 5) { // Dead zone
+        const maxDistance = 35;
+        const clampedDistance = Math.min(distance, maxDistance);
+        const normalized = diff.unit();
+        
+        touchControls.moveDirection.x = normalized.x;
+        touchControls.moveDirection.y = normalized.y;
+    } else {
+        touchControls.moveDirection.x = 0;
+        touchControls.moveDirection.y = 0;
+    }
+}
+
+function handleInteraction(player) {
+    // Check if player is near any interactable object
+    const interactables = get("interactable");
+    
+    interactables.forEach(obj => {
+        const distance = player.pos.dist(obj.pos);
+        if (distance < 60) {
+            if (obj.is("professor")) {
+                showProfessorDialog();
+            } else if (obj.is("lab")) {
+                enterLab();
+            }
+        }
+    });
+
+    // Check for starter selection in lab
+    const starters = get("starter");
+    starters.forEach(starter => {
+        const distance = player.pos.dist(starter.pos);
+        if (distance < 50) {
+            selectStarter(starter.starterData);
+        }
+    });
+}
+
 // Intro scene
 scene("intro", () => {
     // Create grass background
@@ -89,9 +239,10 @@ scene("intro", () => {
         "player"
     ]);
 
-    // Player movement
+    // Player movement - keyboard and touch
     const SPEED = 120;
     
+    // Keyboard controls
     onKeyDown("left", () => {
         player.move(-SPEED, 0);
     });
@@ -108,6 +259,19 @@ scene("intro", () => {
         player.move(0, SPEED);
     });
 
+    // Touch movement update
+    player.onUpdate(() => {
+        if (touchControls.isMoving) {
+            const moveX = touchControls.moveDirection.x * SPEED;
+            const moveY = touchControls.moveDirection.y * SPEED;
+            player.move(moveX * dt(), moveY * dt());
+        }
+    });
+
+    // Setup touch controls
+    createTouchControls();
+    setupTouchInput(player);
+
     // Keep player in bounds
     player.onUpdate(() => {
         if (player.pos.x < 0) player.pos.x = 0;
@@ -118,19 +282,7 @@ scene("intro", () => {
 
     // Interaction system
     onKeyPress("space", () => {
-        // Check if player is near any interactable object
-        const interactables = get("interactable");
-        
-        interactables.forEach(obj => {
-            const distance = player.pos.dist(obj.pos);
-            if (distance < 60) {
-                if (obj.is("professor")) {
-                    showProfessorDialog();
-                } else if (obj.is("lab")) {
-                    enterLab();
-                }
-            }
-        });
+        handleInteraction(player);
     });
 
     // UI Text
@@ -146,7 +298,7 @@ scene("intro", () => {
     ]);
 
     add([
-        text("Use arrow keys to move, SPACE to interact", {
+        text(isTouchDevice() ? "Use virtual controls to move and interact" : "Use arrow keys to move, SPACE to interact", {
             size: 16,
             font: "monospace"
         }),
@@ -156,8 +308,8 @@ scene("intro", () => {
         outline(1, rgb(0, 0, 0))
     ]);
 
-    // Dialog functions
-    function showProfessorDialog() {
+    // Move dialog functions to global scope
+    window.showProfessorDialog = function() {
         add([
             rect(width() - 40, 120),
             pos(20, height() - 140),
@@ -183,7 +335,7 @@ scene("intro", () => {
         });
     }
 
-    function enterLab() {
+    window.enterLab = function() {
         go("lab");
     }
 });
@@ -258,9 +410,10 @@ scene("lab", () => {
         "player"
     ]);
 
-    // Player movement (same as intro)
+    // Player movement - keyboard and touch
     const SPEED = 120;
     
+    // Keyboard controls
     onKeyDown("left", () => {
         player.move(-SPEED, 0);
     });
@@ -277,6 +430,19 @@ scene("lab", () => {
         player.move(0, SPEED);
     });
 
+    // Touch movement update
+    player.onUpdate(() => {
+        if (touchControls.isMoving) {
+            const moveX = touchControls.moveDirection.x * SPEED;
+            const moveY = touchControls.moveDirection.y * SPEED;
+            player.move(moveX * dt(), moveY * dt());
+        }
+    });
+
+    // Setup touch controls
+    createTouchControls();
+    setupTouchInput(player);
+
     // Keep player in bounds
     player.onUpdate(() => {
         if (player.pos.x < 16) player.pos.x = 16;
@@ -287,17 +453,11 @@ scene("lab", () => {
 
     // Starter selection
     onKeyPress("space", () => {
-        const starters = get("starter");
-        
-        starters.forEach(starter => {
-            const distance = player.pos.dist(starter.pos);
-            if (distance < 50) {
-                selectStarter(starter.starterData);
-            }
-        });
+        handleInteraction(player);
     });
 
-    function selectStarter(starterData) {
+    // Move selectStarter function to global scope (it's now called from handleInteraction)
+    window.selectStarter = function(starterData) {
         gameState.hasStarterBertymon = true;
         gameState.starterBertymon = starterData;
 
@@ -350,7 +510,7 @@ scene("lab", () => {
     ]);
 
     add([
-        text("Walk up to a Bertymon and press SPACE to choose", {
+        text(isTouchDevice() ? "Walk up to a Bertymon and tap ACT to choose" : "Walk up to a Bertymon and press SPACE to choose", {
             size: 14,
             font: "monospace"
         }),
