@@ -1,0 +1,19 @@
+{
+  "name": "bertymon",
+  "version": "1.0.0",
+  "description": "A Pokemon-inspired battle RPG for Berty",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve . -l 3000"
+  },
+  "dependencies": {
+    "kaboom": "^3000.1.17"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  },
+  "keywords": ["game", "rpg", "kaboom", "pokemon-inspired"],
+  "author": "Berty",
+  "license": "MIT"
+}
