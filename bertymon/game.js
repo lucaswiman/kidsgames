@@ -167,7 +167,7 @@ scene("intro", () => {
         ]);
 
         add([
-            text("Professor Oak: Hello there, " + gameState.playerName + "!\nWelcome to the world of Bertymon!\nHead to my lab to choose your first companion!", {
+            text("Professor Willow: Hello there, " + gameState.playerName + "!\nWelcome to the world of Bertymon!\nHead to my lab to choose your first companion!", {
                 size: 14,
                 font: "monospace",
                 width: width() - 80

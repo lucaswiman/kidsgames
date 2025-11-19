@@ -56,71 +56,9 @@ jobs:
           cp -r sphere-folder dist/
         fi
         
-    - name: Create index.html for root
+    - name: Copy root index.html
       run: |
-        cat > dist/index.html << 'EOF'
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Projects</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background: #f5f5f5;
-                }
-                .project {
-                    background: white;
-                    padding: 20px;
-                    margin: 20px 0;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }
-                .project h2 {
-                    margin-top: 0;
-                    color: #333;
-                }
-                .project a {
-                    display: inline-block;
-                    background: #007bff;
-                    color: white;
-                    padding: 10px 20px;
-                    text-decoration: none;
-                    border-radius: 4px;
-                    margin-top: 10px;
-                }
-                .project a:hover {
-                    background: #0056b3;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>Projects</h1>
-            
-            <div class="project">
-                <h2>Bertymon</h2>
-                <p>A Pokemon-inspired adventure game built with KAPLAY.</p>
-                <a href="bertymon/">Play Game</a>
-            </div>
-            
-            <div class="project">
-                <h2>Lalu</h2>
-                <p>Lalu project directory.</p>
-                <a href="lalu/">View Project</a>
-            </div>
-            
-            <div class="project">
-                <h2>Sphere Folder</h2>
-                <p>Sphere folder project directory.</p>
-                <a href="sphere-folder/">View Project</a>
-            </div>
-        </body>
-        </html>
-        EOF
+        cp index.html dist/
         
     - name: Setup Pages
       uses: actions/configure-pages@v4
