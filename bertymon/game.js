@@ -1,4 +1,7 @@
-// Bertymon - A Pokemon-inspired adventure game for Berty!
+/**
+ * Bertymon - A Pokemon-inspired adventure game for Berty!
+ */
+
 // Initialize KAPLAY
 kaplay({
     width: 800,
@@ -6,6 +9,93 @@ kaplay({
     background: [135, 206, 235], // Sky blue
     crisp: true,
 });
+
+// Simple input helper that uses arrow keys on desktop
+// and on-screen touch controls on touch devices (e.g. iPad)
+function setupMovementControls(player, speed) {
+    const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+    // Keyboard controls (always enabled, harmless on touch-only devices)
+    onKeyDown("left", () => {
+        player.move(-speed, 0);
+    });
+
+    onKeyDown("right", () => {
+        player.move(speed, 0);
+    });
+
+    onKeyDown("up", () => {
+        player.move(0, -speed);
+    });
+
+    onKeyDown("down", () => {
+        player.move(0, speed);
+    });
+
+    if (!isTouchDevice) {
+        // No on-screen controls needed
+        return;
+    }
+
+    // On-screen D‑pad for touch devices
+    const btnSize = 64;
+    const margin = 16;
+    const baseX = margin + btnSize;
+    const baseY = height() - margin - btnSize;
+
+    function makeButton(label, offsetX, offsetY, dir) {
+        const btn = add([
+            rect(btnSize, btnSize),
+            pos(baseX + offsetX, baseY + offsetY),
+            anchor("center"),
+            color(0, 0, 0),
+            opacity(0.35),
+            outline(2, rgb(255, 255, 255)),
+            area(),
+            "touch-btn",
+            { dir },
+        ]);
+
+        add([
+            text(label, { size: 18, font: "monospace" }),
+            pos(baseX + offsetX, baseY + offsetY),
+            anchor("center"),
+            color(255, 255, 255),
+            "touch-btn-label",
+        ]);
+
+        // Pointer events for continuous movement while pressed
+        btn.onTouchStart(() => {
+            if (dir.x) {
+                player.move(dir.x * speed, 0);
+            }
+            if (dir.y) {
+                player.move(0, dir.y * speed);
+            }
+        });
+
+        btn.onTouchMove(() => {
+            if (dir.x) {
+                player.move(dir.x * speed, 0);
+            }
+            if (dir.y) {
+                player.move(0, dir.y * speed);
+            }
+        });
+
+        // We don't need explicit stop logic because movement is frame-based
+        // and only applied while the button is being touched.
+    }
+
+    // Up
+    makeButton("▲", 0, -btnSize, { x: 0, y: -1 });
+    // Down
+    makeButton("▼", 0, btnSize, { x: 0, y: 1 });
+    // Left
+    makeButton("◀", -btnSize, 0, { x: -1, y: 0 });
+    // Right
+    makeButton("▶", btnSize, 0, { x: 1, y: 0 });
+}
 
 // Load sprites
 loadSprite("player", "data:image/svg+xml;base64," + btoa(`
@@ -94,24 +184,9 @@ scene("intro", () => {
         "player"
     ]);
 
-    // Player movement
+    // Player movement (keyboard + touch)
     const SPEED = 120;
-    
-    onKeyDown("left", () => {
-        player.move(-SPEED, 0);
-    });
-    
-    onKeyDown("right", () => {
-        player.move(SPEED, 0);
-    });
-    
-    onKeyDown("up", () => {
-        player.move(0, -SPEED);
-    });
-    
-    onKeyDown("down", () => {
-        player.move(0, SPEED);
-    });
+    setupMovementControls(player, SPEED);
 
     // Keep player in bounds
     player.onUpdate(() => {
@@ -151,7 +226,7 @@ scene("intro", () => {
     ]);
 
     add([
-        text("Use arrow keys to move, SPACE to interact", {
+        text("Use arrow keys or on-screen arrows to move, SPACE to interact", {
             size: 16,
             font: "monospace"
         }),
@@ -255,24 +330,9 @@ scene("lab", () => {
         "player"
     ]);
 
-    // Player movement (same as intro)
+    // Player movement (keyboard + touch)
     const SPEED = 120;
-    
-    onKeyDown("left", () => {
-        player.move(-SPEED, 0);
-    });
-    
-    onKeyDown("right", () => {
-        player.move(SPEED, 0);
-    });
-    
-    onKeyDown("up", () => {
-        player.move(0, -SPEED);
-    });
-    
-    onKeyDown("down", () => {
-        player.move(0, SPEED);
-    });
+    setupMovementControls(player, SPEED);
 
     // Keep player in bounds
     player.onUpdate(() => {
