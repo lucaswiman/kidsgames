@@ -7,7 +7,7 @@ kaplay({
     crisp: true,
 });
 
-// Load sprites (using simple colored rectangles for now)
+// Load sprites
 loadSprite("player", "data:image/svg+xml;base64," + btoa(`
     <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
         <rect width="32" height="32" fill="#ff6b6b"/>
@@ -15,6 +15,11 @@ loadSprite("player", "data:image/svg+xml;base64," + btoa(`
         <circle cx="16" cy="12" r="2" fill="white"/>
     </svg>
 `));
+
+// Load Bertymon sprites
+loadSprite("aquawing", "sprites/Aquawing.png");
+loadSprite("flarepup", "sprites/Flarepup.png");
+loadSprite("treebeast", "sprites/Treebeast.png");
 
 loadSprite("professor", "data:image/svg+xml;base64," + btoa(`
     <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
@@ -211,27 +216,19 @@ scene("lab", () => {
         "equipment"
     ]);
 
-    // Bertymon selection table
-    const table = add([
-        rect(200, 80),
-        pos(width() / 2 - 100, height() / 2 - 40),
-        color(160, 82, 45),
-        area(),
-        "table"
-    ]);
-
-    // Three starter Bertymon (represented as colored circles for now)
+    // Three starter Bertymon
     const starters = [
-        { name: "Flamewyrm", color: [255, 69, 0], type: "Fire" },
-        { name: "Aquafin", color: [30, 144, 255], type: "Water" },
-        { name: "Leafbeast", color: [34, 139, 34], type: "Grass" }
+        { name: "Flarepup", sprite: "flarepup", type: "Fire" },
+        { name: "Aquawing", sprite: "aquawing", type: "Water" },
+        { name: "Treebeast", sprite: "treebeast", type: "Grass" }
     ];
 
     starters.forEach((starter, i) => {
         add([
-            circle(20),
-            pos(width() / 2 - 60 + i * 60, height() / 2),
-            color(starter.color[0], starter.color[1], starter.color[2]),
+            sprite(starter.sprite),
+            pos(width() / 2 - 120 + i * 120, height() / 2),
+            anchor("center"), // Center the sprite
+            scale(1.0), // Make sprites 200% bigger
             area(),
             "starter",
             { starterData: starter }
@@ -242,7 +239,7 @@ scene("lab", () => {
                 size: 12,
                 font: "monospace"
             }),
-            pos(width() / 2 - 60 + i * 60, height() / 2 + 40),
+            pos(width() / 2 - 120 + i * 120, height() / 2 + 50),
             anchor("center"),
             color(255, 255, 255),
             outline(1, rgb(0, 0, 0))
