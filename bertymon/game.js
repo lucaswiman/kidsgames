@@ -13,8 +13,6 @@ kaplay({
 // Simple input helper that uses arrow keys on desktop
 // and on-screen touch controls on touch devices (e.g. iPad)
 function setupMovementControls(player, speed) {
-    const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-
     // Keyboard controls (always enabled, harmless on touch-only devices)
     onKeyDown("left", () => {
         player.move(-speed, 0);
@@ -32,10 +30,10 @@ function setupMovementControls(player, speed) {
         player.move(0, speed);
     });
 
-    if (!isTouchDevice) {
-        // No on-screen controls needed
-        return;
-    }
+    // On-screen arrows will move the player one step per click/tap
+
+
+    // Always show on-screen controls for testing
 
     // On-screen D‑pad for touch devices
     const btnSize = 64;
@@ -64,27 +62,11 @@ function setupMovementControls(player, speed) {
             "touch-btn-label",
         ]);
 
-        // Pointer events for continuous movement while pressed
-        btn.onTouchStart(() => {
-            if (dir.x) {
-                player.move(dir.x * speed, 0);
-            }
-            if (dir.y) {
-                player.move(0, dir.y * speed);
-            }
+        // Move once per click / tap, equivalent to four key presses
+        btn.onClick(() => {
+            if (dir.x) player.move(dir.x * speed * 8, 0);
+            if (dir.y) player.move(0, dir.y * speed * 8);
         });
-
-        btn.onTouchMove(() => {
-            if (dir.x) {
-                player.move(dir.x * speed, 0);
-            }
-            if (dir.y) {
-                player.move(0, dir.y * speed);
-            }
-        });
-
-        // We don't need explicit stop logic because movement is frame-based
-        // and only applied while the button is being touched.
     }
 
     // Up
