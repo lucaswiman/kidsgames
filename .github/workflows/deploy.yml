@@ -23,18 +23,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: bertymon/package-lock.json
-        
-    - name: Install dependencies
-      run: |
-        cd bertymon
-        npm ci
-        
     - name: Build Bertymon
       run: |
         cd bertymon
@@ -42,7 +30,8 @@ jobs:
         mkdir -p ../dist/bertymon
         cp index.html ../dist/bertymon/
         cp game.js ../dist/bertymon/
-        cp package.json ../dist/bertymon/
+        cp manifest.json ../dist/bertymon/
+        cp -r sprites ../dist/bertymon/
         
     - name: Copy additional directories
       run: |
