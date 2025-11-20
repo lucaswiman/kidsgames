@@ -69,6 +69,35 @@ function setupMovementControls(player, speed) {
         });
     }
 
+    // Center “Select” button
+    function makeSelectButton(label, offsetX, offsetY) {
+        const btn = add([
+            rect(btnSize, btnSize),
+            pos(baseX + offsetX, baseY + offsetY),
+            anchor("center"),
+            color(0, 0, 0),
+            opacity(0.35),
+            outline(2, rgb(255, 255, 255)),
+            area(),
+            "touch-btn-select",
+        ]);
+
+        add([
+            text(label, { size: 14, font: "monospace" }),
+            pos(baseX + offsetX, baseY + offsetY),
+            anchor("center"),
+            color(255, 255, 255),
+            "touch-btn-label",
+        ]);
+
+        // Trigger global select handler if defined
+        btn.onClick(() => {
+            if (window.handleSelect) {
+                window.handleSelect();
+            }
+        });
+    }
+
     // Up
     makeButton("▲", 0, -btnSize, { x: 0, y: -1 });
     // Down
@@ -77,6 +106,8 @@ function setupMovementControls(player, speed) {
     makeButton("◀", -btnSize, 0, { x: -1, y: 0 });
     // Right
     makeButton("▶", btnSize, 0, { x: 1, y: 0 });
+    // Select (center)
+    makeSelectButton("SEL", 0, 0);
 }
 
 // Load sprites
@@ -179,7 +210,7 @@ scene("intro", () => {
     });
 
     // Interaction system
-    onKeyPress("space", () => {
+    const handleSelect = () => {
         // Check if player is near any interactable object
         const interactables = get("interactable");
         
@@ -193,7 +224,9 @@ scene("intro", () => {
                 }
             }
         });
-    });
+    };
+    window.handleSelect = handleSelect;
+    onKeyPress("space", handleSelect);
 
     // UI Text
     add([
@@ -325,7 +358,7 @@ scene("lab", () => {
     });
 
     // Starter selection
-    onKeyPress("space", () => {
+    const handleSelect = () => {
         const starters = get("starter");
         
         starters.forEach(starter => {
@@ -334,7 +367,9 @@ scene("lab", () => {
                 selectStarter(starter.starterData);
             }
         });
-    });
+    };
+    window.handleSelect = handleSelect;
+    onKeyPress("space", handleSelect);
 
     function selectStarter(starterData) {
         gameState.hasStarterBertymon = true;
