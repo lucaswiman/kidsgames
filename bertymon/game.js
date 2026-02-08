@@ -832,25 +832,35 @@ scene("battle", () => {
     // Step 5: Move Selection UI
     function showMoveButtons() {
         const playerBmon = gameState.playerParty[gameState.activeBertymonIndex];
-        const btnWidth = 180;
-        const startX = 20;
+        const btnWidth = 220;
+        const startX = 290;
+        const startY = 200;
+
+        // Show "SELECT A MOVE" header
+        add([
+            text("SELECT A MOVE:", { size: 16, font: "monospace" }),
+            pos(startX + btnWidth / 2, startY - 30),
+            anchor("center"),
+            color(0, 0, 0),
+            "move-btn"
+        ]);
 
         playerBmon.moves.forEach((moveName, i) => {
             const move = MOVES[moveName];
-            const btnY = MENU_BTN_START_Y + i * (BTN_HEIGHT + BTN_GAP);
+            const btnY = startY + i * (BTN_HEIGHT + BTN_GAP);
 
             const moveBtn = add([
                 rect(btnWidth, BTN_HEIGHT),
                 pos(startX, btnY),
                 color(100, 150, 200),
-                outline(2, rgb(0, 0, 0)),
+                outline(3, rgb(0, 0, 0)),
                 area(),
                 "move-btn",
                 { moveName }
             ]);
 
             add([
-                text(`${move.name} (${move.type})`, { size: 12, font: "monospace" }),
+                text(`${move.name} (${move.type})`, { size: 14, font: "monospace" }),
                 pos(startX + btnWidth / 2, btnY + BTN_HEIGHT / 2),
                 anchor("center"),
                 color(255, 255, 255),
@@ -862,20 +872,28 @@ scene("battle", () => {
                 destroyAll("move-btn");
                 executeTurn(move);
             });
+
+            // Add hover effect
+            moveBtn.onHover(() => {
+                moveBtn.color = rgb(120, 170, 220);
+            });
+            moveBtn.onHoverEnd(() => {
+                moveBtn.color = rgb(100, 150, 200);
+            });
         });
 
         // Back button
         const backBtn = add([
             rect(btnWidth, BTN_HEIGHT),
-            pos(startX, MENU_BTN_START_Y + playerBmon.moves.length * (BTN_HEIGHT + BTN_GAP)),
+            pos(startX, startY + playerBmon.moves.length * (BTN_HEIGHT + BTN_GAP)),
             color(200, 100, 100),
-            outline(2, rgb(0, 0, 0)),
+            outline(3, rgb(0, 0, 0)),
             area(),
             "move-btn"
         ]);
         add([
-            text("Back", { size: 12, font: "monospace" }),
-            pos(startX + btnWidth / 2, MENU_BTN_START_Y + playerBmon.moves.length * (BTN_HEIGHT + BTN_GAP) + BTN_HEIGHT / 2),
+            text("Back", { size: 14, font: "monospace" }),
+            pos(startX + btnWidth / 2, startY + playerBmon.moves.length * (BTN_HEIGHT + BTN_GAP) + BTN_HEIGHT / 2),
             anchor("center"),
             color(255, 255, 255),
             "move-btn"
@@ -883,6 +901,12 @@ scene("battle", () => {
         backBtn.onClick(() => {
             destroyAll("move-btn");
             showActionButtons();
+        });
+        backBtn.onHover(() => {
+            backBtn.color = rgb(220, 120, 120);
+        });
+        backBtn.onHoverEnd(() => {
+            backBtn.color = rgb(200, 100, 100);
         });
     }
 
@@ -1149,6 +1173,7 @@ scene("battle", () => {
 
         // Battle continues
         battleState.phase = "action";
+        showBattleMessage("What will you do?");
         showActionButtons();
     }
 
@@ -1230,6 +1255,7 @@ scene("battle", () => {
             wait(1.5, () => {
                 refreshBattleDisplay();
                 battleState.phase = "action";
+                showBattleMessage("What will you do?");
                 showActionButtons();
             });
         });

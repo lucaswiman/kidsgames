@@ -7,11 +7,14 @@
 
 The complete turn-based battle system has been added to the Bertymon game. Players can now:
 - Battle a rival after selecting a starter Pokémon
+- **Manually select moves from a menu** (click Battle → choose a move)
 - Use type-effective moves with strategic advantage
 - Manage HP with visual bars
 - Use items (Potions) from their bag
 - Switch party members (UI ready for multiple Bertymon)
 - Win or lose with proper state management
+
+**IMPORTANT**: The player ALWAYS manually selects moves through the UI. Only the Rival/AI automatically chooses moves.
 
 ## Quick Start Testing
 

@@ -130,27 +130,33 @@ The battle screen shows:
 #### Action Buttons
 
 For **trainer battles**, three buttons appear:
-1. **Battle** -- Opens the move list; the player picks a move to use
+1. **Battle** -- Opens the move list; **the player must manually select a move from a menu**
 2. **Bertymon** -- Opens the party list to switch the active Bertymon (fainted Bertymon are grayed out and cannot be selected)
 3. **Bag** -- Opens the inventory to use an item on the active Bertymon
 
 For **wild battles** (future), a fourth button is added:
 4. **Run** -- Flee from the battle (always succeeds)
 
+**IMPORTANT**: The player ALWAYS manually selects their moves from a menu. Moves are NEVER automatically chosen for the player. Only the opponent (Rival/AI) automatically selects moves.
+
 #### Turn Order
 
 Each turn:
-1. The player selects an action (move, switch, or use item).
-2. The opponent selects an action (AI-controlled).
+1. **The player selects an action** (move, switch, or use item) **by clicking buttons in the UI**.
+2. **The opponent's action is automatically selected** by the AI.
 3. Actions resolve. The faster Bertymon's move goes first (based on Speed stat). Switching and item usage always happen before attacks.
 
 #### Rival AI (Simple)
 
+**IMPORTANT**: Only the Rival/AI automatically selects moves. The player always selects moves manually through the UI.
+
 The rival AI is intentionally easy to beat:
-- **70% of the time**: Uses a random damaging move
-- **30% of the time**: Uses a status move (Leer or Tail Wag)
+- **70% of the time**: Automatically uses a random damaging move
+- **30% of the time**: Automatically uses a status move (Leer or Tail Wag)
 - Never switches Bertymon (the rival only has one Bertymon in the initial version)
 - Never uses items
+
+The AI's move selection happens instantly in the background. The player will never see a menu for the rival's moves—those are chosen automatically by the `rivalChooseMove()` function.
 
 ### 5. Battle Resolution
 
@@ -296,13 +302,15 @@ Create a new `scene("battle", () => { ... })` in `game.js`, after the `"lab"` sc
 
 - [ ] **4f. Render the action buttons.** Above the message box (y ~430), show 3 buttons side by side: "Battle", "Bertymon", "Bag". Each is a rect with a text label, tagged `"action-btn"`. Use `area()` and `onClick()` for each. Style them as dark rectangles with white text (similar to the D-pad buttons).
 
-### Step 5: Battle - Move Selection (depends on Step 4)
+### Step 5: Battle - Player Move Selection (depends on Step 4)
 
-- [ ] **5a. "Battle" button handler.** When clicked, hide all `"action-btn"` objects (set `opacity(0)` or destroy and re-create later). Show 3 move buttons (one per move of the active Bertymon) plus a "Back" button. Tag these `"move-btn"`. Each move button shows the move name and type.
+**CRITICAL**: This is for the PLAYER only. The player MUST manually click a button to select their move. The rival/AI uses `rivalChooseMove()` (Step 7a) to automatically select moves—no UI is shown for the rival.
+
+- [ ] **5a. "Battle" button handler.** When the player clicks "Battle", hide all `"action-btn"` objects (set `opacity(0)` or destroy and re-create later). Show 3 move buttons (one per move of the player's active Bertymon) plus a "Back" button. Tag these `"move-btn"`. Each move button shows the move name and type.
 
 - [ ] **5b. "Back" button in move menu.** Destroys all `"move-btn"` objects and re-shows the action buttons.
 
-- [ ] **5c. Move button handler.** When a move button is clicked, store the chosen move, then call `executeTurn(chosenMove)` (implemented in Step 7).
+- [ ] **5c. Move button handler.** When the player clicks a move button, store the chosen move, then call `executeTurn(chosenMove)` (implemented in Step 7). This is manual player input—moves are never auto-selected for the player.
 
 ### Step 6: Battle - Bag & Switch Menus (depends on Step 4)
 
