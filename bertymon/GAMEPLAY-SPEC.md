@@ -246,72 +246,99 @@ Items are used during battle via the **Bag** button. Using an item consumes the 
 
 ## Appendix B: Implementation Plan
 
-### Phase 1: Data Model & Game State
+Tasks are ordered by dependency. Each step should be completed before starting steps that depend on it. Steps at the same level within a group are independent and can be done in parallel.
 
-- [ ] Define Bertymon data structures (name, type, hp, maxHp, attack, defense, speed, moves, statStages)
-- [ ] Define Move data structures (name, type, power, effect)
-- [ ] Create the three starter Bertymon templates with their stats and moves
-- [ ] Expand `gameState` to include: player's party (array of Bertymon), rival's party, inventory/bag
-- [ ] Initialize bag with 3 Potions on game start
+### Step 1: Pure Data & Helper Functions (no dependencies)
 
-### Phase 2: Rival & Starter Selection Flow
+These are pure JavaScript -- no Kaplay code, no DOM, no rendering. Add them near the top of `game.js`, after the `loadSprite` calls and before `gameState`.
 
-- [ ] After the player selects a starter, create a Bertymon instance and add it to the player's party
-- [ ] Determine the rival's starter based on the player's choice (type advantage)
-- [ ] Show the rival character entering the lab (simple sprite + walk-in animation or immediate appearance)
-- [ ] Display rival dialog: "Let's battle!"
-- [ ] Transition to the battle scene
+- [ ] **1a. Define move data.** Create a `const MOVES` object mapping move names to `{ name, type, power, effect }`. `power` is a number for damaging moves or `null` for status moves. `effect` is `null` for damaging moves, or a string like `"lowerDefense1"` or `"lowerAttack1"`. The moves are: `Leafage` (Grass, 50, null), `Ember` (Fire, 50, null), `WaterGun` (Water, 50, null), `QuickAttack` (Normal, 40, null), `Leer` (Normal, null, "lowerDefense1"), `TailWag` (Normal, null, "lowerAttack1").
 
-### Phase 3: Battle Scene - Layout & UI
+- [ ] **1b. Define Bertymon templates.** Create a `const BERTYMON_TEMPLATES` object mapping names to `{ name, type, sprite, hp, attack, defense, speed, moves }`. All three starters have hp:100, attack:50, defense:50. Speeds: Treebeast:45, Aquawing:50, Flarepup:55. Moves (arrays of keys into `MOVES`): Treebeast: ["Leafage","QuickAttack","Leer"], Flarepup: ["Ember","QuickAttack","TailWag"], Aquawing: ["WaterGun","QuickAttack","Leer"]. `sprite` is the Kaplay sprite name already loaded (e.g., `"treebeast"`).
 
-- [ ] Create a `"battle"` scene in Kaplay
-- [ ] Render the opponent's Bertymon sprite (upper-right) with name label and HP bar
-- [ ] Render the player's Bertymon sprite (lower-left) with name label and HP bar
-- [ ] Build a message box area at the bottom for battle text
-- [ ] Build the action button panel: Battle, Bertymon, Bag (3 buttons for trainer battle)
-- [ ] Wire up button clicks/taps to open sub-menus
+- [ ] **1c. Write `createBertymon(templateName)`.** Returns a new object: copies all fields from the template, adds `maxHp` (equal to `hp`), and adds `statStages: { attack: 0, defense: 0 }`. Must return a fresh object each call (not a reference to the template).
 
-### Phase 4: Battle Scene - Move Selection & Combat
+- [ ] **1d. Write `getTypeEffectiveness(attackType, defenderType)`.** Returns `2` if super effective, `0.5` if not very effective, `1` otherwise. The rules: Grass>Water, Water>Fire, Fire>Grass. Normal is always 1. If attackType equals defenderType, return 1.
 
-- [ ] When "Battle" is pressed, show the active Bertymon's 3 moves as buttons
-- [ ] Implement the damage formula: `power * (attack / defense) * type_effectiveness`
-- [ ] Implement stat stage modifiers for Attack and Defense
-- [ ] Implement type effectiveness lookup (Grass>Water, Water>Fire, Fire>Grass)
-- [ ] Display effectiveness messages ("It's super effective!", "It's not very effective...")
-- [ ] Implement turn resolution: compare speeds, execute moves in order
-- [ ] Animate HP bar decreasing when damage is dealt
-- [ ] Show move name in message box (e.g., "Flarepup used Ember!")
-- [ ] Handle Leer effect (lower opponent's Defense by 1 stage)
-- [ ] Handle Tail Wag effect (lower opponent's Attack by 1 stage)
+- [ ] **1e. Write `getStatWithStages(baseStat, stage)`.** `stage` is an integer from -6 to +6. If stage >= 0, return `baseStat * (2 + stage) / 2`. If stage < 0, return `baseStat * 2 / (2 + Math.abs(stage))`. Return value should be floored to an integer with `Math.floor`.
 
-### Phase 5: Battle Scene - Switching & Items
+- [ ] **1f. Write `calculateDamage(move, attacker, defender)`.** Only for moves with `power !== null`. Formula: `Math.floor(move.power * (effectiveAttack / effectiveDefense) * typeEffectiveness)`. Use `getStatWithStages` for attack/defense. Use `getTypeEffectiveness(move.type, defender.type)`. Minimum damage is 1. Return `{ damage, effectiveness }` where effectiveness is the multiplier (2, 1, or 0.5).
 
-- [ ] When "Bertymon" is pressed, show the player's party with HP status
-- [ ] Allow switching to a non-fainted Bertymon (consumes the player's turn)
-- [ ] Gray out / disable fainted Bertymon in the switch menu
-- [ ] When "Bag" is pressed, show inventory items with quantities
-- [ ] Implement Potion usage: restore 20 HP (capped at maxHp), consume 1 Potion, consume the turn
-- [ ] Show appropriate messages ("Used Potion on Treebeast!", "Treebeast recovered 20 HP!")
+- [ ] **1g. Write `getRivalStarter(playerStarterName)`.** Returns the template name of the rival's starter. Mapping: Treebeast→Flarepup, Flarepup→Aquawing, Aquawing→Treebeast.
 
-### Phase 6: Rival AI
+- [ ] **1h. Write `applyMoveEffect(move, target)`.** For status moves (power is null). If effect is `"lowerDefense1"`: decrease `target.statStages.defense` by 1, min -6. If effect is `"lowerAttack1"`: decrease `target.statStages.attack` by 1, min -6.
 
-- [ ] Implement simple AI: 70% chance to use a random damaging move, 30% chance to use a status move
-- [ ] AI never switches or uses items
-- [ ] AI selects its action after the player selects theirs
+### Step 2: Expand Game State (depends on Step 1)
 
-### Phase 7: Battle Resolution
+- [ ] **2a. Expand `gameState`.** Add fields: `playerParty: []` (array of Bertymon instances), `rivalParty: []`, `bag: [{ name: "Potion", qty: 3, hpRestore: 20 }]`, `activeBertymonIndex: 0` (index into playerParty of the currently active Bertymon).
 
-- [ ] Detect when a Bertymon faints (HP <= 0): show "{name} fainted!" message
-- [ ] If the player's active Bertymon faints, force a switch (or lose if no Bertymon remain)
-- [ ] If the opponent's last Bertymon faints, the player wins
-- [ ] Show victory message: "You defeated your Rival!"
-- [ ] Show defeat message: "You lost the battle..." and heal all player Bertymon to full HP
-- [ ] Transition back to the overworld (or show end-of-game message) after the battle
+### Step 3: Update Starter Selection to Use Data Model (depends on Step 2)
 
-### Phase 8: Polish & Playability
+Modify the existing `selectStarter()` function inside the `"lab"` scene.
 
-- [ ] Add a brief intro animation or text when the battle starts ("Rival wants to battle!")
-- [ ] Add a "Back" button to sub-menus (move list, party, bag) to return to the main action menu
-- [ ] Ensure touch controls work well on iPad (button sizing, spacing)
-- [ ] Add visual feedback for button presses (color change on tap)
-- [ ] Test full gameplay loop: intro -> lab -> pick starter -> rival appears -> battle -> win/lose -> end
+- [ ] **3a. Create Bertymon instances on selection.** In `selectStarter()`, after setting `gameState.hasStarterBertymon = true`, call `createBertymon(starterData.name)` and push the result into `gameState.playerParty`. Also call `createBertymon(getRivalStarter(starterData.name))` and push into `gameState.rivalParty`.
+
+- [ ] **3b. Show rival dialog.** After the "Congratulations" dialog auto-closes (in the existing `wait(3, ...)` callback), destroy the congratulations text and instead show a new dialog: "Rival: I'll take [rival's Bertymon name]! Let's battle!" Display this for 3 seconds, then call `go("battle")`.
+
+### Step 4: Battle Scene Layout (depends on Steps 1-2)
+
+Create a new `scene("battle", () => { ... })` in `game.js`, after the `"lab"` scene.
+
+- [ ] **4a. Render the battle background.** Fill the scene with a flat color (e.g., a light gray `[220,220,220]` rectangle covering the full canvas).
+
+- [ ] **4b. Render opponent's Bertymon.** In the upper-right area (~pos 550,120), show the opponent's active Bertymon sprite (from `gameState.rivalParty[0]`), its name as a text label above, and its type in parentheses. Tag these with `"enemy-display"`.
+
+- [ ] **4c. Render player's Bertymon.** In the lower-left area (~pos 150,320), show the player's active Bertymon sprite (from `gameState.playerParty[gameState.activeBertymonIndex]`), its name as a text label above, and its type in parentheses. Tag these with `"player-display"`.
+
+- [ ] **4d. Render HP bars.** For each side, draw an HP bar: an outer rectangle (border) and an inner filled rectangle whose width is proportional to `hp/maxHp`. Use green for >50%, yellow for 20-50%, red for <20%. Show "HP: X/Y" as text next to each bar. Tag with `"enemy-hp"` / `"player-hp"`.
+
+- [ ] **4e. Render the message box.** A white rectangle with black outline at the bottom of the screen (y ~450, full width minus margins, ~100px tall). Inside, a text object tagged `"battle-msg"` that displays battle messages. Create a helper function `showBattleMessage(msg)` that sets the text content of the `"battle-msg"` object.
+
+- [ ] **4f. Render the action buttons.** Above the message box (y ~430), show 3 buttons side by side: "Battle", "Bertymon", "Bag". Each is a rect with a text label, tagged `"action-btn"`. Use `area()` and `onClick()` for each. Style them as dark rectangles with white text (similar to the D-pad buttons).
+
+### Step 5: Battle - Move Selection (depends on Step 4)
+
+- [ ] **5a. "Battle" button handler.** When clicked, hide all `"action-btn"` objects (set `opacity(0)` or destroy and re-create later). Show 3 move buttons (one per move of the active Bertymon) plus a "Back" button. Tag these `"move-btn"`. Each move button shows the move name and type.
+
+- [ ] **5b. "Back" button in move menu.** Destroys all `"move-btn"` objects and re-shows the action buttons.
+
+- [ ] **5c. Move button handler.** When a move button is clicked, store the chosen move, then call `executeTurn(chosenMove)` (implemented in Step 7).
+
+### Step 6: Battle - Bag & Switch Menus (depends on Step 4)
+
+- [ ] **6a. "Bag" button handler.** When clicked, hide action buttons. Show a list of items from `gameState.bag` (only items with qty > 0), each as a button showing "ItemName x Qty". Add a "Back" button. Tag all with `"bag-btn"`.
+
+- [ ] **6b. Potion item handler.** When a potion button is clicked: if the active Bertymon's HP is already full, show message "HP is already full!" and return to action buttons. Otherwise, increase HP by `hpRestore` (capped at maxHp), decrease qty by 1, show message "Used Potion! [Name] recovered X HP!", then let the opponent take their turn (call `executeOpponentTurn()`).
+
+- [ ] **6c. "Bertymon" button handler.** When clicked, hide action buttons. Show a list of all Bertymon in `gameState.playerParty`, each as a button showing "Name HP: X/Y". Fainted Bertymon (hp <= 0) should be grayed out (color: gray, no onClick). The currently active Bertymon should show "(active)" and not be clickable. Add a "Back" button. Tag all with `"party-btn"`.
+
+- [ ] **6d. Switch handler.** When a non-fainted, non-active party member is clicked: set `gameState.activeBertymonIndex` to that Bertymon's index, show message "Go, [Name]!", refresh the player-side display (sprite, name, HP bar), then let the opponent take their turn (call `executeOpponentTurn()`).
+
+### Step 7: Turn Execution (depends on Steps 5 and 6)
+
+- [ ] **7a. Write `rivalChooseMove(rivalBertymon)`.** Returns a move object. 70% chance: pick a random move from the Bertymon's moves that has `power !== null`. 30% chance: pick a random move that has `power === null`. If the chosen category has no moves, fall back to the other category.
+
+- [ ] **7b. Write `executeTurn(playerMove)`.** This is the core turn loop. Get the player's active Bertymon and the rival's active Bertymon. Call `rivalChooseMove()` to get the rival's move. Compare speeds to determine who goes first (player goes first on tie). Then execute each move in order using `executeMove()`. Between the two moves, check if the target fainted (see Step 8). Use `wait()` calls (e.g., 1.5s between actions) so messages are readable.
+
+- [ ] **7c. Write `executeMove(attacker, defender, move, attackerIsPlayer)`.** If the move has power: call `calculateDamage()`, subtract damage from `defender.hp` (min 0), show message "[Attacker] used [Move]!", then show effectiveness message if not 1.0, then update the defender's HP bar. If the move has no power: call `applyMoveEffect(move, defender)`, show message "[Attacker] used [Move]!", then show effect message (e.g., "[Defender]'s defense fell!").
+
+- [ ] **7d. Write `refreshHpBar(side)`.** `side` is `"player"` or `"enemy"`. Destroys old HP bar objects for that side and redraws them based on current HP values. Called after any HP change.
+
+- [ ] **7e. Write `refreshBattleDisplay()`.** Refreshes both sides' sprites, names, and HP bars. Called after switching Bertymon.
+
+### Step 8: Fainting & Battle End (depends on Step 7)
+
+- [ ] **8a. Fainting check after each move.** After `executeMove()`, if `defender.hp <= 0`, show "[Name] fainted!". If the defender is the rival's Bertymon: check if all `gameState.rivalParty` Bertymon have hp <= 0. If yes → player wins (Step 8c). If the defender is the player's Bertymon: check if all `gameState.playerParty` Bertymon have hp <= 0. If yes → player loses (Step 8d). Otherwise, force the player to switch (show the party menu with only non-fainted Bertymon clickable, no Back button).
+
+- [ ] **8b. Skip second move if first move causes a faint.** In `executeTurn()`, after the first move resolves, check if the target fainted. If so, skip the second move and go straight to fainting resolution.
+
+- [ ] **8c. Victory.** Show "You defeated your Rival!" in the message box. After 3 seconds, call `go("intro")` to return to the overworld.
+
+- [ ] **8d. Defeat.** Show "You lost the battle..." in the message box. Heal all player Bertymon to full HP (set `hp = maxHp`, reset `statStages` to 0). After 3 seconds, call `go("intro")` to return to the overworld.
+
+### Step 9: Polish (depends on all above)
+
+- [ ] **9a. Battle intro text.** At the start of the battle scene, before showing action buttons, show "Rival wants to battle!" for 2 seconds, then "Rival sent out [Name]!" for 2 seconds, then "Go, [Name]!" for 1.5 seconds, then show the action buttons.
+- [ ] **9b. Touch-friendly button sizing.** Make all battle buttons at least 60px tall and 120px wide with 8px gaps, so they are easy to tap on iPad.
+- [ ] **9c. Button press feedback.** On `onHover` / `onClick`, briefly change button color to a lighter shade, then revert.
+- [ ] **9d. End-to-end test.** Manually play through the full loop: intro → lab → pick starter → rival dialog → battle → win → overworld. Verify all messages display, HP bars update, fainting works, and the game doesn't crash.
