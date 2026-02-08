@@ -50,28 +50,31 @@ Time:        0.173s
 
 ## What's Tested
 
-| Function | Tests | Coverage |
-|----------|-------|----------|
-| `createBertymon()` | 5 | ✅ 100% |
-| `getTypeEffectiveness()` | 4 | ✅ 100% |
-| `getStatWithStages()` | 6 | ✅ 100% |
-| `calculateDamage()` | 6 | ✅ 100% |
-| `getRivalStarter()` | 5 | ✅ 100% |
-| `applyMoveEffect()` | 5 | ✅ 100% |
-| Data structures | 9 | ✅ 100% |
-| Integration | 3 | ✅ 100% |
+| Function                 | Tests | Coverage |
+| ------------------------ | ----- | -------- |
+| `createBertymon()`       | 5     | ✅ 100%  |
+| `getTypeEffectiveness()` | 4     | ✅ 100%  |
+| `getStatWithStages()`    | 6     | ✅ 100%  |
+| `calculateDamage()`      | 6     | ✅ 100%  |
+| `getRivalStarter()`      | 5     | ✅ 100%  |
+| `applyMoveEffect()`      | 5     | ✅ 100%  |
+| Data structures          | 9     | ✅ 100%  |
+| Integration              | 3     | ✅ 100%  |
 
 ## Test Categories
 
 ### Data Structure Tests (9 tests)
+
 - MOVES constant
 - BERTYMON_TEMPLATES constant
 
 ### Unit Tests (26 tests)
+
 - Individual function behavior
 - Edge cases and error handling
 
 ### Integration Tests (3 tests)
+
 - Full battle scenarios
 - Multiple systems working together
 
@@ -141,15 +144,18 @@ game-logic.js    |   100   |  95.23   |  100    |   100
 ## Troubleshooting
 
 **Tests won't run?**
+
 - Make sure you're in the project root
 - Run `npm install` first
 - Check that Node.js is installed (`node --version`)
 
 **Coverage not showing?**
+
 - Run `npm run test:coverage` instead of `npm test`
 - Check for HTML report: `open coverage/lcov-report/index.html`
 
 **Want to add more tests?**
+
 - Edit `bertymon/game-logic.test.js`
 - Run `npm run test:watch` to see results immediately
 - Keep tests focused on pure functions

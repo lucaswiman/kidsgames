@@ -63,9 +63,9 @@ This guide provides step-by-step instructions to manually test the complete batt
 7. [ ] Player HP bar visible with same format
 8. [ ] Message box at bottom with initial message: "Rival wants to battle!"
 9. [ ] After message sequence completes, three action buttons visible:
-    - [ ] "Battle" button (top-left, 120x60px)
-    - [ ] "Bertymon" button (middle, 120x60px)
-    - [ ] "Bag" button (top-right, 120x60px)
+   - [ ] "Battle" button (top-left, 120x60px)
+   - [ ] "Bertymon" button (middle, 120x60px)
+   - [ ] "Bag" button (top-right, 120x60px)
 
 **Expected Behavior**: All elements positioned and visible with correct information
 
@@ -94,10 +94,10 @@ This guide provides step-by-step instructions to manually test the complete batt
 1. [ ] Click "Battle" button
 2. [ ] Action buttons disappear
 3. [ ] Move buttons appear showing:
-    - [ ] "Leafage (Grass)" [OR "Ember (Fire)" OR "Water Gun (Water)" depending on player Bertymon]
-    - [ ] "Quick Attack (Normal)"
-    - [ ] "Leer (Normal)" [OR "Tail Wag (Normal)" for Flarepup]
-    - [ ] "Back" button
+   - [ ] "Leafage (Grass)" [OR "Ember (Fire)" OR "Water Gun (Water)" depending on player Bertymon]
+   - [ ] "Quick Attack (Normal)"
+   - [ ] "Leer (Normal)" [OR "Tail Wag (Normal)" for Flarepup]
+   - [ ] "Back" button
 
 **Move Selection - Example with Treebeast vs Flarepup**:
 
@@ -105,19 +105,19 @@ This guide provides step-by-step instructions to manually test the complete batt
 2. [ ] Message shows: "Treebeast used Leafage!"
 3. [ ] Wait 1 second
 4. [ ] Determine turn order:
-    - If player is faster: Player attacks first, then rival attacks
-    - If rival is faster: Rival attacks first, then player attacks
+   - If player is faster: Player attacks first, then rival attacks
+   - If rival is faster: Rival attacks first, then player attacks
 5. [ ] After player move:
-    - Message shows damage effectiveness:
-      - "It's super effective!" (Grass > Fire, 2x damage) ✅
-      - Or "It's not very effective..." (if applicable)
-    - [ ] Opponent HP bar updates and decreases
+   - Message shows damage effectiveness:
+     - "It's super effective!" (Grass > Fire, 2x damage) ✅
+     - Or "It's not very effective..." (if applicable)
+   - [ ] Opponent HP bar updates and decreases
 6. [ ] Wait 2 seconds
 7. [ ] Rival attacks with a move (randomly chosen):
-    - [ ] Message shows: "[Rival Name] used [Move Name]!"
-    - [ ] Player HP bar updates
+   - [ ] Message shows: "[Rival Name] used [Move Name]!"
+   - [ ] Player HP bar updates
 8. [ ] After rival move:
-    - [ ] Message shows effectiveness (if applicable)
+   - [ ] Message shows effectiveness (if applicable)
 9. [ ] Action buttons reappear at bottom
 10. [ ] Battle continues normally
 
@@ -189,9 +189,9 @@ This guide provides step-by-step instructions to manually test the complete batt
 
 1. [ ] Flarepup (Speed 55) should attack before Aquawing (Speed 50)
 2. [ ] Observe message order:
-    - "Flarepup used Ember!"
-    - (Effectiveness message)
-    - (Aquawing's message)
+   - "Flarepup used Ember!"
+   - (Effectiveness message)
+   - (Aquawing's message)
 
 **Test Case 8b**: Equal Speed
 
@@ -243,11 +243,11 @@ This guide provides step-by-step instructions to manually test the complete batt
 
 1. [ ] Click "Bertymon" button
 2. [ ] Party menu shows:
-    - [ ] Active Bertymon: "Treebeast HP: 100/100 (active)" - grayed out, not clickable
-    - [ ] "Back" button
+   - [ ] Active Bertymon: "Treebeast HP: 100/100 (active)" - grayed out, not clickable
+   - [ ] "Back" button
 3. [ ] If you had multiple Bertymon in party (would need to add more):
-    - [ ] Non-active, non-fainted Bertymon: Clickable with normal background
-    - [ ] Fainted Bertymon: Grayed out, not clickable, marked "(fainted)"
+   - [ ] Non-active, non-fainted Bertymon: Clickable with normal background
+   - [ ] Fainted Bertymon: Grayed out, not clickable, marked "(fainted)"
 
 **Testing with Multiple Bertymon** (requires code modification to add more):
 
@@ -288,11 +288,11 @@ This guide provides step-by-step instructions to manually test the complete batt
 **Test Case 11c**: Forced Bertymon Switch on Faint
 
 1. [ ] With multiple Bertymon in party (requires code modification):
-    - [ ] First Bertymon faints
-    - [ ] Message shows: "Choose your next Bertymon!"
-    - [ ] Party menu appears with only non-fainted options, no "Back" button
-    - [ ] Select a new Bertymon
-    - [ ] Rival attacks immediately
+   - [ ] First Bertymon faints
+   - [ ] Message shows: "Choose your next Bertymon!"
+   - [ ] Party menu appears with only non-fainted options, no "Back" button
+   - [ ] Select a new Bertymon
+   - [ ] Rival attacks immediately
 
 **Expected Behavior**: Fainting handled correctly, battle end or forced switch functions properly
 
@@ -325,8 +325,8 @@ This guide provides step-by-step instructions to manually test the complete batt
 
 1. [ ] Play multiple turns and observe rival move patterns
 2. [ ] Over many turns, rival should use:
-    - [ ] ~70% damaging moves (Leafage, Ember, Water Gun, Quick Attack)
-    - [ ] ~30% status moves (Leer, Tail Wag)
+   - [ ] ~70% damaging moves (Leafage, Ember, Water Gun, Quick Attack)
+   - [ ] ~30% status moves (Leer, Tail Wag)
 3. [ ] No move should cause crashes or invalid damage calculations
 4. [ ] Check console for any errors in `rivalChooseMove()`
 
@@ -339,8 +339,8 @@ This guide provides step-by-step instructions to manually test the complete batt
 **Test Case 14a**: Attack with Fainted Bertymon
 
 1. [ ] If forced to switch and player has no non-fainted Bertymon:
-    - [ ] Should trigger defeat immediately
-    - [ ] No crash or infinite loop
+   - [ ] Should trigger defeat immediately
+   - [ ] No crash or infinite loop
 
 **Test Case 14b**: Button Spam
 
@@ -395,16 +395,20 @@ Check console output for unexpected values or errors.
 ## Known Limitations
 
 1. **Single Bertymon per Side**: Current implementation supports only 1 Bertymon per side
+
    - Party UI is built for multiple but not fully tested
    - To test multiple Bertymon: Manually add more to `gameState.playerParty` in developer console
 
 2. **Limited Move Pool**: Only 6 moves defined
+
    - Can be expanded by adding to `MOVES` constant
 
 3. **No Move PP (Power Points)**: Moves can be used infinitely
+
    - Could be added as a future enhancement
 
 4. **No Level System**: All Bertymon start at same stats
+
    - Could be added for progression
 
 5. **No Ability System**: Abilities not implemented
@@ -421,4 +425,3 @@ If you encounter:
 - **Button not responding**: Ensure battle phase is "action"
 - **Sprite not visible**: Verify sprite files exist in `/sprites/` directory
 - **Wrong rival pick**: Check `getRivalStarter()` logic for type counter-picks
-

@@ -17,7 +17,9 @@ The complete Bertymon battle system has been successfully implemented in `/berty
 ### Step 1: Data Structures & Helper Functions ✅
 
 **Added Constants**:
+
 - `MOVES`: 6 moves with type, power, and effects
+
   - Damage moves: Leafage (Grass), Ember (Fire), Water Gun (Water), Quick Attack (Normal)
   - Status moves: Leer (lowers defense), Tail Wag (lowers attack)
 
@@ -28,6 +30,7 @@ The complete Bertymon battle system has been successfully implemented in `/berty
   - All start with 100 HP, 50 attack, 50 defense
 
 **Added Helper Functions** (all pure functions, no side effects):
+
 1. `createBertymon(templateName)` - Instantiates a Bertymon from template
 2. `getTypeEffectiveness(attackType, defenderType)` - Returns 2, 1, or 0.5
 3. `getStatWithStages(baseStat, stage)` - Applies stat stage multipliers
@@ -43,17 +46,19 @@ The complete Bertymon battle system has been successfully implemented in `/berty
 ### Step 2: Expanded Game State ✅
 
 **Updated `gameState` object**:
+
 ```javascript
 let gameState = {
-    playerName: "Berty",
-    hasStarterBertymon: false,
-    currentScene: "intro",
-    playerParty: [],        // NEW: Array of player Bertymon
-    rivalParty: [],         // NEW: Array of rival Bertymon
-    bag: [                  // NEW: Inventory system
-        { name: "Potion", qty: 3, hpRestore: 20 }
-    ],
-    activeBertymonIndex: 0  // NEW: Tracks which party member is active
+  playerName: 'Berty',
+  hasStarterBertymon: false,
+  currentScene: 'intro',
+  playerParty: [], // NEW: Array of player Bertymon
+  rivalParty: [], // NEW: Array of rival Bertymon
+  bag: [
+    // NEW: Inventory system
+    { name: 'Potion', qty: 3, hpRestore: 20 },
+  ],
+  activeBertymonIndex: 0, // NEW: Tracks which party member is active
 };
 ```
 
@@ -62,6 +67,7 @@ let gameState = {
 ### Step 3: Updated Starter Selection ✅
 
 **Modified `selectStarter()` function in lab scene**:
+
 - Creates player Bertymon instance: `createBertymon(starterData.name)`
 - Adds to `gameState.playerParty`
 - Determines rival starter: `getRivalStarter(starterData.name)`
@@ -76,20 +82,24 @@ let gameState = {
 **Created `scene("battle", () => {...})` with**:
 
 **Layout Structure**:
+
 - Light gray background (220, 220, 220)
 - **Opponent Display** (upper-right, pos 550, 100):
+
   - Sprite (scaled 1.5x)
   - Name and type label
   - HP bar with color coding
   - Tag: `"enemy-display"`, `"enemy-hp"`
 
 - **Player Display** (lower-left, pos 150, 350):
+
   - Sprite (scaled 1.5x)
   - Name and type label
   - HP bar with color coding
   - Tag: `"player-display"`, `"player-hp"`
 
 - **Message Box** (bottom, pos 40, 470):
+
   - White rectangle with black outline
   - Dynamic text display
   - Tag: `"battle-msg"`
@@ -102,6 +112,7 @@ let gameState = {
   - Tag: `"action-btn"`
 
 **Helper Functions**:
+
 - `showBattleMessage(msg)` - Updates battle message text
 - `refreshHpBar(side)` - Redraws HP bars with color coding
 - `refreshBattleDisplay()` - Updates sprites, names, and HP bars
@@ -112,6 +123,7 @@ let gameState = {
 ### Step 5: Move Selection UI ✅
 
 **`showMoveButtons()` function**:
+
 - Shows up to 3 move buttons based on active Bertymon's moves
 - Each button displays: `[Move Name] ([Type])`
 - Move buttons are blue (100, 150, 200) with black outline
@@ -124,6 +136,7 @@ let gameState = {
 ### Step 6: Bag & Party Switch UI ✅
 
 **`showBagMenu()` function**:
+
 - Shows all items in `gameState.bag` where qty > 0
 - Format: `[Item Name] x[Qty]`
 - Click → uses item
@@ -131,6 +144,7 @@ let gameState = {
 - Tag: `"bag-btn"`
 
 **`useItem(item)` function**:
+
 - **Potion logic**:
   - If HP is full: Show "HP is already full!" message
   - Otherwise: Restore HP (up to maxHp), decrease qty by 1
@@ -139,6 +153,7 @@ let gameState = {
   - Opponent immediately gets turn: `executeOpponentTurn()`
 
 **`showPartyMenu()` function**:
+
 - Shows all Bertymon in `gameState.playerParty`
 - Format: `[Name] HP: X/Y`
 - Active Bertymon: "(active)", not clickable, different color
@@ -153,11 +168,13 @@ let gameState = {
 ### Step 7: Turn Execution (Core Battle Logic) ✅
 
 **`rivalChooseMove(rivalBertymon)` function**:
+
 - 70% chance to choose damaging move
 - 30% chance to choose status move
 - Falls back to damaging if no status moves available
 
 **`executeTurn(playerMove)` function**:
+
 - Determines turn order based on Speed stat
 - If player is faster:
   1. Player executes move
@@ -168,6 +185,7 @@ let gameState = {
 - If opponent is faster: Reverse order
 
 **`executeMove(attacker, defender, move, attackerIsPlayer)` function**:
+
 - Shows message: `[Name] used [Move Name]!`
 - **For damaging moves**:
   - Calculates damage using `calculateDamage()`
@@ -181,6 +199,7 @@ let gameState = {
   - Shows stat change message
 
 **`executeOpponentTurn()` function**:
+
 - Used after item usage or party switch
 - Opponent chooses and executes a move
 - Then checks battle end
@@ -190,6 +209,7 @@ let gameState = {
 ### Step 8: Fainting & Battle End ✅
 
 **`checkBattleEnd()` function**:
+
 - Checks if player Bertymon HP <= 0:
   - Shows: "[Name] fainted!"
   - Checks if all player Bertymon fainted → `handleDefeat()`
@@ -201,16 +221,19 @@ let gameState = {
   - Shows action buttons again
 
 **`showForcedPartyMenu()` function**:
+
 - Appears when current Bertymon faints and there are non-fainted backups
 - Only shows non-fainted Bertymon
 - No "Back" button (forced choice)
 - Active Bertymon not clickable
 
 **`handleVictory()` function**:
+
 - Shows: "You defeated your Rival!"
 - After 3 seconds: `go("intro")`
 
 **`handleDefeat()` function**:
+
 - Shows: "You lost the battle..."
 - Heals all player Bertymon to maxHp
 - Resets stat stages to 0
@@ -221,6 +244,7 @@ let gameState = {
 ### Step 9: Polish ✅
 
 **Battle Intro Sequence** (at start of battle scene):
+
 1. Message: "Rival wants to battle!" (2 seconds)
 2. Message: "Rival sent out [Name]!" (2 seconds)
 3. Message: "Go, [Name]!" (1.5 seconds)
@@ -228,12 +252,14 @@ let gameState = {
 5. Action buttons appear
 
 **Button Sizes**:
+
 - Action buttons: 120x60px (touch-friendly for iPad)
 - Move buttons: 180x50px
 - Bag/Party buttons: 200x50px
 - 8px gaps between buttons
 
 **HP Bar Color Coding**:
+
 - Green (50, 200, 50): > 50%
 - Yellow (255, 200, 0): 20-50%
 - Red (255, 50, 50): < 20%
@@ -243,6 +269,7 @@ let gameState = {
 ## Data Flow
 
 ### Battle Initialization
+
 ```
 selectStarter() →
   createBertymon(player) + createBertymon(rival) →
@@ -252,6 +279,7 @@ selectStarter() →
 ```
 
 ### Combat Turn
+
 ```
 Action Button Click →
   Battle/Moves/Bag/Bertymon selection →
@@ -262,6 +290,7 @@ Action Button Click →
 ```
 
 ### Battle End
+
 ```
 checkBattleEnd() →
   All opponent fainted → handleVictory() → go("intro")
@@ -274,11 +303,13 @@ checkBattleEnd() →
 ## Type System
 
 **Type Triangle (Advantages)**:
+
 - Grass > Water (super effective, 2x damage)
 - Water > Fire (super effective, 2x damage)
 - Fire > Grass (super effective, 2x damage)
 
 **Type Triangle (Disadvantages)**:
+
 - Grass < Fire (not very effective, 0.5x damage)
 - Water < Grass (not very effective, 0.5x damage)
 - Fire < Water (not very effective, 0.5x damage)
@@ -289,14 +320,14 @@ checkBattleEnd() →
 
 ## Move Details
 
-| Move | Type | Power | Effect | Notes |
-|------|------|-------|--------|-------|
-| Leafage | Grass | 50 | None | Treebeast starter move |
-| Ember | Fire | 50 | None | Flarepup starter move |
-| Water Gun | Water | 50 | None | Aquawing starter move |
-| Quick Attack | Normal | 40 | None | Shared by all |
-| Leer | Normal | - | lowerDefense1 | Reduces defense by 1 stage |
-| Tail Wag | Normal | - | lowerAttack1 | Reduces attack by 1 stage |
+| Move         | Type   | Power | Effect        | Notes                      |
+| ------------ | ------ | ----- | ------------- | -------------------------- |
+| Leafage      | Grass  | 50    | None          | Treebeast starter move     |
+| Ember        | Fire   | 50    | None          | Flarepup starter move      |
+| Water Gun    | Water  | 50    | None          | Aquawing starter move      |
+| Quick Attack | Normal | 40    | None          | Shared by all              |
+| Leer         | Normal | -     | lowerDefense1 | Reduces defense by 1 stage |
+| Tail Wag     | Normal | -     | lowerAttack1  | Reduces attack by 1 stage  |
 
 ---
 
@@ -305,6 +336,7 @@ checkBattleEnd() →
 **Range**: -6 to +6
 
 **Multipliers**:
+
 - Stage 0: 1x (no modifier)
 - Stage +1: 1.5x
 - Stage +2: 2x
@@ -312,6 +344,7 @@ checkBattleEnd() →
 - Stage -2: 0.5x
 
 **Current Implementation**: Only negative stages (via Leer/Tail Wag)
+
 - Leer: target.statStages.defense -= 1
 - Tail Wag: target.statStages.attack -= 1
 
@@ -320,6 +353,7 @@ checkBattleEnd() →
 ## Testing
 
 A comprehensive testing guide has been created in `BATTLE-TESTING-GUIDE.md` with:
+
 - 14 test scenarios covering all major features
 - Step-by-step instructions for manual testing
 - Expected behaviors and edge cases
@@ -373,26 +407,32 @@ A comprehensive testing guide has been created in `BATTLE-TESTING-GUIDE.md` with
 ## Next Steps (Optional Enhancements)
 
 1. **Multiple Bertymon per Side**: Currently supports UI but only battles with 1
+
    - Would need to add more Bertymon to playerParty/rivalParty
    - Forced switch logic already implemented
 
 2. **Level System**: Add experience and leveling
+
    - Track base stats as functions of level
    - Increase stats as Bertymon level up
 
 3. **Expanded Move Pool**: Add more moves and move categories
+
    - Special moves with different calculation formulas
    - Status moves with more effects (burn, paralyze, etc.)
 
 4. **Abilities**: Add passive abilities
+
    - Affect damage calculation or move accuracy
    - Trigger on switch or during battle
 
 5. **Move PP**: Limit moves to finite uses
+
    - Add maxPP to moves
    - Implement move selection validation
 
 6. **Trainer Battles**: Add more rival battles with different teams
+
    - Randomize opponent moves/team composition
    - Increase difficulty progression
 
@@ -433,4 +473,3 @@ A comprehensive testing guide has been created in `BATTLE-TESTING-GUIDE.md` with
 The Bertymon battle system is **fully implemented** and ready for manual testing. The implementation follows the specification exactly, with clean code, proper state management, and a complete user experience from starter selection through battle completion. All 9 steps have been implemented with careful attention to game balance, type effectiveness, and user interface design.
 
 **Status**: ✅ COMPLETE
-

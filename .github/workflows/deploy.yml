@@ -2,9 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -12,50 +12,50 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Build Bertymon
-      run: |
-        cd bertymon
-        # Since this is a client-side game, we just need to copy the files
-        mkdir -p ../dist/bertymon
-        cp index.html ../dist/bertymon/
-        cp game.js ../dist/bertymon/
-        cp manifest.json ../dist/bertymon/
-        cp -r sprites ../dist/bertymon/
-        
-    - name: Copy additional directories
-      run: |
-        # Copy lalu directory if it exists
-        if [ -d "lalu" ]; then
-          cp -r lalu dist/
-        fi
-        
-        # Copy sphere-folder directory if it exists
-        if [ -d "sphere-folder" ]; then
-          cp -r sphere-folder dist/
-        fi
-        
-    - name: Copy root index.html
-      run: |
-        cp index.html dist/
-        
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
-      
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: './dist'
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Bertymon
+        run: |
+          cd bertymon
+          # Since this is a client-side game, we just need to copy the files
+          mkdir -p ../dist/bertymon
+          cp index.html ../dist/bertymon/
+          cp game.js ../dist/bertymon/
+          cp manifest.json ../dist/bertymon/
+          cp -r sprites ../dist/bertymon/
+
+      - name: Copy additional directories
+        run: |
+          # Copy lalu directory if it exists
+          if [ -d "lalu" ]; then
+            cp -r lalu dist/
+          fi
+
+          # Copy sphere-folder directory if it exists
+          if [ -d "sphere-folder" ]; then
+            cp -r sphere-folder dist/
+          fi
+
+      - name: Copy root index.html
+        run: |
+          cp index.html dist/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
 
   deploy:
     environment:

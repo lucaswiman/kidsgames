@@ -40,14 +40,16 @@ Overall        |   100%  |  95.23%  |   100%  |   100%
 ```
 
 **Coverage Breakdown:**
+
 - ✅ **Statements**: 100% - All lines of code are executed
 - ✅ **Functions**: 100% - All functions are tested
 - ✅ **Lines**: 100% - Every line runs in tests
-- ⚠️  **Branches**: 95.23% - Nearly all conditional paths tested (see uncovered lines)
+- ⚠️ **Branches**: 95.23% - Nearly all conditional paths tested (see uncovered lines)
 
 ### Uncovered Branches
 
 Lines 129-135 (Node.js/CommonJS module export detection):
+
 ```javascript
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { ... }
@@ -63,6 +65,7 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 **File**: `bertymon/game-logic.test.js`
 
 **Test Suites** (8 total):
+
 1. MOVES Data Structure (4 tests)
 2. BERTYMON_TEMPLATES Data Structure (5 tests)
 3. createBertymon() (5 tests)
@@ -111,6 +114,7 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 ```
 
 **Validates**:
+
 - Instances are created with correct initial values
 - HP, stats, and speed are properly set
 - Each instance is independent (no shared references)
@@ -126,6 +130,7 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 ```
 
 **Validates**: Type triangle mechanic:
+
 - Grass > Water > Fire > Grass
 - Normal type is neutral against all types
 
@@ -141,6 +146,7 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 ```
 
 **Validates**:
+
 - Stat calculation formulas:
   - Positive: `baseStat * (2 + stage) / 2`
   - Negative: `baseStat * 2 / (2 + |stage|)`
@@ -159,6 +165,7 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 ```
 
 **Validates**:
+
 - Base damage formula
 - Type effectiveness multipliers applied correctly
 - Stat stages affect damage properly
@@ -177,6 +184,7 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 ```
 
 **Validates**:
+
 - Rival always picks a Bertymon that has type advantage
 - Counter-pick logic follows rock-paper-scissors pattern
 - Error handling for invalid choices
@@ -192,6 +200,7 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 ```
 
 **Validates**:
+
 - Status move effects are applied correctly
 - Effects stack when applied multiple times
 - Stage minimum is enforced at -6
@@ -213,9 +222,9 @@ These are only needed for Node.js testing and don't execute in browser, so the m
 
 ```javascript
 test('should return 2 for super effective', () => {
-    expect(getTypeEffectiveness("Grass", "Water")).toBe(2);
-    expect(getTypeEffectiveness("Water", "Fire")).toBe(2);
-    expect(getTypeEffectiveness("Fire", "Grass")).toBe(2);
+  expect(getTypeEffectiveness('Grass', 'Water')).toBe(2);
+  expect(getTypeEffectiveness('Water', 'Fire')).toBe(2);
+  expect(getTypeEffectiveness('Fire', 'Grass')).toBe(2);
 });
 ```
 
@@ -223,14 +232,14 @@ test('should return 2 for super effective', () => {
 
 ```javascript
 test('should calculate super effective damage', () => {
-    const attacker = createBertymon("Treebeast"); // Grass
-    const defender = createBertymon("Aquawing");   // Water
-    const move = MOVES.Leafage;                    // Grass type
+  const attacker = createBertymon('Treebeast'); // Grass
+  const defender = createBertymon('Aquawing'); // Water
+  const move = MOVES.Leafage; // Grass type
 
-    const result = calculateDamage(move, attacker, defender);
+  const result = calculateDamage(move, attacker, defender);
 
-    expect(result.effectiveness).toBe(2);
-    expect(result.damage).toBeGreaterThanOrEqual(1);
+  expect(result.effectiveness).toBe(2);
+  expect(result.damage).toBeGreaterThanOrEqual(1);
 });
 ```
 
@@ -238,19 +247,21 @@ test('should calculate super effective damage', () => {
 
 ```javascript
 test('should increase stat for positive stages', () => {
-    // Formula: baseStat * (2 + stage) / 2
-    expect(getStatWithStages(50, 1)).toBe(75);  // 50 * 3/2 = 75
-    expect(getStatWithStages(50, 2)).toBe(100); // 50 * 4/2 = 100
-    expect(getStatWithStages(50, 3)).toBe(125); // 50 * 5/2 = 125
+  // Formula: baseStat * (2 + stage) / 2
+  expect(getStatWithStages(50, 1)).toBe(75); // 50 * 3/2 = 75
+  expect(getStatWithStages(50, 2)).toBe(100); // 50 * 4/2 = 100
+  expect(getStatWithStages(50, 3)).toBe(125); // 50 * 5/2 = 125
 });
 ```
 
 ## Game Logic Module
 
 ### Location
+
 `bertymon/game-logic.js`
 
 ### Exported Functions
+
 - `createBertymon(templateName)` - Creates a Bertymon instance
 - `getTypeEffectiveness(attackType, defenderType)` - Returns effectiveness multiplier
 - `getStatWithStages(baseStat, stage)` - Applies stat stage modifiers
@@ -259,6 +270,7 @@ test('should increase stat for positive stages', () => {
 - `applyMoveEffect(move, target)` - Applies status move effects
 
 ### Exported Constants
+
 - `MOVES` - Move definitions
 - `BERTYMON_TEMPLATES` - Starter Bertymon templates
 
@@ -277,6 +289,7 @@ npm run test:watch
 ```
 
 This is useful when:
+
 - Implementing new game mechanics
 - Bug fixing
 - Refactoring pure functions
@@ -301,6 +314,7 @@ The following are intentionally not tested (Kaplay dependencies):
 - **Async operations** - `wait()`, scene transitions (Kaplay-specific)
 
 These would require:
+
 - Full Kaplay setup in tests
 - Browser environment (JSDOM)
 - Additional complexity
@@ -312,14 +326,17 @@ Instead, we focus on testable pure functions that contain the core game logic.
 ### Potential Additions
 
 1. **Test game-logic integration with game.js**
+
    - Requires Kaplay mock or JSDOM
    - Would test battle loop end-to-end
 
 2. **Performance benchmarks**
+
    - Damage calculation speed
    - Type effectiveness lookup performance
 
 3. **Edge case testing**
+
    - Bertymon with 0 HP
    - Invalid stat stage combinations
    - Extreme damage scenarios

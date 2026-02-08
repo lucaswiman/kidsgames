@@ -30,11 +30,11 @@ A super-effective attack deals **2x** damage. A not-very-effective attack deals 
 
 There are three Bertymon, each corresponding to a type:
 
-| Name       | Type  | Sprite          |
-|------------|-------|-----------------|
-| Treebeast  | Grass | Treebeast.png   |
-| Aquawing   | Water | Aquawing.png    |
-| Flarepup   | Fire  | Flarepup.png    |
+| Name      | Type  | Sprite        |
+| --------- | ----- | ------------- |
+| Treebeast | Grass | Treebeast.png |
+| Aquawing  | Water | Aquawing.png  |
+| Flarepup  | Fire  | Flarepup.png  |
 
 #### Stats
 
@@ -52,25 +52,25 @@ Stats can be modified in battle by "stages" (from -6 to +6). Each positive stage
 Each Bertymon knows three moves:
 
 **Treebeast (Grass):**
-| Move         | Type   | Power | Effect                                       |
+| Move | Type | Power | Effect |
 |--------------|--------|-------|----------------------------------------------|
-| Leafage      | Grass  | 50    | Deals damage                                 |
-| Quick Attack | Normal | 40    | Deals damage                                 |
-| Leer         | Normal | --    | Lowers opponent's Defense by 1 stage          |
+| Leafage | Grass | 50 | Deals damage |
+| Quick Attack | Normal | 40 | Deals damage |
+| Leer | Normal | -- | Lowers opponent's Defense by 1 stage |
 
 **Flarepup (Fire):**
-| Move         | Type   | Power | Effect                                       |
+| Move | Type | Power | Effect |
 |--------------|--------|-------|----------------------------------------------|
-| Ember        | Fire   | 50    | Deals damage                                 |
-| Quick Attack | Normal | 40    | Deals damage                                 |
-| Tail Wag     | Normal | --    | Lowers opponent's Attack and Sp. Atk by 1 stage |
+| Ember | Fire | 50 | Deals damage |
+| Quick Attack | Normal | 40 | Deals damage |
+| Tail Wag | Normal | -- | Lowers opponent's Attack and Sp. Atk by 1 stage |
 
 **Aquawing (Water):**
-| Move         | Type   | Power | Effect                                       |
+| Move | Type | Power | Effect |
 |--------------|--------|-------|----------------------------------------------|
-| Water Gun    | Water  | 50    | Deals damage                                 |
-| Quick Attack | Normal | 40    | Deals damage                                 |
-| Leer         | Normal | --    | Lowers opponent's Defense by 1 stage          |
+| Water Gun | Water | 50 | Deals damage |
+| Quick Attack | Normal | 40 | Deals damage |
+| Leer | Normal | -- | Lowers opponent's Defense by 1 stage |
 
 #### Damage Formula
 
@@ -81,6 +81,7 @@ damage = (move_power * (attacker_attack / defender_defense)) * type_effectivenes
 Where `attacker_attack` and `defender_defense` are the stat values after applying stage modifiers. Type effectiveness is 2.0 (super effective), 1.0 (neutral), or 0.5 (not very effective).
 
 A message displays after each attack indicating effectiveness:
+
 - "It's super effective!" (2x)
 - "It's not very effective..." (0.5x)
 - (no message for neutral)
@@ -107,9 +108,9 @@ Inside the lab, three starter Bertymon are displayed on tables. The player walks
 
 **Immediately after** the player chooses their starter, the rival appears. The rival picks the starter that is **strong against** the player's choice:
 
-| Player chooses | Rival chooses |
-|----------------|---------------|
-| Treebeast (Grass) | Flarepup (Fire)  |
+| Player chooses    | Rival chooses     |
+| ----------------- | ----------------- |
+| Treebeast (Grass) | Flarepup (Fire)   |
 | Aquawing (Water)  | Treebeast (Grass) |
 | Flarepup (Fire)   | Aquawing (Water)  |
 
@@ -122,6 +123,7 @@ Battles are the core gameplay loop. They can be **trainer battles** (e.g., the r
 #### Battle Screen Layout
 
 The battle screen shows:
+
 - **Opponent's Bertymon** in the upper-right area, with its name, HP bar, and type
 - **Player's Bertymon** in the lower-left area, with its name, HP bar, and type
 - **Action buttons** along the bottom of the screen
@@ -130,18 +132,19 @@ The battle screen shows:
 #### Action Buttons
 
 For **trainer battles**, three buttons appear:
+
 1. **Battle** -- Opens the move list; **the player must manually select a move from a menu**
 2. **Bertymon** -- Opens the party list to switch the active Bertymon (fainted Bertymon are grayed out and cannot be selected)
 3. **Bag** -- Opens the inventory to use an item on the active Bertymon
 
-For **wild battles** (future), a fourth button is added:
-4. **Run** -- Flee from the battle (always succeeds)
+For **wild battles** (future), a fourth button is added: 4. **Run** -- Flee from the battle (always succeeds)
 
 **IMPORTANT**: The player ALWAYS manually selects their moves from a menu. Moves are NEVER automatically chosen for the player. Only the opponent (Rival/AI) automatically selects moves.
 
 #### Turn Order
 
 Each turn:
+
 1. **The player selects an action** (move, switch, or use item) **by clicking buttons in the UI**.
 2. **The opponent's action is automatically selected** by the AI.
 3. Actions resolve. The faster Bertymon's move goes first (based on Speed stat). Switching and item usage always happen before attacks.
@@ -151,6 +154,7 @@ Each turn:
 **IMPORTANT**: Only the Rival/AI automatically selects moves. The player always selects moves manually through the UI.
 
 The rival AI is intentionally easy to beat:
+
 - **70% of the time**: Automatically uses a random damaging move
 - **30% of the time**: Automatically uses a status move (Leer or Tail Wag)
 - Never switches Bertymon (the rival only has one Bertymon in the initial version)
@@ -171,6 +175,7 @@ If all of the player's Bertymon faint, the player loses. A defeat message displa
 ### 6. Post-Battle / Overworld (Future)
 
 After the rival battle, the game currently ends with a congratulations message. Future features would include:
+
 - Additional routes with wild Bertymon encounters
 - More trainers to battle
 - A Bertymon Center for healing
@@ -181,9 +186,9 @@ After the rival battle, the game currently ends with a congratulations message. 
 
 The bag system allows the player to carry and use items. In the initial version, the bag starts with:
 
-| Item     | Qty | Effect                              |
-|----------|-----|-------------------------------------|
-| Potion   | 3   | Restores 20 HP to the active Bertymon |
+| Item   | Qty | Effect                                |
+| ------ | --- | ------------------------------------- |
+| Potion | 3   | Restores 20 HP to the active Bertymon |
 
 Items are used during battle via the **Bag** button. Using an item consumes the player's turn.
 
@@ -200,6 +205,7 @@ Items are used during battle via the **Bag** button. Using an item consumes the 
 ### Current Framework: Kaplay (v3001.0)
 
 **Kaplay** is a lightweight 2D JavaScript game library. It provides:
+
 - Scene management (`scene()`, `go()`)
 - Sprite loading and rendering
 - Input handling (keyboard and mouse/touch)
@@ -208,6 +214,7 @@ Items are used during battle via the **Bag** button. Using an item consumes the 
 - Basic UI primitives (rectangles, colors, outlines)
 
 **Pros:**
+
 - Already in use; no migration cost
 - Lightweight and simple -- appropriate for a kid-designed game
 - Scene system maps naturally to RPG screens (overworld, lab, battle)
@@ -216,6 +223,7 @@ Items are used during battle via the **Bag** button. Using an item consumes the 
 - PWA-ready (manifest.json already configured)
 
 **Cons:**
+
 - Less battle-specific tooling than a full RPG engine
 - No built-in UI widget system (menus, HP bars must be hand-coded)
 - Smaller community than Phaser
@@ -223,11 +231,13 @@ Items are used during battle via the **Bag** button. Using an item consumes the 
 ### Alternative: Phaser (v3)
 
 **Pros:**
+
 - Larger ecosystem, more tutorials and examples
 - Built-in tweens, cameras, particle effects
 - More robust input handling
 
 **Cons:**
+
 - Significantly heavier (~1MB vs Kaplay's ~200KB)
 - More complex API; higher learning curve
 - Would require rewriting everything from scratch
@@ -236,10 +246,12 @@ Items are used during battle via the **Bag** button. Using an item consumes the 
 ### Alternative: Vanilla Canvas / DOM
 
 **Pros:**
+
 - Zero dependencies
 - Maximum control
 
 **Cons:**
+
 - Massive amount of boilerplate for input, rendering, scenes
 - Would need to rewrite everything
 - Reinventing wheels that Kaplay already provides

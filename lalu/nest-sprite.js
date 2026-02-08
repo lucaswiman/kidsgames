@@ -1,34 +1,34 @@
 // Nest sprite
 class NestSprite extends Sprite {
-    constructor(id, x, y, getVisibleSprites) {
-        super(id, 'nest', x, y, getVisibleSprites);
-    }
+  constructor(id, x, y, getVisibleSprites) {
+    super(id, 'nest', x, y, getVisibleSprites);
+  }
 
-    computeClassNames() {
-        return ['sprite', 'nest'];
-    }
+  computeClassNames() {
+    return ['sprite', 'nest'];
+  }
 
-    getTitle() {
-        return 'Nest';
-    }
+  getTitle() {
+    return 'Nest';
+  }
 
-    getWidth() {
-        return 40;
-    }
+  getWidth() {
+    return 40;
+  }
 
-    getHeight() {
-        return 40;
-    }
+  getHeight() {
+    return 40;
+  }
 
-    getStyle() {
-        return {
-            backgroundColor: '#8B4513',
-            borderRadius: '50%'
-        };
-    }
+  getStyle() {
+    return {
+      backgroundColor: '#8B4513',
+      borderRadius: '50%',
+    };
+  }
 
-    // Nests stay at their current position
-    getTargetPosition() {
-        return { x: this.getCenterX(), y: this.getCenterY() };
-    }
+  // Nests stay at their current position
+  getTargetPosition() {
+    return { x: this.getCenterX(), y: this.getCenterY() };
+  }
 }

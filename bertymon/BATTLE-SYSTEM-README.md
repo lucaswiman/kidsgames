@@ -1,11 +1,13 @@
 # Bertymon Battle System - Quick Reference
 
 ## Status
+
 ✅ **IMPLEMENTATION COMPLETE** - All 9 steps implemented and syntax validated
 
 ## What's New
 
 The complete turn-based battle system has been added to the Bertymon game. Players can now:
+
 - Battle a rival after selecting a starter Pokémon
 - **Manually select moves from a menu** (click Battle → choose a move)
 - Use type-effective moves with strategic advantage
@@ -38,21 +40,23 @@ python3 -m http.server 8000
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `game.js` | Main game code (now 1242 lines) |
-| `GAMEPLAY-SPEC.md` | Original specification (reference) |
-| `IMPLEMENTATION-SUMMARY.md` | Detailed breakdown of all 9 steps |
-| `BATTLE-TESTING-GUIDE.md` | 14 comprehensive test scenarios |
+| File                        | Purpose                            |
+| --------------------------- | ---------------------------------- |
+| `game.js`                   | Main game code (now 1242 lines)    |
+| `GAMEPLAY-SPEC.md`          | Original specification (reference) |
+| `IMPLEMENTATION-SUMMARY.md` | Detailed breakdown of all 9 steps  |
+| `BATTLE-TESTING-GUIDE.md`   | 14 comprehensive test scenarios    |
 
 ## Implementation Overview
 
 ### Data Structures
+
 - **MOVES**: 6 moves (Leafage, Ember, Water Gun, Quick Attack, Leer, Tail Wag)
 - **BERTYMON_TEMPLATES**: 3 starters with stats (Grass/Fire/Water types)
 - **gameState**: Extended with playerParty, rivalParty, bag, activeBertymonIndex
 
 ### Core Features
+
 1. **Type System**: Grass > Water > Fire > Grass (with 2x/0.5x multipliers)
 2. **Damage Calculation**: Base damage × type effectiveness × (attack/defense) × variance
 3. **Turn Order**: Speed-based (higher speed attacks first)
@@ -62,6 +66,7 @@ python3 -m http.server 8000
 7. **Battle End**: Victory returns to intro; Defeat heals party and returns to intro
 
 ### Battle Scenes
+
 ```
 Battle Intro → Action Buttons → Combat Loop → Battle End
 ```
@@ -88,32 +93,33 @@ Battle Intro → Action Buttons → Combat Loop → Battle End
 ## Type Effectiveness
 
 | Attack Type | Strong Against | Weak Against |
-|-------------|----------------|--------------|
-| Grass | Water | Fire |
-| Water | Fire | Grass |
-| Fire | Grass | Water |
-| Normal | All | All (1x) |
+| ----------- | -------------- | ------------ |
+| Grass       | Water          | Fire         |
+| Water       | Fire           | Grass        |
+| Fire        | Grass          | Water        |
+| Normal      | All            | All (1x)     |
 
 ## Move List
 
-| Move | Type | Power | Effect |
-|------|------|-------|--------|
-| Leafage | Grass | 50 | Damage |
-| Ember | Fire | 50 | Damage |
-| Water Gun | Water | 50 | Damage |
-| Quick Attack | Normal | 40 | Damage |
-| Leer | Normal | - | Lower Defense |
-| Tail Wag | Normal | - | Lower Attack |
+| Move         | Type   | Power | Effect        |
+| ------------ | ------ | ----- | ------------- |
+| Leafage      | Grass  | 50    | Damage        |
+| Ember        | Fire   | 50    | Damage        |
+| Water Gun    | Water  | 50    | Damage        |
+| Quick Attack | Normal | 40    | Damage        |
+| Leer         | Normal | -     | Lower Defense |
+| Tail Wag     | Normal | -     | Lower Attack  |
 
 ## Starter Bertymon
 
-| Name | Type | Speed | Moves |
-|------|------|-------|-------|
-| Treebeast | Grass | 45 | Leafage, Quick Attack, Leer |
-| Flarepup | Fire | 55 | Ember, Quick Attack, Tail Wag |
-| Aquawing | Water | 50 | Water Gun, Quick Attack, Leer |
+| Name      | Type  | Speed | Moves                         |
+| --------- | ----- | ----- | ----------------------------- |
+| Treebeast | Grass | 45    | Leafage, Quick Attack, Leer   |
+| Flarepup  | Fire  | 55    | Ember, Quick Attack, Tail Wag |
+| Aquawing  | Water | 50    | Water Gun, Quick Attack, Leer |
 
 **Rival Counter-Picks**:
+
 - You pick Treebeast → Rival picks Flarepup
 - You pick Flarepup → Rival picks Aquawing
 - You pick Aquawing → Rival picks Treebeast
@@ -147,6 +153,7 @@ See **BATTLE-TESTING-GUIDE.md** for detailed test scenarios.
 ## Architecture
 
 ### Helper Functions (Pure)
+
 - `createBertymon()` - Create instance from template
 - `getTypeEffectiveness()` - Calculate type advantage
 - `getStatWithStages()` - Apply stat modifiers
@@ -155,6 +162,7 @@ See **BATTLE-TESTING-GUIDE.md** for detailed test scenarios.
 - `applyMoveEffect()` - Apply status effects
 
 ### Battle Scene Functions (~25)
+
 - UI builders (showActionButtons, showMoveButtons, etc.)
 - Battle logic (executeTurn, executeMove, checkBattleEnd)
 - Helper functions (refreshHpBar, showBattleMessage)
@@ -163,10 +171,12 @@ See **BATTLE-TESTING-GUIDE.md** for detailed test scenarios.
 ## Known Limitations
 
 1. **Single Bertymon per side** - UI supports multiple but not fully used
+
    - Current: 1 player, 1 rival
    - To test multiple: Add to `gameState.playerParty` in developer console
 
 2. **Limited move pool** - Only 6 moves implemented
+
    - Can be expanded by adding to `MOVES` constant
 
 3. **No level/experience system** - All Bertymon same base stats
@@ -199,6 +209,7 @@ b2503f3 Implement complete battle system for Bertymon game
 ## Support
 
 For issues or questions:
+
 1. Check **IMPLEMENTATION-SUMMARY.md** for technical details
 2. Review **BATTLE-TESTING-GUIDE.md** for test scenarios
 3. Check browser console (F12) for JavaScript errors
@@ -207,4 +218,3 @@ For issues or questions:
 ---
 
 **Status**: Ready for testing! 🎮
-

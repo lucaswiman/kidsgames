@@ -11,12 +11,12 @@
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
-        
+
         .controls {
             background: white;
             padding: 15px;
@@ -24,25 +24,25 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
+
         .canvas-container {
             display: flex;
             gap: 20px;
             flex-wrap: wrap;
         }
-        
+
         .canvas-section {
             background: white;
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
+
         canvas {
             border: 1px solid #ccc;
             cursor: crosshair;
         }
-        
+
         button {
             background: #007bff;
             color: white;
@@ -53,16 +53,16 @@
             margin-right: 10px;
             margin-bottom: 5px;
         }
-        
+
         button:hover {
             background: #0056b3;
         }
-        
+
         button:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
-        
+
         .mode-indicator {
             display: inline-block;
             padding: 4px 8px;
@@ -71,16 +71,16 @@
             font-weight: bold;
             margin-left: 10px;
         }
-        
+
         .mode-draw { background: #28a745; color: white; }
         .mode-fold { background: #ffc107; color: black; }
         .mode-view { background: #17a2b8; color: white; }
-        
+
         h3 {
             margin-top: 0;
             color: #333;
         }
-        
+
         .instructions {
             background: #e9ecef;
             padding: 10px;
@@ -93,7 +93,7 @@
 <body>
     <div class="container">
         <h1>Piecewise Linear Curve Folder</h1>
-        
+
         <div class="controls">
             <button id="drawMode">Draw Mode</button>
             <button id="foldMode">Fold Mode</button>
@@ -102,7 +102,7 @@
             <button id="foldUp">Fold Up!</button>
             <span class="mode-indicator" id="modeIndicator">Draw Mode</span>
         </div>
-        
+
         <div class="canvas-container">
             <div class="canvas-section">
                 <h3>2D Drawing Canvas</h3>
@@ -111,7 +111,7 @@
                 </div>
                 <canvas id="canvas2d" width="500" height="400"></canvas>
             </div>
-            
+
             <div class="canvas-section">
                 <h3>3D Folded Result</h3>
                 <div class="instructions">
