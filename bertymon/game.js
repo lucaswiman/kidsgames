@@ -235,8 +235,8 @@ function getTypeEffectiveness(attackType, defenderType) {
 // 1e. Apply stat stage modifiers
 function getStatWithStages(baseStat, stage) {
     if (stage === 0) return baseStat;
-    if (stage > 0) return baseStat * (1 + stage * 0.5);
-    return baseStat / (1 - stage * 0.5);
+    if (stage > 0) return Math.floor(baseStat * (2 + stage) / 2);
+    return Math.floor(baseStat * 2 / (2 + Math.abs(stage)));
 }
 
 // 1f. Calculate damage from attack
@@ -499,8 +499,13 @@ scene("lab", () => {
     onKeyPress("space", handleSelect);
 
     function selectStarter(starterData) {
+        if (gameState.hasStarterBertymon) return; // guard against double-selection
         gameState.hasStarterBertymon = true;
         gameState.starterBertymon = starterData;
+        gameState.playerParty = [];
+        gameState.rivalParty = [];
+        gameState.bag = [{ name: "Potion", qty: 3, hpRestore: 20 }];
+        gameState.activeBertymonIndex = 0;
 
         // Step 3: Create Bertymon instances
         const playerBertymon = createBertymon(starterData.name);
@@ -509,7 +514,6 @@ scene("lab", () => {
         const rivalStarterName = getRivalStarter(starterData.name);
         const rivalBertymon = createBertymon(rivalStarterName);
         gameState.rivalParty.push(rivalBertymon);
-        gameState.activeBertymonIndex = 0;
 
         // Show selection dialog
         add([
@@ -589,6 +593,25 @@ scene("lab", () => {
 // ============================================================================
 
 scene("battle", () => {
+    // Layout constants
+    const ENEMY_NAME_POS   = [480, 30];
+    const ENEMY_HP_POS     = [480, 55];
+    const ENEMY_SPRITE_POS = [620, 130];
+    const PLAYER_NAME_POS  = [40, 195];
+    const PLAYER_HP_POS    = [40, 220];
+    const PLAYER_SPRITE_POS = [180, 300];
+    const HP_BAR_WIDTH     = 160;
+
+    const MSG_BOX_POS      = [20, 500];
+    const MSG_BOX_SIZE     = [760, 80];
+    const MSG_TEXT_POS     = [40, 520];
+
+    const ACTION_BTN_Y     = 400;
+    const MENU_BTN_START_Y = 390;
+    const BTN_WIDTH        = 150;
+    const BTN_HEIGHT       = 50;
+    const BTN_GAP          = 8;
+
     // Battle scene state
     let battleState = {
         phase: "intro", // intro, action, move, bag, party, executing
@@ -604,6 +627,14 @@ scene("battle", () => {
         color(220, 220, 220)
     ]);
 
+    // Message box background (persistent)
+    add([
+        rect(MSG_BOX_SIZE[0], MSG_BOX_SIZE[1]),
+        pos(MSG_BOX_POS[0], MSG_BOX_POS[1]),
+        color(255, 255, 255),
+        outline(2, rgb(0, 0, 0)),
+    ]);
+
     // ========================================================================
     // Helper Functions
     // ========================================================================
@@ -614,9 +645,9 @@ scene("battle", () => {
             text(msg, {
                 size: 14,
                 font: "monospace",
-                width: width() - 60
+                width: MSG_BOX_SIZE[0] - 40
             }),
-            pos(40, 470),
+            pos(MSG_TEXT_POS[0], MSG_TEXT_POS[1]),
             color(0, 0, 0),
             "battle-msg"
         ]);
@@ -633,20 +664,20 @@ scene("battle", () => {
             if (hpPercent < 0.2) hpColor = rgb(255, 50, 50); // Red
 
             add([
-                rect(80, 12),
-                pos(150, 320),
+                rect(HP_BAR_WIDTH, 12),
+                pos(PLAYER_HP_POS[0], PLAYER_HP_POS[1]),
                 color(100, 100, 100),
                 "player-hp"
             ]);
             add([
-                rect(80 * hpPercent, 12),
-                pos(150, 320),
+                rect(HP_BAR_WIDTH * hpPercent, 12),
+                pos(PLAYER_HP_POS[0], PLAYER_HP_POS[1]),
                 color(hpColor),
                 "player-hp"
             ]);
             add([
                 text(`HP: ${bmon.hp}/${bmon.maxHp}`, { size: 10, font: "monospace" }),
-                pos(240, 315),
+                pos(PLAYER_HP_POS[0] + HP_BAR_WIDTH + 10, PLAYER_HP_POS[1] - 5),
                 color(0, 0, 0),
                 "player-hp"
             ]);
@@ -660,20 +691,20 @@ scene("battle", () => {
             if (hpPercent < 0.2) hpColor = rgb(255, 50, 50); // Red
 
             add([
-                rect(80, 12),
-                pos(550, 140),
+                rect(HP_BAR_WIDTH, 12),
+                pos(ENEMY_HP_POS[0], ENEMY_HP_POS[1]),
                 color(100, 100, 100),
                 "enemy-hp"
             ]);
             add([
-                rect(80 * hpPercent, 12),
-                pos(550, 140),
+                rect(HP_BAR_WIDTH * hpPercent, 12),
+                pos(ENEMY_HP_POS[0], ENEMY_HP_POS[1]),
                 color(hpColor),
                 "enemy-hp"
             ]);
             add([
                 text(`HP: ${bmon.hp}/${bmon.maxHp}`, { size: 10, font: "monospace" }),
-                pos(640, 135),
+                pos(ENEMY_HP_POS[0] + HP_BAR_WIDTH + 10, ENEMY_HP_POS[1] - 5),
                 color(0, 0, 0),
                 "enemy-hp"
             ]);
@@ -686,14 +717,14 @@ scene("battle", () => {
         const playerBmon = gameState.playerParty[gameState.activeBertymonIndex];
         add([
             sprite(playerBmon.sprite),
-            pos(150, 350),
+            pos(PLAYER_SPRITE_POS[0], PLAYER_SPRITE_POS[1]),
             anchor("center"),
             scale(1.5),
             "player-display"
         ]);
         add([
             text(`${playerBmon.name} (${playerBmon.type})`, { size: 12, font: "monospace" }),
-            pos(150, 270),
+            pos(PLAYER_NAME_POS[0], PLAYER_NAME_POS[1]),
             color(0, 0, 0),
             "player-display"
         ]);
@@ -703,14 +734,14 @@ scene("battle", () => {
         const rivalBmon = gameState.rivalParty[0];
         add([
             sprite(rivalBmon.sprite),
-            pos(550, 100),
+            pos(ENEMY_SPRITE_POS[0], ENEMY_SPRITE_POS[1]),
             anchor("center"),
             scale(1.5),
             "enemy-display"
         ]);
         add([
             text(`${rivalBmon.name} (${rivalBmon.type})`, { size: 12, font: "monospace" }),
-            pos(550, 200),
+            pos(ENEMY_NAME_POS[0], ENEMY_NAME_POS[1]),
             color(0, 0, 0),
             "enemy-display"
         ]);
@@ -726,16 +757,12 @@ scene("battle", () => {
 
     function showActionButtons() {
         hideActionButtons();
-        const btnWidth = 120;
-        const btnHeight = 60;
-        const gap = 8;
         const startX = 40;
-        const startY = 430;
 
         // Battle button
         const battleBtn = add([
-            rect(btnWidth, btnHeight),
-            pos(startX, startY),
+            rect(BTN_WIDTH, BTN_HEIGHT),
+            pos(startX, ACTION_BTN_Y),
             color(0, 0, 0),
             opacity(0.35),
             outline(2, rgb(255, 255, 255)),
@@ -745,7 +772,7 @@ scene("battle", () => {
         ]);
         add([
             text("Battle", { size: 14, font: "monospace" }),
-            pos(startX + btnWidth / 2, startY + btnHeight / 2),
+            pos(startX + BTN_WIDTH / 2, ACTION_BTN_Y + BTN_HEIGHT / 2),
             anchor("center"),
             color(255, 255, 255),
             "action-btn"
@@ -757,8 +784,8 @@ scene("battle", () => {
 
         // Bertymon button
         const partyBtn = add([
-            rect(btnWidth, btnHeight),
-            pos(startX + btnWidth + gap, startY),
+            rect(BTN_WIDTH, BTN_HEIGHT),
+            pos(startX + BTN_WIDTH + BTN_GAP, ACTION_BTN_Y),
             color(0, 0, 0),
             opacity(0.35),
             outline(2, rgb(255, 255, 255)),
@@ -768,7 +795,7 @@ scene("battle", () => {
         ]);
         add([
             text("Bertymon", { size: 14, font: "monospace" }),
-            pos(startX + btnWidth + gap + btnWidth / 2, startY + btnHeight / 2),
+            pos(startX + BTN_WIDTH + BTN_GAP + BTN_WIDTH / 2, ACTION_BTN_Y + BTN_HEIGHT / 2),
             anchor("center"),
             color(255, 255, 255),
             "action-btn"
@@ -780,8 +807,8 @@ scene("battle", () => {
 
         // Bag button
         const bagBtn = add([
-            rect(btnWidth, btnHeight),
-            pos(startX + (btnWidth + gap) * 2, startY),
+            rect(BTN_WIDTH, BTN_HEIGHT),
+            pos(startX + (BTN_WIDTH + BTN_GAP) * 2, ACTION_BTN_Y),
             color(0, 0, 0),
             opacity(0.35),
             outline(2, rgb(255, 255, 255)),
@@ -791,7 +818,7 @@ scene("battle", () => {
         ]);
         add([
             text("Bag", { size: 14, font: "monospace" }),
-            pos(startX + (btnWidth + gap) * 2 + btnWidth / 2, startY + btnHeight / 2),
+            pos(startX + (BTN_WIDTH + BTN_GAP) * 2 + BTN_WIDTH / 2, ACTION_BTN_Y + BTN_HEIGHT / 2),
             anchor("center"),
             color(255, 255, 255),
             "action-btn"
@@ -806,17 +833,14 @@ scene("battle", () => {
     function showMoveButtons() {
         const playerBmon = gameState.playerParty[gameState.activeBertymonIndex];
         const btnWidth = 180;
-        const btnHeight = 50;
-        const gap = 8;
         const startX = 20;
-        const startY = 300;
 
         playerBmon.moves.forEach((moveName, i) => {
             const move = MOVES[moveName];
-            const btnY = startY + i * (btnHeight + gap);
+            const btnY = MENU_BTN_START_Y + i * (BTN_HEIGHT + BTN_GAP);
 
             const moveBtn = add([
-                rect(btnWidth, btnHeight),
+                rect(btnWidth, BTN_HEIGHT),
                 pos(startX, btnY),
                 color(100, 150, 200),
                 outline(2, rgb(0, 0, 0)),
@@ -827,7 +851,7 @@ scene("battle", () => {
 
             add([
                 text(`${move.name} (${move.type})`, { size: 12, font: "monospace" }),
-                pos(startX + btnWidth / 2, btnY + btnHeight / 2),
+                pos(startX + btnWidth / 2, btnY + BTN_HEIGHT / 2),
                 anchor("center"),
                 color(255, 255, 255),
                 "move-btn"
@@ -842,8 +866,8 @@ scene("battle", () => {
 
         // Back button
         const backBtn = add([
-            rect(btnWidth, btnHeight),
-            pos(startX, startY + playerBmon.moves.length * (btnHeight + gap)),
+            rect(btnWidth, BTN_HEIGHT),
+            pos(startX, MENU_BTN_START_Y + playerBmon.moves.length * (BTN_HEIGHT + BTN_GAP)),
             color(200, 100, 100),
             outline(2, rgb(0, 0, 0)),
             area(),
@@ -851,7 +875,7 @@ scene("battle", () => {
         ]);
         add([
             text("Back", { size: 12, font: "monospace" }),
-            pos(startX + btnWidth / 2, startY + playerBmon.moves.length * (btnHeight + gap) + btnHeight / 2),
+            pos(startX + btnWidth / 2, MENU_BTN_START_Y + playerBmon.moves.length * (BTN_HEIGHT + BTN_GAP) + BTN_HEIGHT / 2),
             anchor("center"),
             color(255, 255, 255),
             "move-btn"
@@ -865,16 +889,13 @@ scene("battle", () => {
     // Step 6: Bag Menu
     function showBagMenu() {
         const btnWidth = 200;
-        const btnHeight = 50;
-        const gap = 8;
         const startX = 20;
-        const startY = 300;
-        let yPos = startY;
+        let yPos = MENU_BTN_START_Y;
 
         gameState.bag.forEach((item, i) => {
             if (item.qty > 0) {
                 const itemBtn = add([
-                    rect(btnWidth, btnHeight),
+                    rect(btnWidth, BTN_HEIGHT),
                     pos(startX, yPos),
                     color(150, 200, 100),
                     outline(2, rgb(0, 0, 0)),
@@ -885,7 +906,7 @@ scene("battle", () => {
 
                 add([
                     text(`${item.name} x${item.qty}`, { size: 12, font: "monospace" }),
-                    pos(startX + btnWidth / 2, yPos + btnHeight / 2),
+                    pos(startX + btnWidth / 2, yPos + BTN_HEIGHT / 2),
                     anchor("center"),
                     color(255, 255, 255),
                     "bag-btn"
@@ -895,13 +916,13 @@ scene("battle", () => {
                     useItem(item);
                 });
 
-                yPos += btnHeight + gap;
+                yPos += BTN_HEIGHT + BTN_GAP;
             }
         });
 
         // Back button
         const backBtn = add([
-            rect(btnWidth, btnHeight),
+            rect(btnWidth, BTN_HEIGHT),
             pos(startX, yPos),
             color(200, 100, 100),
             outline(2, rgb(0, 0, 0)),
@@ -910,7 +931,7 @@ scene("battle", () => {
         ]);
         add([
             text("Back", { size: 12, font: "monospace" }),
-            pos(startX + btnWidth / 2, yPos + btnHeight / 2),
+            pos(startX + btnWidth / 2, yPos + BTN_HEIGHT / 2),
             anchor("center"),
             color(255, 255, 255),
             "bag-btn"
@@ -947,11 +968,8 @@ scene("battle", () => {
     // Step 6: Party Menu
     function showPartyMenu() {
         const btnWidth = 200;
-        const btnHeight = 50;
-        const gap = 8;
         const startX = 20;
-        const startY = 300;
-        let yPos = startY;
+        let yPos = MENU_BTN_START_Y;
 
         gameState.playerParty.forEach((bmon, i) => {
             const isActive = i === gameState.activeBertymonIndex;
@@ -959,7 +977,7 @@ scene("battle", () => {
 
             let bgColor = isActive ? rgb(200, 150, 100) : isFainted ? rgb(100, 100, 100) : rgb(150, 150, 200);
             const partyBtn = add([
-                rect(btnWidth, btnHeight),
+                rect(btnWidth, BTN_HEIGHT),
                 pos(startX, yPos),
                 color(bgColor),
                 outline(2, rgb(0, 0, 0)),
@@ -970,7 +988,7 @@ scene("battle", () => {
             const statusText = isActive ? " (active)" : isFainted ? " (fainted)" : "";
             add([
                 text(`${bmon.name} HP: ${bmon.hp}/${bmon.maxHp}${statusText}`, { size: 12, font: "monospace" }),
-                pos(startX + btnWidth / 2, yPos + btnHeight / 2),
+                pos(startX + btnWidth / 2, yPos + BTN_HEIGHT / 2),
                 anchor("center"),
                 color(255, 255, 255),
                 "party-btn"
@@ -988,12 +1006,12 @@ scene("battle", () => {
                 });
             }
 
-            yPos += btnHeight + gap;
+            yPos += BTN_HEIGHT + BTN_GAP;
         });
 
         // Back button (only if not forced switch)
         const backBtn = add([
-            rect(btnWidth, btnHeight),
+            rect(btnWidth, BTN_HEIGHT),
             pos(startX, yPos),
             color(200, 100, 100),
             outline(2, rgb(0, 0, 0)),
@@ -1002,7 +1020,7 @@ scene("battle", () => {
         ]);
         add([
             text("Back", { size: 12, font: "monospace" }),
-            pos(startX + btnWidth / 2, yPos + btnHeight / 2),
+            pos(startX + btnWidth / 2, yPos + BTN_HEIGHT / 2),
             anchor("center"),
             color(255, 255, 255),
             "party-btn"
@@ -1028,31 +1046,31 @@ scene("battle", () => {
         }
     }
 
-    function executeMove(attacker, defender, move, attackerIsPlayer) {
+    function executeMove(attacker, defender, move, attackerIsPlayer, onDone) {
         const defenderSide = attackerIsPlayer ? "enemy" : "player";
-
         showBattleMessage(`${attacker.name} used ${move.name}!`);
 
-        if (move.power !== null) {
-            // Damaging move
-            const result = calculateDamage(move, attacker, defender);
-            defender.hp = Math.max(0, defender.hp - result.damage);
+        wait(1, () => {
+            if (move.power !== null) {
+                const result = calculateDamage(move, attacker, defender);
+                defender.hp = Math.max(0, defender.hp - result.damage);
+                refreshHpBar(defenderSide);
 
-            if (result.effectiveness === 2) {
-                showBattleMessage("It's super effective!");
-            } else if (result.effectiveness === 0.5) {
-                showBattleMessage("It's not very effective...");
+                if (result.effectiveness === 2) {
+                    showBattleMessage("It's super effective!");
+                } else if (result.effectiveness === 0.5) {
+                    showBattleMessage("It's not very effective...");
+                }
+            } else {
+                applyMoveEffect(move, defender);
+                if (move.effect === "lowerDefense1") {
+                    showBattleMessage(`${defender.name}'s Defense fell!`);
+                } else if (move.effect === "lowerAttack1") {
+                    showBattleMessage(`${defender.name}'s Attack fell!`);
+                }
             }
-            refreshHpBar(defenderSide);
-        } else {
-            // Status move
-            applyMoveEffect(move, defender);
-            if (move.effect === "lowerDefense1") {
-                showBattleMessage(`${defender.name}'s Defense fell!`);
-            } else if (move.effect === "lowerAttack1") {
-                showBattleMessage(`${defender.name}'s Attack fell!`);
-            }
-        }
+            wait(1, () => { onDone(); });
+        });
     }
 
     function executeTurn(playerMove) {
@@ -1060,35 +1078,22 @@ scene("battle", () => {
         const playerBmon = gameState.playerParty[gameState.activeBertymonIndex];
         const rivalBmon = gameState.rivalParty[0];
         const rivalMove = rivalChooseMove(rivalBmon);
-
-        // Determine turn order based on speed
         const playerFirst = playerBmon.speed >= rivalBmon.speed;
 
-        if (playerFirst) {
-            executeMove(playerBmon, rivalBmon, playerMove, true);
-            wait(2, () => {
-                if (rivalBmon.hp > 0) {
-                    executeMove(rivalBmon, playerBmon, rivalMove, false);
-                    wait(2, () => {
-                        checkBattleEnd();
-                    });
-                } else {
-                    checkBattleEnd();
-                }
+        const first  = playerFirst ? { a: playerBmon, d: rivalBmon, m: playerMove, isP: true }
+                                   : { a: rivalBmon,  d: playerBmon, m: rivalMove,  isP: false };
+        const second = playerFirst ? { a: rivalBmon,  d: playerBmon, m: rivalMove,  isP: false }
+                                   : { a: playerBmon, d: rivalBmon, m: playerMove, isP: true };
+
+        executeMove(first.a, first.d, first.m, first.isP, () => {
+            if (first.d.hp <= 0) {
+                checkBattleEnd();
+                return;
+            }
+            executeMove(second.a, second.d, second.m, second.isP, () => {
+                checkBattleEnd();
             });
-        } else {
-            executeMove(rivalBmon, playerBmon, rivalMove, false);
-            wait(2, () => {
-                if (playerBmon.hp > 0) {
-                    executeMove(playerBmon, rivalBmon, playerMove, true);
-                    wait(2, () => {
-                        checkBattleEnd();
-                    });
-                } else {
-                    checkBattleEnd();
-                }
-            });
-        }
+        });
     }
 
     function executeOpponentTurn() {
@@ -1097,8 +1102,7 @@ scene("battle", () => {
         const rivalBmon = gameState.rivalParty[0];
         const rivalMove = rivalChooseMove(rivalBmon);
 
-        executeMove(rivalBmon, playerBmon, rivalMove, false);
-        wait(2, () => {
+        executeMove(rivalBmon, playerBmon, rivalMove, false, () => {
             checkBattleEnd();
         });
     }
@@ -1150,11 +1154,8 @@ scene("battle", () => {
 
     function showForcedPartyMenu() {
         const btnWidth = 200;
-        const btnHeight = 50;
-        const gap = 8;
         const startX = 20;
-        const startY = 300;
-        let yPos = startY;
+        let yPos = MENU_BTN_START_Y;
 
         gameState.playerParty.forEach((bmon, i) => {
             const isActive = i === gameState.activeBertymonIndex;
@@ -1163,7 +1164,7 @@ scene("battle", () => {
             if (isFainted) return; // Skip fainted Bertymon
 
             const partyBtn = add([
-                rect(btnWidth, btnHeight),
+                rect(btnWidth, BTN_HEIGHT),
                 pos(startX, yPos),
                 color(150, 150, 200),
                 outline(2, rgb(0, 0, 0)),
@@ -1174,7 +1175,7 @@ scene("battle", () => {
             const statusText = isActive ? " (active)" : "";
             add([
                 text(`${bmon.name} HP: ${bmon.hp}/${bmon.maxHp}${statusText}`, { size: 12, font: "monospace" }),
-                pos(startX + btnWidth / 2, yPos + btnHeight / 2),
+                pos(startX + btnWidth / 2, yPos + BTN_HEIGHT / 2),
                 anchor("center"),
                 color(255, 255, 255),
                 "party-btn"
@@ -1192,12 +1193,13 @@ scene("battle", () => {
                 });
             }
 
-            yPos += btnHeight + gap;
+            yPos += BTN_HEIGHT + BTN_GAP;
         });
     }
 
     function handleVictory() {
         showBattleMessage("You defeated your Rival!");
+        gameState.hasStarterBertymon = false;
         wait(3, () => {
             go("intro");
         });
@@ -1212,6 +1214,7 @@ scene("battle", () => {
             b.statStages = { attack: 0, defense: 0 };
         });
 
+        gameState.hasStarterBertymon = false;
         wait(3, () => {
             go("intro");
         });
