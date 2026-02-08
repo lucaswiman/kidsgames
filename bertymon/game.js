@@ -1029,34 +1029,29 @@ scene("battle", () => {
     }
 
     function executeMove(attacker, defender, move, attackerIsPlayer) {
-        const side = attackerIsPlayer ? "player" : "enemy";
         const defenderSide = attackerIsPlayer ? "enemy" : "player";
 
         showBattleMessage(`${attacker.name} used ${move.name}!`);
 
         if (move.power !== null) {
             // Damaging move
-            wait(1, () => {
-                const result = calculateDamage(move, attacker, defender);
-                defender.hp = Math.max(0, defender.hp - result.damage);
+            const result = calculateDamage(move, attacker, defender);
+            defender.hp = Math.max(0, defender.hp - result.damage);
 
-                if (result.effectiveness === 2) {
-                    showBattleMessage("It's super effective!");
-                } else if (result.effectiveness === 0.5) {
-                    showBattleMessage("It's not very effective...");
-                }
-                refreshHpBar(defenderSide);
-            });
+            if (result.effectiveness === 2) {
+                showBattleMessage("It's super effective!");
+            } else if (result.effectiveness === 0.5) {
+                showBattleMessage("It's not very effective...");
+            }
+            refreshHpBar(defenderSide);
         } else {
             // Status move
-            wait(1, () => {
-                applyMoveEffect(move, defender);
-                if (move.effect === "lowerDefense1") {
-                    showBattleMessage(`${defender.name}'s Defense fell!`);
-                } else if (move.effect === "lowerAttack1") {
-                    showBattleMessage(`${defender.name}'s Attack fell!`);
-                }
-            });
+            applyMoveEffect(move, defender);
+            if (move.effect === "lowerDefense1") {
+                showBattleMessage(`${defender.name}'s Defense fell!`);
+            } else if (move.effect === "lowerAttack1") {
+                showBattleMessage(`${defender.name}'s Attack fell!`);
+            }
         }
     }
 
@@ -1071,10 +1066,10 @@ scene("battle", () => {
 
         if (playerFirst) {
             executeMove(playerBmon, rivalBmon, playerMove, true);
-            wait(3, () => {
+            wait(2, () => {
                 if (rivalBmon.hp > 0) {
                     executeMove(rivalBmon, playerBmon, rivalMove, false);
-                    wait(3, () => {
+                    wait(2, () => {
                         checkBattleEnd();
                     });
                 } else {
@@ -1083,10 +1078,10 @@ scene("battle", () => {
             });
         } else {
             executeMove(rivalBmon, playerBmon, rivalMove, false);
-            wait(3, () => {
+            wait(2, () => {
                 if (playerBmon.hp > 0) {
                     executeMove(playerBmon, rivalBmon, playerMove, true);
-                    wait(3, () => {
+                    wait(2, () => {
                         checkBattleEnd();
                     });
                 } else {
@@ -1103,7 +1098,7 @@ scene("battle", () => {
         const rivalMove = rivalChooseMove(rivalBmon);
 
         executeMove(rivalBmon, playerBmon, rivalMove, false);
-        wait(3, () => {
+        wait(2, () => {
             checkBattleEnd();
         });
     }
