@@ -1,2 +1,4 @@
 .aider*
 tags
+coverage/
+node_modules/
