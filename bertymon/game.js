@@ -319,6 +319,7 @@ const gameState = {
 
 // Intro scene
 scene('intro', () => {
+  gameState.currentScene = 'intro';
   // Create grass background
   for (let x = 0; x < width() / 32; x++) {
     for (let y = 0; y < height() / 32; y++) {
@@ -448,6 +449,7 @@ scene('intro', () => {
 
 // Lab scene
 scene('lab', () => {
+  gameState.currentScene = 'lab';
   add([
     rect(width(), height()),
     pos(0, 0),
@@ -623,6 +625,7 @@ scene('lab', () => {
 // ============================================================================
 
 scene('battle', () => {
+  gameState.currentScene = 'battle';
   // Layout constants
   const ENEMY_NAME_POS = [480, 30];
   const ENEMY_HP_POS = [480, 55];
@@ -1316,4 +1319,10 @@ scene('battle', () => {
 });
 
 // Start the game
+gameState.currentScene = 'intro';
 go('intro');
+
+// Expose gameState for testing (after kaplay context is created)
+if (typeof window !== 'undefined') {
+  window.gameState = gameState;
+}

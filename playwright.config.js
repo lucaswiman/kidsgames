@@ -1,7 +1,8 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
-  testDir: './tests',
+  testDir: './bertymon',
+  testMatch: '**/*.e2e.test.js',
   timeout: 30000,
   expect: {
     timeout: 5000,
@@ -15,6 +16,15 @@ module.exports = defineConfig({
     baseURL: 'http://localhost:8000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    launchOptions: {
+      args: [
+        '--use-gl=angle',
+        '--use-angle=swiftshader',
+        '--ignore-gpu-blocklist',
+        '--enable-webgl',
+        '--enable-accelerated-2d-canvas',
+      ],
+    },
   },
 
   projects: [
