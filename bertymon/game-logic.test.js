@@ -5,12 +5,14 @@
 const {
   MOVES,
   BERTYMON_TEMPLATES,
+  BERTYBUCKS_BATTLE_REWARD,
   createBertymon,
   getTypeEffectiveness,
   getStatWithStages,
   calculateDamage,
   getRivalStarter,
   applyMoveEffect,
+  updateBertyBucks,
 } = require('./game-logic');
 
 describe('MOVES Data Structure', () => {
@@ -327,6 +329,42 @@ describe('applyMoveEffect()', () => {
     applyMoveEffect(MOVES.Leer, target);
 
     expect(target.statStages.attack).toBe(originalAttack);
+  });
+});
+
+describe('updateBertyBucks()', () => {
+  test('should start at 0 and gain reward on win', () => {
+    const state = { bertyBucks: 0 };
+    updateBertyBucks(state, true);
+    expect(state.bertyBucks).toBe(BERTYBUCKS_BATTLE_REWARD);
+  });
+
+  test('should subtract reward on loss', () => {
+    const state = { bertyBucks: 0 };
+    updateBertyBucks(state, false);
+    expect(state.bertyBucks).toBe(-BERTYBUCKS_BATTLE_REWARD);
+  });
+
+  test('should accumulate across multiple wins', () => {
+    const state = { bertyBucks: 0 };
+    updateBertyBucks(state, true);
+    updateBertyBucks(state, true);
+    updateBertyBucks(state, true);
+    expect(state.bertyBucks).toBe(BERTYBUCKS_BATTLE_REWARD * 3);
+  });
+
+  test('should allow BertyBucks to go negative', () => {
+    const state = { bertyBucks: 0 };
+    updateBertyBucks(state, false);
+    updateBertyBucks(state, false);
+    expect(state.bertyBucks).toBe(-BERTYBUCKS_BATTLE_REWARD * 2);
+  });
+
+  test('should net to zero after equal wins and losses', () => {
+    const state = { bertyBucks: 0 };
+    updateBertyBucks(state, true);
+    updateBertyBucks(state, false);
+    expect(state.bertyBucks).toBe(0);
   });
 });
 

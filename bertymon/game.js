@@ -297,7 +297,14 @@ function getRivalStarter(playerStarterName) {
   return counterPicks[playerStarterName];
 }
 
-// 1h. Apply status move effects
+// 1h. Update BertyBucks after a battle
+const BERTYBUCKS_BATTLE_REWARD = 100;
+
+function updateBertyBucks(gameState, didWin) {
+  gameState.bertyBucks += didWin ? BERTYBUCKS_BATTLE_REWARD : -BERTYBUCKS_BATTLE_REWARD;
+}
+
+// 1i. Apply status move effects
 function applyMoveEffect(move, target) {
   if (move.effect === 'lowerDefense1') {
     target.statStages.defense = Math.max(-6, target.statStages.defense - 1);
@@ -1291,8 +1298,8 @@ scene('battle', () => {
   }
 
   function handleVictory() {
-    gameState.bertyBucks += 100;
-    showBattleMessage('You defeated your Rival! +100 BertyBucks!');
+    updateBertyBucks(gameState, true);
+    showBattleMessage(`You defeated your Rival! +${BERTYBUCKS_BATTLE_REWARD} BertyBucks!`);
     gameState.hasStarterBertymon = false;
     wait(3, () => {
       go('intro');
@@ -1300,8 +1307,8 @@ scene('battle', () => {
   }
 
   function handleDefeat() {
-    gameState.bertyBucks -= 100;
-    showBattleMessage('You lost the battle... -100 BertyBucks');
+    updateBertyBucks(gameState, false);
+    showBattleMessage(`You lost the battle... -${BERTYBUCKS_BATTLE_REWARD} BertyBucks`);
 
     // Heal all player Bertymon
     gameState.playerParty.forEach(b => {
