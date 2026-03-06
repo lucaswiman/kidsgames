@@ -255,25 +255,25 @@ describe('calculateDamage()', () => {
 });
 
 describe('getRivalStarter()', () => {
-  test('should return Flarepup if player chooses Treebeast', () => {
-    expect(getRivalStarter('Treebeast')).toBe('Flarepup');
+  test('should return Aquawing if player chooses Treebeast', () => {
+    expect(getRivalStarter('Treebeast')).toBe('Aquawing');
   });
 
-  test('should return Aquawing if player chooses Flarepup', () => {
-    expect(getRivalStarter('Flarepup')).toBe('Aquawing');
+  test('should return Treebeast if player chooses Flarepup', () => {
+    expect(getRivalStarter('Flarepup')).toBe('Treebeast');
   });
 
-  test('should return Treebeast if player chooses Aquawing', () => {
-    expect(getRivalStarter('Aquawing')).toBe('Treebeast');
+  test('should return Flarepup if player chooses Aquawing', () => {
+    expect(getRivalStarter('Aquawing')).toBe('Flarepup');
   });
 
-  test('should form type-advantage rock-paper-scissors', () => {
-    // Flarepup (Fire) beats Treebeast (Grass)
-    expect(getTypeEffectiveness('Fire', 'Grass')).toBe(2);
-    // Aquawing (Water) beats Flarepup (Fire)
-    expect(getTypeEffectiveness('Water', 'Fire')).toBe(2);
-    // Treebeast (Grass) beats Aquawing (Water)
+  test('should give player type advantage over rival', () => {
+    // Treebeast (Grass) beats rival Aquawing (Water)
     expect(getTypeEffectiveness('Grass', 'Water')).toBe(2);
+    // Flarepup (Fire) beats rival Treebeast (Grass)
+    expect(getTypeEffectiveness('Fire', 'Grass')).toBe(2);
+    // Aquawing (Water) beats rival Flarepup (Fire)
+    expect(getTypeEffectiveness('Water', 'Fire')).toBe(2);
   });
 
   test('should throw error for unknown starter', () => {

@@ -124,12 +124,12 @@ function calculateDamage(move, attacker, defender) {
   return { damage, effectiveness };
 }
 
-// 1g. Determine rival's counter-pick
+// 1g. Determine rival's starter (weak to player's type, giving player the advantage)
 function getRivalStarter(playerStarterName) {
   const counterPicks = {
-    Treebeast: 'Flarepup',
-    Flarepup: 'Aquawing',
-    Aquawing: 'Treebeast',
+    Treebeast: 'Aquawing',
+    Flarepup: 'Treebeast',
+    Aquawing: 'Flarepup',
   };
   const pick = counterPicks[playerStarterName];
   if (!pick) {

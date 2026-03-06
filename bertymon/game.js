@@ -287,12 +287,12 @@ function calculateDamage(move, attacker, defender) {
   return { damage, effectiveness };
 }
 
-// 1g. Determine rival's counter-pick
+// 1g. Determine rival's starter (weak to player's type, giving player the advantage)
 function getRivalStarter(playerStarterName) {
   const counterPicks = {
-    Treebeast: 'Flarepup',
-    Flarepup: 'Aquawing',
-    Aquawing: 'Treebeast',
+    Treebeast: 'Aquawing',
+    Flarepup: 'Treebeast',
+    Aquawing: 'Flarepup',
   };
   return counterPicks[playerStarterName];
 }
@@ -1042,8 +1042,8 @@ scene('battle', () => {
       const bgColor = isActive
         ? rgb(200, 150, 100)
         : isFainted
-        ? rgb(100, 100, 100)
-        : rgb(150, 150, 200);
+          ? rgb(100, 100, 100)
+          : rgb(150, 150, 200);
       const partyBtn = add([
         rect(btnWidth, BTN_HEIGHT),
         pos(startX, yPos),
