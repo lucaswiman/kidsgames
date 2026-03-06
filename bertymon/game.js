@@ -315,6 +315,7 @@ const gameState = {
   rivalParty: [],
   bag: [{ name: 'Potion', qty: 3, hpRestore: 20 }],
   activeBertymonIndex: 0,
+  bertyBucks: 0,
 };
 
 // Intro scene
@@ -396,6 +397,17 @@ scene('intro', () => {
     pos(width() / 2, 30),
     anchor('center'),
     color(255, 255, 255),
+    outline(2, rgb(0, 0, 0)),
+  ]);
+
+  add([
+    text(`BB: ${gameState.bertyBucks}`, {
+      size: 20,
+      font: 'monospace',
+    }),
+    pos(10, 10),
+    anchor('topleft'),
+    color(255, 215, 0),
     outline(2, rgb(0, 0, 0)),
   ]);
 
@@ -1279,7 +1291,8 @@ scene('battle', () => {
   }
 
   function handleVictory() {
-    showBattleMessage('You defeated your Rival!');
+    gameState.bertyBucks += 100;
+    showBattleMessage('You defeated your Rival! +100 BertyBucks!');
     gameState.hasStarterBertymon = false;
     wait(3, () => {
       go('intro');
@@ -1287,7 +1300,8 @@ scene('battle', () => {
   }
 
   function handleDefeat() {
-    showBattleMessage('You lost the battle...');
+    gameState.bertyBucks -= 100;
+    showBattleMessage('You lost the battle... -100 BertyBucks');
 
     // Heal all player Bertymon
     gameState.playerParty.forEach(b => {
