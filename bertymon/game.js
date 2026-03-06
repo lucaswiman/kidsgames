@@ -163,8 +163,8 @@ loadSprite(
   'data:image/svg+xml;base64,' +
     btoa(`
     <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" fill="#27ae60"/>
-        <rect x="4" y="4" width="24" height="24" fill="#2ecc71"/>
+        <rect width="32" height="32" fill="#ffffff"/>
+        <rect x="4" y="4" width="24" height="24" fill="#ffffff"/>
     </svg>
 `)
 );
