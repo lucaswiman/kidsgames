@@ -470,13 +470,90 @@ scene('intro', () => {
 scene('lab', () => {
   gameState.currentScene = 'lab';
 
-  // If the player already has a Bertymon, set up a new rival and go straight to battle
+  // If the player already has a Bertymon, show a peaceful revisit scene
   if (gameState.hasStarterBertymon && gameState.playerParty.length > 0) {
-    const playerBertymonName = gameState.playerParty[0].name;
-    const rivalStarterName = getRivalStarter(playerBertymonName);
-    gameState.rivalParty = [createBertymon(rivalStarterName)];
-    gameState.activeBertymonIndex = 0;
-    go('battle');
+    add([
+      rect(width(), height()),
+      pos(0, 0),
+      color(139, 69, 19), // Brown floor
+    ]);
+
+    // Lab equipment
+    add([rect(100, 60), pos(50, 100), color(192, 192, 192), 'equipment']);
+    add([rect(100, 60), pos(width() - 150, 100), color(192, 192, 192), 'equipment']);
+
+    // Show unchosen starters hanging out
+    const allStarters = [
+      { name: 'Flarepup', sprite: 'flarepup', type: 'Fire' },
+      { name: 'Aquawing', sprite: 'aquawing', type: 'Water' },
+      { name: 'Treebeast', sprite: 'treebeast', type: 'Grass' },
+    ];
+    const chosenName = gameState.playerParty[0].name;
+    const unchosen = allStarters.filter(s => s.name !== chosenName);
+
+    unchosen.forEach((starter, i) => {
+      add([
+        sprite(starter.sprite),
+        pos(width() / 2 - 60 + i * 120, height() / 2),
+        anchor('center'),
+        scale(1.0),
+      ]);
+
+      add([
+        text(starter.name, {
+          size: 12,
+          font: 'monospace',
+        }),
+        pos(width() / 2 - 60 + i * 120, height() / 2 + 50),
+        anchor('center'),
+        color(255, 255, 255),
+        outline(1, rgb(0, 0, 0)),
+      ]);
+    });
+
+    // Header
+    add([
+      text("Professor's Lab", {
+        size: 20,
+        font: 'monospace',
+      }),
+      pos(width() / 2, 30),
+      anchor('center'),
+      color(255, 255, 255),
+      outline(2, rgb(0, 0, 0)),
+    ]);
+
+    // Professor Willow note
+    add([
+      text('Professor Willow is over at the fountain.', {
+        size: 16,
+        font: 'monospace',
+      }),
+      pos(width() / 2, height() / 2 + 100),
+      anchor('center'),
+      color(255, 255, 200),
+      outline(1, rgb(0, 0, 0)),
+    ]);
+
+    // Exit hint
+    add([
+      text('Press SPACE to leave', {
+        size: 14,
+        font: 'monospace',
+      }),
+      pos(width() / 2, height() - 30),
+      anchor('center'),
+      color(255, 255, 255),
+      outline(1, rgb(0, 0, 0)),
+    ]);
+
+    onKeyPress('space', () => {
+      go('intro');
+    });
+    window.handleSelect = () => {
+      go('intro');
+    };
+
     return;
   }
 
