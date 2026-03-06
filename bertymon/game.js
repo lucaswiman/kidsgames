@@ -356,11 +356,27 @@ scene('intro', () => {
     'player',
   ]);
 
+  // Add follower Bertymon if the player has one
+  let follower = null;
+  const posHistory = [];
+  const FOLLOW_DELAY = 12; // frames of delay before follower reaches player's old position
+
+  if (gameState.playerParty.length > 0) {
+    const activeBertymon = gameState.playerParty[gameState.activeBertymonIndex];
+    follower = add([
+      sprite(activeBertymon.sprite),
+      pos(player.pos.x, player.pos.y + 36),
+      anchor('center'),
+      scale(0.8),
+      'follower',
+    ]);
+  }
+
   // Player movement (keyboard + touch)
   const SPEED = 120;
   setupMovementControls(player, SPEED);
 
-  // Keep player in bounds
+  // Keep player in bounds and update follower
   player.onUpdate(() => {
     if (player.pos.x < 0) {
       player.pos.x = 0;
@@ -373,6 +389,16 @@ scene('intro', () => {
     }
     if (player.pos.y > height() - 32) {
       player.pos.y = height() - 32;
+    }
+
+    // Record player position history for follower
+    if (follower) {
+      posHistory.push({ x: player.pos.x + 16, y: player.pos.y + 16 });
+      if (posHistory.length > FOLLOW_DELAY) {
+        const target = posHistory.shift();
+        follower.pos.x = target.x;
+        follower.pos.y = target.y;
+      }
     }
   });
 
