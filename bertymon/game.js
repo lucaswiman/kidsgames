@@ -2,6 +2,19 @@
  * Bertymon - A Pokemon-inspired adventure game for Berty!
  */
 
+import {
+  MOVES,
+  BERTYMON_TEMPLATES,
+  BERTYBUCKS_BATTLE_REWARD,
+  createBertymon,
+  getTypeEffectiveness,
+  getStatWithStages,
+  calculateDamage,
+  getRivalStarter,
+  applyMoveEffect,
+  updateBertyBucks,
+} from './game-logic.js';
+
 // Initialize KAPLAY
 kaplay({
   width: 800,
@@ -168,150 +181,6 @@ loadSprite(
     </svg>
 `)
 );
-
-// ============================================================================
-// Step 1: Data Structures & Helper Functions
-// ============================================================================
-
-// 1a. MOVES Data Structure
-const MOVES = {
-  Leafage: { name: 'Leafage', type: 'Grass', power: 50, effect: null },
-  Ember: { name: 'Ember', type: 'Fire', power: 50, effect: null },
-  WaterGun: { name: 'Water Gun', type: 'Water', power: 50, effect: null },
-  QuickAttack: { name: 'Quick Attack', type: 'Normal', power: 40, effect: null },
-  Leer: { name: 'Leer', type: 'Normal', power: null, effect: 'lowerDefense1' },
-  TailWag: { name: 'Tail Wag', type: 'Normal', power: null, effect: 'lowerAttack1' },
-};
-
-// 1b. BERTYMON_TEMPLATES Data Structure
-const BERTYMON_TEMPLATES = {
-  Treebeast: {
-    name: 'Treebeast',
-    type: 'Grass',
-    sprite: 'treebeast',
-    hp: 100,
-    attack: 50,
-    defense: 50,
-    speed: 45,
-    moves: ['Leafage', 'QuickAttack', 'Leer'],
-  },
-  Flarepup: {
-    name: 'Flarepup',
-    type: 'Fire',
-    sprite: 'flarepup',
-    hp: 100,
-    attack: 50,
-    defense: 50,
-    speed: 55,
-    moves: ['Ember', 'QuickAttack', 'TailWag'],
-  },
-  Aquawing: {
-    name: 'Aquawing',
-    type: 'Water',
-    sprite: 'aquawing',
-    hp: 100,
-    attack: 50,
-    defense: 50,
-    speed: 50,
-    moves: ['WaterGun', 'QuickAttack', 'Leer'],
-  },
-};
-
-// 1c. Create a fresh Bertymon instance from template
-function createBertymon(templateName) {
-  const template = BERTYMON_TEMPLATES[templateName];
-  return {
-    name: template.name,
-    type: template.type,
-    sprite: template.sprite,
-    maxHp: template.hp,
-    hp: template.hp,
-    attack: template.attack,
-    defense: template.defense,
-    speed: template.speed,
-    moves: [...template.moves],
-    statStages: {
-      attack: 0,
-      defense: 0,
-    },
-  };
-}
-
-// 1d. Calculate type effectiveness (2, 1, or 0.5)
-function getTypeEffectiveness(attackType, defenderType) {
-  // Type triangle: Grass > Water > Fire > Grass
-  if (attackType === 'Grass' && defenderType === 'Water') {
-    return 2;
-  }
-  if (attackType === 'Water' && defenderType === 'Fire') {
-    return 2;
-  }
-  if (attackType === 'Fire' && defenderType === 'Grass') {
-    return 2;
-  }
-
-  if (attackType === 'Grass' && defenderType === 'Fire') {
-    return 0.5;
-  }
-  if (attackType === 'Water' && defenderType === 'Grass') {
-    return 0.5;
-  }
-  if (attackType === 'Fire' && defenderType === 'Water') {
-    return 0.5;
-  }
-
-  return 1;
-}
-
-// 1e. Apply stat stage modifiers
-function getStatWithStages(baseStat, stage) {
-  if (stage === 0) {
-    return baseStat;
-  }
-  if (stage > 0) {
-    return Math.floor((baseStat * (2 + stage)) / 2);
-  }
-  return Math.floor((baseStat * 2) / (2 + Math.abs(stage)));
-}
-
-// 1f. Calculate damage from attack
-function calculateDamage(move, attacker, defender) {
-  const effectiveness = getTypeEffectiveness(move.type, defender.type);
-  const attackStat = getStatWithStages(attacker.attack, attacker.statStages.attack);
-  const defenseStat = getStatWithStages(defender.defense, defender.statStages.defense);
-
-  const baseDamage = move.power * (attackStat / defenseStat) * effectiveness;
-  const variance = 0.85 + Math.random() * 0.3;
-  const damage = Math.max(1, Math.floor(baseDamage * variance));
-
-  return { damage, effectiveness };
-}
-
-// 1g. Determine rival's starter (weak to player's type, giving player the advantage)
-function getRivalStarter(playerStarterName) {
-  const counterPicks = {
-    Treebeast: 'Aquawing',
-    Flarepup: 'Treebeast',
-    Aquawing: 'Flarepup',
-  };
-  return counterPicks[playerStarterName];
-}
-
-// 1h. Update BertyBucks after a battle
-const BERTYBUCKS_BATTLE_REWARD = 100;
-
-function updateBertyBucks(gameState, didWin) {
-  gameState.bertyBucks += didWin ? BERTYBUCKS_BATTLE_REWARD : -BERTYBUCKS_BATTLE_REWARD;
-}
-
-// 1i. Apply status move effects
-function applyMoveEffect(move, target) {
-  if (move.effect === 'lowerDefense1') {
-    target.statStages.defense = Math.max(-6, target.statStages.defense - 1);
-  } else if (move.effect === 'lowerAttack1') {
-    target.statStages.attack = Math.max(-6, target.statStages.attack - 1);
-  }
-}
 
 // Step 2: Expand Game State
 const gameState = {
