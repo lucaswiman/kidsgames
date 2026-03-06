@@ -356,11 +356,27 @@ scene('intro', () => {
     'player',
   ]);
 
+  // Add follower Bertymon if the player has one
+  let follower = null;
+  const posHistory = [];
+  const FOLLOW_DELAY = 12; // frames of delay before follower reaches player's old position
+
+  if (gameState.playerParty.length > 0) {
+    const activeBertymon = gameState.playerParty[gameState.activeBertymonIndex];
+    follower = add([
+      sprite(activeBertymon.sprite),
+      pos(player.pos.x, player.pos.y + 36),
+      anchor('center'),
+      scale(0.8),
+      'follower',
+    ]);
+  }
+
   // Player movement (keyboard + touch)
   const SPEED = 120;
   setupMovementControls(player, SPEED);
 
-  // Keep player in bounds
+  // Keep player in bounds and update follower
   player.onUpdate(() => {
     if (player.pos.x < 0) {
       player.pos.x = 0;
@@ -373,6 +389,16 @@ scene('intro', () => {
     }
     if (player.pos.y > height() - 32) {
       player.pos.y = height() - 32;
+    }
+
+    // Record player position history for follower
+    if (follower) {
+      posHistory.push({ x: player.pos.x + 16, y: player.pos.y + 16 });
+      if (posHistory.length > FOLLOW_DELAY) {
+        const target = posHistory.shift();
+        follower.pos.x = target.x;
+        follower.pos.y = target.y;
+      }
     }
   });
 
@@ -469,6 +495,94 @@ scene('intro', () => {
 // Lab scene
 scene('lab', () => {
   gameState.currentScene = 'lab';
+
+  // If the player already has a Bertymon, show a peaceful revisit scene
+  if (gameState.hasStarterBertymon && gameState.playerParty.length > 0) {
+    add([
+      rect(width(), height()),
+      pos(0, 0),
+      color(139, 69, 19), // Brown floor
+    ]);
+
+    // Lab equipment
+    add([rect(100, 60), pos(50, 100), color(192, 192, 192), 'equipment']);
+    add([rect(100, 60), pos(width() - 150, 100), color(192, 192, 192), 'equipment']);
+
+    // Show unchosen starters hanging out
+    const allStarters = [
+      { name: 'Flarepup', sprite: 'flarepup', type: 'Fire' },
+      { name: 'Aquawing', sprite: 'aquawing', type: 'Water' },
+      { name: 'Treebeast', sprite: 'treebeast', type: 'Grass' },
+    ];
+    const chosenName = gameState.playerParty[0].name;
+    const unchosen = allStarters.filter(s => s.name !== chosenName);
+
+    unchosen.forEach((starter, i) => {
+      add([
+        sprite(starter.sprite),
+        pos(width() / 2 - 60 + i * 120, height() / 2),
+        anchor('center'),
+        scale(1.0),
+      ]);
+
+      add([
+        text(starter.name, {
+          size: 12,
+          font: 'monospace',
+        }),
+        pos(width() / 2 - 60 + i * 120, height() / 2 + 50),
+        anchor('center'),
+        color(255, 255, 255),
+        outline(1, rgb(0, 0, 0)),
+      ]);
+    });
+
+    // Header
+    add([
+      text("Professor's Lab", {
+        size: 20,
+        font: 'monospace',
+      }),
+      pos(width() / 2, 30),
+      anchor('center'),
+      color(255, 255, 255),
+      outline(2, rgb(0, 0, 0)),
+    ]);
+
+    // Professor Willow note
+    add([
+      text('Professor Willow is over at the fountain.', {
+        size: 16,
+        font: 'monospace',
+      }),
+      pos(width() / 2, height() / 2 + 100),
+      anchor('center'),
+      color(255, 255, 200),
+      outline(1, rgb(0, 0, 0)),
+    ]);
+
+    // Exit hint
+    add([
+      text('Press SPACE to leave', {
+        size: 14,
+        font: 'monospace',
+      }),
+      pos(width() / 2, height() - 30),
+      anchor('center'),
+      color(255, 255, 255),
+      outline(1, rgb(0, 0, 0)),
+    ]);
+
+    onKeyPress('space', () => {
+      go('intro');
+    });
+    window.handleSelect = () => {
+      go('intro');
+    };
+
+    return;
+  }
+
   add([
     rect(width(), height()),
     pos(0, 0),
@@ -555,7 +669,6 @@ scene('lab', () => {
     gameState.starterBertymon = starterData;
     gameState.playerParty = [];
     gameState.rivalParty = [];
-    gameState.bag = [{ name: 'Potion', qty: 3, hpRestore: 20 }];
     gameState.activeBertymonIndex = 0;
 
     // Step 3: Create Bertymon instances
@@ -1300,7 +1413,13 @@ scene('battle', () => {
   function handleVictory() {
     updateBertyBucks(gameState, true);
     showBattleMessage(`You defeated your Rival! +${BERTYBUCKS_BATTLE_REWARD} BertyBucks!`);
-    gameState.hasStarterBertymon = false;
+
+    // Heal all player Bertymon for the next battle
+    gameState.playerParty.forEach(b => {
+      b.hp = b.maxHp;
+      b.statStages = { attack: 0, defense: 0 };
+    });
+
     wait(3, () => {
       go('intro');
     });
@@ -1310,13 +1429,12 @@ scene('battle', () => {
     updateBertyBucks(gameState, false);
     showBattleMessage(`You lost the battle... -${BERTYBUCKS_BATTLE_REWARD} BertyBucks`);
 
-    // Heal all player Bertymon
+    // Heal all player Bertymon for the next battle
     gameState.playerParty.forEach(b => {
       b.hp = b.maxHp;
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    gameState.hasStarterBertymon = false;
     wait(3, () => {
       go('intro');
     });
