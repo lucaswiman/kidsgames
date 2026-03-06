@@ -138,7 +138,14 @@ function getRivalStarter(playerStarterName) {
   return pick;
 }
 
-// 1h. Apply status move effects
+// 1h. Update BertyBucks after a battle
+const BERTYBUCKS_BATTLE_REWARD = 100;
+
+function updateBertyBucks(gameState, didWin) {
+  gameState.bertyBucks += didWin ? BERTYBUCKS_BATTLE_REWARD : -BERTYBUCKS_BATTLE_REWARD;
+}
+
+// 1i. Apply status move effects
 function applyMoveEffect(move, target) {
   if (move.effect === 'lowerDefense1') {
     target.statStages.defense = Math.max(-6, target.statStages.defense - 1);
@@ -152,11 +159,13 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     MOVES,
     BERTYMON_TEMPLATES,
+    BERTYBUCKS_BATTLE_REWARD,
     createBertymon,
     getTypeEffectiveness,
     getStatWithStages,
     calculateDamage,
     getRivalStarter,
     applyMoveEffect,
+    updateBertyBucks,
   };
 }
