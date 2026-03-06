@@ -469,6 +469,17 @@ scene('intro', () => {
 // Lab scene
 scene('lab', () => {
   gameState.currentScene = 'lab';
+
+  // If the player already has a Bertymon, set up a new rival and go straight to battle
+  if (gameState.hasStarterBertymon && gameState.playerParty.length > 0) {
+    const playerBertymonName = gameState.playerParty[0].name;
+    const rivalStarterName = getRivalStarter(playerBertymonName);
+    gameState.rivalParty = [createBertymon(rivalStarterName)];
+    gameState.activeBertymonIndex = 0;
+    go('battle');
+    return;
+  }
+
   add([
     rect(width(), height()),
     pos(0, 0),
@@ -555,7 +566,6 @@ scene('lab', () => {
     gameState.starterBertymon = starterData;
     gameState.playerParty = [];
     gameState.rivalParty = [];
-    gameState.bag = [{ name: 'Potion', qty: 3, hpRestore: 20 }];
     gameState.activeBertymonIndex = 0;
 
     // Step 3: Create Bertymon instances
@@ -1300,7 +1310,13 @@ scene('battle', () => {
   function handleVictory() {
     updateBertyBucks(gameState, true);
     showBattleMessage(`You defeated your Rival! +${BERTYBUCKS_BATTLE_REWARD} BertyBucks!`);
-    gameState.hasStarterBertymon = false;
+
+    // Heal all player Bertymon for the next battle
+    gameState.playerParty.forEach(b => {
+      b.hp = b.maxHp;
+      b.statStages = { attack: 0, defense: 0 };
+    });
+
     wait(3, () => {
       go('intro');
     });
@@ -1310,13 +1326,12 @@ scene('battle', () => {
     updateBertyBucks(gameState, false);
     showBattleMessage(`You lost the battle... -${BERTYBUCKS_BATTLE_REWARD} BertyBucks`);
 
-    // Heal all player Bertymon
+    // Heal all player Bertymon for the next battle
     gameState.playerParty.forEach(b => {
       b.hp = b.maxHp;
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    gameState.hasStarterBertymon = false;
     wait(3, () => {
       go('intro');
     });
