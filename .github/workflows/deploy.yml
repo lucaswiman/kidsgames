@@ -3,8 +3,6 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -16,9 +14,58 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-deploy
+          path: playwright-report/
+          retention-days: 30
+
   build:
     runs-on: ubuntu-latest
-
+    needs:
+      - unit-tests
+      - e2e-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,7 +73,6 @@ jobs:
       - name: Build Bertymon
         run: |
           cd bertymon
-          # Since this is a client-side game, we just need to copy the files
           mkdir -p ../dist/bertymon
           cp index.html ../dist/bertymon/
           cp game.js ../dist/bertymon/
@@ -35,12 +81,9 @@ jobs:
 
       - name: Copy additional directories
         run: |
-          # Copy lalu directory if it exists
           if [ -d "lalu" ]; then
             cp -r lalu dist/
           fi
-
-          # Copy sphere-folder directory if it exists
           if [ -d "sphere-folder" ]; then
             cp -r sphere-folder dist/
           fi
