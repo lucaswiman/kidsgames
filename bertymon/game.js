@@ -650,6 +650,8 @@ scene('battle', () => {
     phase: 'intro', // intro, action, move, bag, party, executing
     selectedMove: null,
     messageTimeout: null,
+    isWild: false,
+    wildBertymon: null,
   };
 
   // Step 4: Create battle scene layout
@@ -1024,6 +1026,33 @@ scene('battle', () => {
         destroyAll('bag-btn');
         wait(2, () => {
           executeOpponentTurn();
+        });
+      }
+    } else if (item.name === 'Capture Ball') {
+      destroyAll('bag-btn');
+      if (battleState.isWild) {
+        const rivalBmon = battleState.wildBertymon;
+        item.qty--;
+        const result = attemptCapture(rivalBmon);
+        showBattleMessage('You threw a Capture Ball!');
+        wait(2, () => {
+          if (result.captured) {
+            showBattleMessage(`Gotcha! ${rivalBmon.name} was captured!`);
+            gameState.playerParty.push({ ...rivalBmon });
+            wait(3, () => {
+              go('intro');
+            });
+          } else {
+            showBattleMessage(`Oh no! ${rivalBmon.name} broke free!`);
+            wait(2, () => {
+              executeOpponentTurn();
+            });
+          }
+        });
+      } else {
+        showBattleMessage("You can't capture a rival's Bertymon!");
+        wait(2, () => {
+          showActionButtons();
         });
       }
     }
