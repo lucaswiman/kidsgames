@@ -190,10 +190,7 @@ const gameState = {
   currentScene: 'intro',
   playerParty: [],
   rivalParty: [],
-  bag: [
-    { name: 'Potion', qty: 3, hpRestore: 20 },
-    { name: 'Capture Ball', qty: 5 },
-  ],
+  bag: [{ name: 'Potion', qty: 3, hpRestore: 20 }],
   activeBertymonIndex: 0,
   bertyBucks: 0,
 };
@@ -1281,6 +1278,15 @@ scene('battle', () => {
     });
   }
 
+  function grantCaptureBallsIfFirst() {
+    const captureBallItem = gameState.bag.find(i => i.name === 'Capture Ball');
+    if (!captureBallItem) {
+      gameState.bag.push({ name: 'Capture Ball', qty: 5 });
+      return true;
+    }
+    return false;
+  }
+
   function handleVictory() {
     updateBertyBucks(gameState, true);
     showBattleMessage(`You defeated your Rival! +${BERTYBUCKS_BATTLE_REWARD} BertyBucks!`);
@@ -1291,9 +1297,19 @@ scene('battle', () => {
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    wait(3, () => {
-      go('intro');
-    });
+    const gotBalls = grantCaptureBallsIfFirst();
+    if (gotBalls) {
+      wait(3, () => {
+        showBattleMessage('Professor Willow gave you 5 Capture Balls!');
+        wait(3, () => {
+          go('intro');
+        });
+      });
+    } else {
+      wait(3, () => {
+        go('intro');
+      });
+    }
   }
 
   function handleDefeat() {
@@ -1306,9 +1322,19 @@ scene('battle', () => {
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    wait(3, () => {
-      go('intro');
-    });
+    const gotBalls = grantCaptureBallsIfFirst();
+    if (gotBalls) {
+      wait(3, () => {
+        showBattleMessage('Professor Willow gave you 5 Capture Balls!');
+        wait(3, () => {
+          go('intro');
+        });
+      });
+    } else {
+      wait(3, () => {
+        go('intro');
+      });
+    }
   }
 
   // Step 9: Battle Intro Sequence
