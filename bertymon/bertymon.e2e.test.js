@@ -167,31 +167,31 @@ test.describe('Intro Scene', () => {
 });
 
 test.describe('Starter Selection', () => {
-  test('should select Flarepup and rival gets Aquawing', async ({ page }) => {
+  test('should select Flarepup and rival gets Treebeast', async ({ page }) => {
     await navigateToLab(page);
     await selectStarter(page, 'Flarepup');
 
     const state = await getGameState(page);
     expect(state.playerParty[0].name).toBe('Flarepup');
-    expect(state.rivalParty[0].name).toBe('Aquawing');
+    expect(state.rivalParty[0].name).toBe('Treebeast');
   });
 
-  test('should select Aquawing and rival gets Treebeast', async ({ page }) => {
+  test('should select Aquawing and rival gets Flarepup', async ({ page }) => {
     await navigateToLab(page);
     await selectStarter(page, 'Aquawing');
 
     const state = await getGameState(page);
     expect(state.playerParty[0].name).toBe('Aquawing');
-    expect(state.rivalParty[0].name).toBe('Treebeast');
+    expect(state.rivalParty[0].name).toBe('Flarepup');
   });
 
-  test('should select Treebeast and rival gets Flarepup', async ({ page }) => {
+  test('should select Treebeast and rival gets Aquawing', async ({ page }) => {
     await navigateToLab(page);
     await selectStarter(page, 'Treebeast');
 
     const state = await getGameState(page);
     expect(state.playerParty[0].name).toBe('Treebeast');
-    expect(state.rivalParty[0].name).toBe('Flarepup');
+    expect(state.rivalParty[0].name).toBe('Aquawing');
   });
 });
 
@@ -319,7 +319,7 @@ test.describe('Battle Flow', () => {
 
   test('should complete battle and return to intro', async ({ page }) => {
     test.setTimeout(90000); // Extend timeout for full battle cycle
-    // Use Aquawing (Water) vs Treebeast (Grass) for type advantage
+    // Use Aquawing (Water) vs Flarepup (Fire) for type advantage
     await navigateToBattle(page, 'Aquawing');
     await page.waitForTimeout(6500);
 
