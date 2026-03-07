@@ -207,14 +207,10 @@ scene('intro', () => {
   // Add professor's lab
   const lab = add([sprite('lab'), pos(width() / 2 - 32, 100), area(), 'lab', 'interactable']);
 
-  // Add professor near the lab
-  const professor = add([
-    sprite('professor'),
-    pos(width() / 2, 180),
-    area(),
-    'professor',
-    'interactable',
-  ]);
+  // Add professor near the lab (only before the player has chosen a starter)
+  if (!gameState.hasStarterBertymon) {
+    add([sprite('professor'), pos(width() / 2, 180), area(), 'professor', 'interactable']);
+  }
 
   // Add player
   const player = add([
@@ -290,17 +286,19 @@ scene('intro', () => {
   window.handleSelect = handleSelect;
   onKeyPress('space', handleSelect);
 
-  // UI Text
-  add([
-    text('Welcome to the world of Bertymon!', {
-      size: 24,
-      font: 'monospace',
-    }),
-    pos(width() / 2, 30),
-    anchor('center'),
-    color(255, 255, 255),
-    outline(2, rgb(0, 0, 0)),
-  ]);
+  // UI Text (welcome message only shown before choosing a starter)
+  if (!gameState.hasStarterBertymon) {
+    add([
+      text('Welcome to the world of Bertymon!', {
+        size: 24,
+        font: 'monospace',
+      }),
+      pos(width() / 2, 30),
+      anchor('center'),
+      color(255, 255, 255),
+      outline(2, rgb(0, 0, 0)),
+    ]);
+  }
 
   add([
     text(`BB: ${gameState.bertyBucks}`, {
