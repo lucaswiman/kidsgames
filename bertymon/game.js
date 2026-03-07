@@ -295,7 +295,7 @@ scene('intro', () => {
       }),
       pos(width() / 2, 30),
       anchor('center'),
-      color(255, 255, 255),
+      color(0, 200, 0),
       outline(2, rgb(0, 0, 0)),
     ]);
   }
