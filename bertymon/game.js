@@ -13,6 +13,7 @@ import {
   getRivalStarter,
   applyMoveEffect,
   updateBertyBucks,
+  attemptCapture,
 } from './game-logic.js';
 
 // Initialize KAPLAY
@@ -649,6 +650,8 @@ scene('battle', () => {
     phase: 'intro', // intro, action, move, bag, party, executing
     selectedMove: null,
     messageTimeout: null,
+    isWild: false,
+    wildBertymon: null,
   };
 
   // Step 4: Create battle scene layout
@@ -1025,6 +1028,33 @@ scene('battle', () => {
           executeOpponentTurn();
         });
       }
+    } else if (item.name === 'Capture Ball') {
+      destroyAll('bag-btn');
+      if (battleState.isWild) {
+        const rivalBmon = battleState.wildBertymon;
+        item.qty--;
+        const result = attemptCapture(rivalBmon);
+        showBattleMessage('You threw a Capture Ball!');
+        wait(2, () => {
+          if (result.captured) {
+            showBattleMessage(`Gotcha! ${rivalBmon.name} was captured!`);
+            gameState.playerParty.push({ ...rivalBmon });
+            wait(3, () => {
+              go('intro');
+            });
+          } else {
+            showBattleMessage(`Oh no! ${rivalBmon.name} broke free!`);
+            wait(2, () => {
+              executeOpponentTurn();
+            });
+          }
+        });
+      } else {
+        showBattleMessage("You can't capture a rival's Bertymon!");
+        wait(2, () => {
+          showActionButtons();
+        });
+      }
     }
   }
 
@@ -1277,6 +1307,15 @@ scene('battle', () => {
     });
   }
 
+  function grantCaptureBallsIfFirst() {
+    const captureBallItem = gameState.bag.find(i => i.name === 'Capture Ball');
+    if (!captureBallItem) {
+      gameState.bag.push({ name: 'Capture Ball', qty: 5 });
+      return true;
+    }
+    return false;
+  }
+
   function handleVictory() {
     updateBertyBucks(gameState, true);
     showBattleMessage(`You defeated your Rival! +${BERTYBUCKS_BATTLE_REWARD} BertyBucks!`);
@@ -1287,9 +1326,19 @@ scene('battle', () => {
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    wait(3, () => {
-      go('intro');
-    });
+    const gotBalls = grantCaptureBallsIfFirst();
+    if (gotBalls) {
+      wait(3, () => {
+        showBattleMessage('Professor Willow gave you 5 Capture Balls!');
+        wait(3, () => {
+          go('intro');
+        });
+      });
+    } else {
+      wait(3, () => {
+        go('intro');
+      });
+    }
   }
 
   function handleDefeat() {
@@ -1302,9 +1351,19 @@ scene('battle', () => {
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    wait(3, () => {
-      go('intro');
-    });
+    const gotBalls = grantCaptureBallsIfFirst();
+    if (gotBalls) {
+      wait(3, () => {
+        showBattleMessage('Professor Willow gave you 5 Capture Balls!');
+        wait(3, () => {
+          go('intro');
+        });
+      });
+    } else {
+      wait(3, () => {
+        go('intro');
+      });
+    }
   }
 
   // Step 9: Battle Intro Sequence

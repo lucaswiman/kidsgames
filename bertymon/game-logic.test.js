@@ -6,6 +6,7 @@ const {
   MOVES,
   BERTYMON_TEMPLATES,
   BERTYBUCKS_BATTLE_REWARD,
+  CAPTURE_BALL_BASE_CHANCE,
   createBertymon,
   getTypeEffectiveness,
   getStatWithStages,
@@ -13,6 +14,8 @@ const {
   getRivalStarter,
   applyMoveEffect,
   updateBertyBucks,
+  calculateCaptureChance,
+  attemptCapture,
 } = require('./game-logic');
 
 describe('MOVES Data Structure', () => {
@@ -365,6 +368,59 @@ describe('updateBertyBucks()', () => {
     updateBertyBucks(state, true);
     updateBertyBucks(state, false);
     expect(state.bertyBucks).toBe(0);
+  });
+});
+
+describe('calculateCaptureChance()', () => {
+  test('should return base chance at full HP', () => {
+    const bmon = createBertymon('Treebeast');
+    const chance = calculateCaptureChance(bmon);
+    expect(chance).toBeCloseTo(CAPTURE_BALL_BASE_CHANCE, 5);
+  });
+
+  test('should increase chance as HP decreases', () => {
+    const bmon = createBertymon('Treebeast');
+    const fullHpChance = calculateCaptureChance(bmon);
+
+    bmon.hp = 50;
+    const halfHpChance = calculateCaptureChance(bmon);
+
+    bmon.hp = 10;
+    const lowHpChance = calculateCaptureChance(bmon);
+
+    expect(halfHpChance).toBeGreaterThan(fullHpChance);
+    expect(lowHpChance).toBeGreaterThan(halfHpChance);
+  });
+
+  test('should cap at 95%', () => {
+    const bmon = createBertymon('Treebeast');
+    bmon.hp = 1;
+    const chance = calculateCaptureChance(bmon);
+    expect(chance).toBeLessThanOrEqual(0.95);
+  });
+});
+
+describe('attemptCapture()', () => {
+  test('should return captured boolean and chance', () => {
+    const bmon = createBertymon('Treebeast');
+    const result = attemptCapture(bmon);
+    expect(typeof result.captured).toBe('boolean');
+    expect(typeof result.chance).toBe('number');
+    expect(result.chance).toBeGreaterThan(0);
+    expect(result.chance).toBeLessThanOrEqual(0.95);
+  });
+
+  test('should eventually capture at low HP over many attempts', () => {
+    const bmon = createBertymon('Treebeast');
+    bmon.hp = 1;
+    let captured = false;
+    for (let i = 0; i < 100; i++) {
+      if (attemptCapture(bmon).captured) {
+        captured = true;
+        break;
+      }
+    }
+    expect(captured).toBe(true);
   });
 });
 

@@ -145,7 +145,25 @@ export function updateBertyBucks(gameState, didWin) {
   gameState.bertyBucks += didWin ? BERTYBUCKS_BATTLE_REWARD : -BERTYBUCKS_BATTLE_REWARD;
 }
 
-// 1i. Apply status move effects
+// 1i. Capture Ball logic
+export const CAPTURE_BALL_BASE_CHANCE = 0.3;
+
+export function calculateCaptureChance(targetBertymon) {
+  // Capture chance increases as HP decreases
+  // At full HP: base chance (30%)
+  // At 1 HP: nearly guaranteed (~90%)
+  const hpRatio = targetBertymon.hp / targetBertymon.maxHp;
+  const chance = CAPTURE_BALL_BASE_CHANCE + (1 - hpRatio) * 0.6;
+  return Math.min(chance, 0.95);
+}
+
+export function attemptCapture(targetBertymon) {
+  const chance = calculateCaptureChance(targetBertymon);
+  const roll = Math.random();
+  return { captured: roll < chance, chance };
+}
+
+// 1j. Apply status move effects
 export function applyMoveEffect(move, target) {
   if (move.effect === 'lowerDefense1') {
     target.statStages.defense = Math.max(-6, target.statStages.defense - 1);
@@ -160,6 +178,7 @@ if (typeof module !== 'undefined' && module.exports) {
     MOVES,
     BERTYMON_TEMPLATES,
     BERTYBUCKS_BATTLE_REWARD,
+    CAPTURE_BALL_BASE_CHANCE,
     createBertymon,
     getTypeEffectiveness,
     getStatWithStages,
@@ -167,5 +186,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getRivalStarter,
     applyMoveEffect,
     updateBertyBucks,
+    calculateCaptureChance,
+    attemptCapture,
   };
 }
