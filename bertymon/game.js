@@ -13,6 +13,7 @@ import {
   getRivalStarter,
   applyMoveEffect,
   updateBertyBucks,
+  attemptCapture,
 } from './game-logic.js';
 
 // Initialize KAPLAY
@@ -189,7 +190,10 @@ const gameState = {
   currentScene: 'intro',
   playerParty: [],
   rivalParty: [],
-  bag: [{ name: 'Potion', qty: 3, hpRestore: 20 }],
+  bag: [
+    { name: 'Potion', qty: 3, hpRestore: 20 },
+    { name: 'Capture Ball', qty: 5 },
+  ],
   activeBertymonIndex: 0,
   bertyBucks: 0,
 };
