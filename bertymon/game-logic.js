@@ -4,7 +4,7 @@
  */
 
 // 1a. MOVES Data Structure
-const MOVES = {
+export const MOVES = {
   Leafage: { name: 'Leafage', type: 'Grass', power: 50, effect: null },
   Ember: { name: 'Ember', type: 'Fire', power: 50, effect: null },
   WaterGun: { name: 'Water Gun', type: 'Water', power: 50, effect: null },
@@ -14,7 +14,7 @@ const MOVES = {
 };
 
 // 1b. BERTYMON_TEMPLATES Data Structure
-const BERTYMON_TEMPLATES = {
+export const BERTYMON_TEMPLATES = {
   Treebeast: {
     name: 'Treebeast',
     type: 'Grass',
@@ -48,7 +48,7 @@ const BERTYMON_TEMPLATES = {
 };
 
 // 1c. Create a fresh Bertymon instance from template
-function createBertymon(templateName) {
+export function createBertymon(templateName) {
   const template = BERTYMON_TEMPLATES[templateName];
   if (!template) {
     throw new Error(`Unknown Bertymon template: ${templateName}`);
@@ -71,7 +71,7 @@ function createBertymon(templateName) {
 }
 
 // 1d. Calculate type effectiveness (2, 1, or 0.5)
-function getTypeEffectiveness(attackType, defenderType) {
+export function getTypeEffectiveness(attackType, defenderType) {
   // Type triangle: Grass > Water > Fire > Grass
   if (attackType === 'Grass' && defenderType === 'Water') {
     return 2;
@@ -97,7 +97,7 @@ function getTypeEffectiveness(attackType, defenderType) {
 }
 
 // 1e. Apply stat stage modifiers
-function getStatWithStages(baseStat, stage) {
+export function getStatWithStages(baseStat, stage) {
   if (stage === 0) {
     return baseStat;
   }
@@ -108,7 +108,7 @@ function getStatWithStages(baseStat, stage) {
 }
 
 // 1f. Calculate damage from attack
-function calculateDamage(move, attacker, defender) {
+export function calculateDamage(move, attacker, defender) {
   if (move.power === null) {
     throw new Error('Cannot calculate damage for status moves');
   }
@@ -125,7 +125,7 @@ function calculateDamage(move, attacker, defender) {
 }
 
 // 1g. Determine rival's starter (weak to player's type, giving player the advantage)
-function getRivalStarter(playerStarterName) {
+export function getRivalStarter(playerStarterName) {
   const counterPicks = {
     Treebeast: 'Aquawing',
     Flarepup: 'Treebeast',
@@ -139,14 +139,14 @@ function getRivalStarter(playerStarterName) {
 }
 
 // 1h. Update BertyBucks after a battle
-const BERTYBUCKS_BATTLE_REWARD = 100;
+export const BERTYBUCKS_BATTLE_REWARD = 100;
 
-function updateBertyBucks(gameState, didWin) {
+export function updateBertyBucks(gameState, didWin) {
   gameState.bertyBucks += didWin ? BERTYBUCKS_BATTLE_REWARD : -BERTYBUCKS_BATTLE_REWARD;
 }
 
 // 1i. Apply status move effects
-function applyMoveEffect(move, target) {
+export function applyMoveEffect(move, target) {
   if (move.effect === 'lowerDefense1') {
     target.statStages.defense = Math.max(-6, target.statStages.defense - 1);
   } else if (move.effect === 'lowerAttack1') {
