@@ -317,17 +317,18 @@ test.describe('Battle Flow', () => {
     expect(rivalHpAfter).toBeLessThan(rivalHpBefore);
   });
 
-  test('should complete battle and return to intro', async ({ page }) => {
-    test.setTimeout(90000); // Extend timeout for full battle cycle
+  test('should complete rival battle and enter wild Lalu encounter', async ({ page }) => {
+    test.setTimeout(90000);
     // Use Aquawing (Water) vs Flarepup (Fire) for type advantage
     await navigateToBattle(page, 'Aquawing');
     await page.waitForTimeout(6500);
 
-    // Execute moves until battle ends (max 15 turns with extended timeout)
+    // Execute moves until rival battle ends (max 15 turns)
     for (let i = 0; i < 15; i++) {
       const state = await getGameState(page);
-      if (state.currentScene === 'intro') {
-        break; // Battle ended
+      // After rival battle, capture balls are granted and wild Lalu encounter starts
+      if (state.hasEncounteredLalu) {
+        break;
       }
 
       await clickCanvas(page, 115, 425); // Battle
@@ -336,11 +337,102 @@ test.describe('Battle Flow', () => {
       await page.waitForTimeout(3000);
     }
 
-    // Wait for victory message and transition
-    await page.waitForTimeout(4000);
+    // Wait for capture ball message and wild encounter transition
+    await page.waitForTimeout(10000);
 
     const finalState = await getGameState(page);
-    expect(finalState.currentScene).toBe('intro');
+    // Should have received capture balls and entered wild Lalu battle
+    expect(finalState.hasEncounteredLalu).toBe(true);
+    const captureBalls = finalState.bag.find(i => i.name === 'Capture Ball');
+    expect(captureBalls).toBeDefined();
+    expect(captureBalls.qty).toBe(5);
+    expect(finalState.currentScene).toBe('battle');
+  });
+});
+
+test.describe('Wild Battle', () => {
+  test('should floor wild Lalu HP at 10', async ({ page }) => {
+    test.setTimeout(120000);
+    await navigateToBattle(page, 'Aquawing');
+    await page.waitForTimeout(6500);
+
+    // Win the rival battle first
+    for (let i = 0; i < 15; i++) {
+      const state = await getGameState(page);
+      if (state.hasEncounteredLalu) {
+        break;
+      }
+      await clickCanvas(page, 115, 425); // Battle
+      await page.waitForTimeout(500);
+      await clickCanvas(page, 400, 225); // Move 0
+      await page.waitForTimeout(3000);
+    }
+
+    // Wait for wild encounter to start
+    await page.waitForTimeout(10000);
+
+    // Attack the wild Lalu a few times
+    for (let i = 0; i < 5; i++) {
+      const state = await getGameState(page);
+      if (state.currentScene !== 'battle') {
+        break;
+      }
+      await clickCanvas(page, 115, 425); // Battle
+      await page.waitForTimeout(500);
+      await clickCanvas(page, 400, 225); // Move 0
+      await page.waitForTimeout(3000);
+    }
+
+    const state = await getGameState(page);
+    if (state.currentScene === 'battle') {
+      // Wild Lalu HP should be floored at 10
+      const laluHp = state.rivalParty[0].hp;
+      expect(laluHp).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  test('should go to lab on wild battle defeat', async ({ page }) => {
+    test.setTimeout(180000);
+    await navigateToBattle(page, 'Aquawing');
+    await page.waitForTimeout(6500);
+
+    // Win the rival battle first
+    for (let i = 0; i < 15; i++) {
+      const state = await getGameState(page);
+      if (state.hasEncounteredLalu) {
+        break;
+      }
+      await clickCanvas(page, 115, 425); // Battle
+      await page.waitForTimeout(500);
+      await clickCanvas(page, 400, 225); // Move 0
+      await page.waitForTimeout(3000);
+    }
+
+    // Wait for wild encounter to start
+    await page.waitForTimeout(10000);
+
+    // Keep attacking until we lose (Lalu HP floors at 10, so we can't win by attacking)
+    for (let i = 0; i < 30; i++) {
+      const state = await getGameState(page);
+      if (state.currentScene !== 'battle') {
+        break;
+      }
+      await clickCanvas(page, 115, 425); // Battle
+      await page.waitForTimeout(500);
+      await clickCanvas(page, 400, 225); // Move 0
+      await page.waitForTimeout(3000);
+    }
+
+    // Wait for defeat message and transition
+    await page.waitForTimeout(5000);
+
+    const finalState = await getGameState(page);
+    // On wild battle defeat, player goes to lab
+    expect(finalState.currentScene).toBe('lab');
+    // Player party should be healed
+    finalState.playerParty.forEach(b => {
+      expect(b.hp).toBe(b.maxHp);
+    });
   });
 });
 

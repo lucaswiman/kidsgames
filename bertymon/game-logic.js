@@ -45,6 +45,16 @@ export const BERTYMON_TEMPLATES = {
     speed: 50,
     moves: ['WaterGun', 'QuickAttack', 'Leer'],
   },
+  Lalu: {
+    name: 'Lalu',
+    type: 'Normal',
+    sprite: 'lalu',
+    hp: 60,
+    attack: 35,
+    defense: 35,
+    speed: 40,
+    moves: ['QuickAttack', 'TailWag'],
+  },
 };
 
 // 1c. Create a fresh Bertymon instance from template
