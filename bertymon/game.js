@@ -144,6 +144,21 @@ loadSprite(
 loadSprite('aquawing', 'sprites/Aquawing.png');
 loadSprite('flarepup', 'sprites/Flarepup.png');
 loadSprite('treebeast', 'sprites/Treebeast.png');
+loadSprite(
+  'lalu',
+  'data:image/svg+xml;base64,' +
+    btoa(`
+    <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="16" cy="18" rx="12" ry="10" fill="#e8b4d8"/>
+        <ellipse cx="16" cy="18" rx="10" ry="8" fill="#f0c8e8"/>
+        <circle cx="12" cy="16" r="2" fill="#333"/>
+        <circle cx="20" cy="16" r="2" fill="#333"/>
+        <ellipse cx="16" cy="20" rx="2" ry="1" fill="#d48cb0"/>
+        <ellipse cx="8" cy="10" rx="3" ry="5" fill="#e8b4d8"/>
+        <ellipse cx="24" cy="10" rx="3" ry="5" fill="#e8b4d8"/>
+    </svg>
+`)
+);
 
 loadSprite(
   'professor',
@@ -193,6 +208,8 @@ const gameState = {
   bag: [{ name: 'Potion', qty: 3, hpRestore: 20 }],
   activeBertymonIndex: 0,
   bertyBucks: 0,
+  pendingWildEncounter: null,
+  hasEncounteredLalu: false,
 };
 
 // Intro scene
@@ -1038,7 +1055,13 @@ scene('battle', () => {
         wait(2, () => {
           if (result.captured) {
             showBattleMessage(`Gotcha! ${rivalBmon.name} was captured!`);
-            gameState.playerParty.push({ ...rivalBmon });
+            const captured = createBertymon(rivalBmon.name);
+            gameState.playerParty.push(captured);
+            // Heal player party after wild battle
+            gameState.playerParty.forEach(b => {
+              b.hp = b.maxHp;
+              b.statStages = { attack: 0, defense: 0 };
+            });
             wait(3, () => {
               go('intro');
             });
@@ -1153,7 +1176,9 @@ scene('battle', () => {
     wait(1, () => {
       if (move.power !== null) {
         const result = calculateDamage(move, attacker, defender);
-        defender.hp = Math.max(0, defender.hp - result.damage);
+        // In wild battles, wild Bertymon HP cannot go below 10
+        const hpFloor = battleState.isWild && defenderSide === 'enemy' ? 10 : 0;
+        defender.hp = Math.max(hpFloor, defender.hp - result.damage);
         refreshHpBar(defenderSide);
 
         if (result.effectiveness === 2) {
@@ -1231,6 +1256,17 @@ scene('battle', () => {
             showForcedPartyMenu();
           });
         }
+      });
+      return;
+    }
+
+    // In wild battles, check if wild Bertymon hit the HP floor
+    if (battleState.isWild && rivalBmon.hp <= 10) {
+      showBattleMessage(`${rivalBmon.name} is weak! Use a Capture Ball!`);
+      wait(2, () => {
+        battleState.phase = 'action';
+        showBattleMessage('What will you do?');
+        showActionButtons();
       });
       return;
     }
@@ -1316,7 +1352,50 @@ scene('battle', () => {
     return false;
   }
 
+  function startWildLaluEncounter() {
+    gameState.pendingWildEncounter = createBertymon('Lalu');
+    gameState.hasEncounteredLalu = true;
+    go('battle');
+  }
+
+  function afterBattleTransition() {
+    const gotBalls = grantCaptureBallsIfFirst();
+    if (gotBalls) {
+      wait(3, () => {
+        showBattleMessage('Professor Willow gave you 5 Capture Balls!');
+        wait(3, () => {
+          if (!gameState.hasEncounteredLalu) {
+            showBattleMessage('A wild Lalu appeared on the way out!');
+            wait(2, () => {
+              startWildLaluEncounter();
+            });
+          } else {
+            go('intro');
+          }
+        });
+      });
+    } else {
+      wait(3, () => {
+        go('intro');
+      });
+    }
+  }
+
   function handleVictory() {
+    if (battleState.isWild) {
+      // Wild battle won't normally end via victory (HP floors at 10),
+      // but handle it just in case
+      showBattleMessage('The wild Bertymon fled!');
+      gameState.playerParty.forEach(b => {
+        b.hp = b.maxHp;
+        b.statStages = { attack: 0, defense: 0 };
+      });
+      wait(3, () => {
+        go('intro');
+      });
+      return;
+    }
+
     updateBertyBucks(gameState, true);
     showBattleMessage(`You defeated your Rival! +${BERTYBUCKS_BATTLE_REWARD} BertyBucks!`);
 
@@ -1326,22 +1405,22 @@ scene('battle', () => {
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    const gotBalls = grantCaptureBallsIfFirst();
-    if (gotBalls) {
-      wait(3, () => {
-        showBattleMessage('Professor Willow gave you 5 Capture Balls!');
-        wait(3, () => {
-          go('intro');
-        });
-      });
-    } else {
-      wait(3, () => {
-        go('intro');
-      });
-    }
+    afterBattleTransition();
   }
 
   function handleDefeat() {
+    if (battleState.isWild) {
+      showBattleMessage('You blacked out... The wild Bertymon got away.');
+      gameState.playerParty.forEach(b => {
+        b.hp = b.maxHp;
+        b.statStages = { attack: 0, defense: 0 };
+      });
+      wait(3, () => {
+        go('intro');
+      });
+      return;
+    }
+
     updateBertyBucks(gameState, false);
     showBattleMessage(`You lost the battle... -${BERTYBUCKS_BATTLE_REWARD} BertyBucks`);
 
@@ -1351,25 +1430,21 @@ scene('battle', () => {
       b.statStages = { attack: 0, defense: 0 };
     });
 
-    const gotBalls = grantCaptureBallsIfFirst();
-    if (gotBalls) {
-      wait(3, () => {
-        showBattleMessage('Professor Willow gave you 5 Capture Balls!');
-        wait(3, () => {
-          go('intro');
-        });
-      });
-    } else {
-      wait(3, () => {
-        go('intro');
-      });
-    }
+    afterBattleTransition();
   }
 
   // Step 9: Battle Intro Sequence
-  showBattleMessage('Rival wants to battle!');
-  wait(2, () => {
-    showBattleMessage(`Rival sent out ${gameState.rivalParty[0].name}!`);
+  // Check for pending wild encounter
+  if (gameState.pendingWildEncounter) {
+    battleState.isWild = true;
+    battleState.wildBertymon = gameState.pendingWildEncounter;
+    gameState.rivalParty = [gameState.pendingWildEncounter];
+    gameState.pendingWildEncounter = null;
+  }
+
+  if (battleState.isWild) {
+    const wildBmon = battleState.wildBertymon;
+    showBattleMessage(`A wild ${wildBmon.name} appeared!`);
     wait(2, () => {
       const playerBmon = gameState.playerParty[gameState.activeBertymonIndex];
       showBattleMessage(`Go, ${playerBmon.name}!`);
@@ -1380,7 +1455,22 @@ scene('battle', () => {
         showActionButtons();
       });
     });
-  });
+  } else {
+    showBattleMessage('Rival wants to battle!');
+    wait(2, () => {
+      showBattleMessage(`Rival sent out ${gameState.rivalParty[0].name}!`);
+      wait(2, () => {
+        const playerBmon = gameState.playerParty[gameState.activeBertymonIndex];
+        showBattleMessage(`Go, ${playerBmon.name}!`);
+        wait(1.5, () => {
+          refreshBattleDisplay();
+          battleState.phase = 'action';
+          showBattleMessage('What will you do?');
+          showActionButtons();
+        });
+      });
+    });
+  }
 });
 
 // Start the game
