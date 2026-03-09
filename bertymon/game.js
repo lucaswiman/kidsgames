@@ -1425,10 +1425,7 @@ scene('battle', () => {
     updateBertyBucks(gameState, false);
     showBattleMessage(`You lost the battle... -${BERTYBUCKS_BATTLE_REWARD} BertyBucks`);
 
-    wait(3, () => {
-      showBattleMessage('You found a safe place to heal.');
-      afterBattleTransition('lab');
-    });
+    afterBattleTransition();
   }
 
   // Step 9: Battle Intro Sequence
