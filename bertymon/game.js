@@ -1358,7 +1358,7 @@ scene('battle', () => {
     go('battle');
   }
 
-  function afterBattleTransition() {
+  function afterBattleTransition(destination = 'intro') {
     const gotBalls = grantCaptureBallsIfFirst();
     if (gotBalls) {
       wait(3, () => {
@@ -1370,13 +1370,13 @@ scene('battle', () => {
               startWildLaluEncounter();
             });
           } else {
-            go('intro');
+            go(destination);
           }
         });
       });
     } else {
       wait(3, () => {
-        go('intro');
+        go(destination);
       });
     }
   }
@@ -1409,14 +1409,15 @@ scene('battle', () => {
   }
 
   function handleDefeat() {
+    gameState.playerParty.forEach(b => {
+      b.hp = b.maxHp;
+      b.statStages = { attack: 0, defense: 0 };
+    });
+
     if (battleState.isWild) {
-      showBattleMessage('You blacked out... The wild Bertymon got away.');
-      gameState.playerParty.forEach(b => {
-        b.hp = b.maxHp;
-        b.statStages = { attack: 0, defense: 0 };
-      });
+      showBattleMessage('You found a safe place to heal.');
       wait(3, () => {
-        go('intro');
+        go('lab');
       });
       return;
     }
@@ -1424,13 +1425,10 @@ scene('battle', () => {
     updateBertyBucks(gameState, false);
     showBattleMessage(`You lost the battle... -${BERTYBUCKS_BATTLE_REWARD} BertyBucks`);
 
-    // Heal all player Bertymon for the next battle
-    gameState.playerParty.forEach(b => {
-      b.hp = b.maxHp;
-      b.statStages = { attack: 0, defense: 0 };
+    wait(3, () => {
+      showBattleMessage('You found a safe place to heal.');
+      afterBattleTransition('lab');
     });
-
-    afterBattleTransition();
   }
 
   // Step 9: Battle Intro Sequence
