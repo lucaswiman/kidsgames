@@ -50,8 +50,8 @@ describe('MOVES Data Structure', () => {
 });
 
 describe('BERTYMON_TEMPLATES Data Structure', () => {
-  test('should have 3 starter templates', () => {
-    expect(Object.keys(BERTYMON_TEMPLATES).length).toBe(3);
+  test('should have 4 templates (3 starters + Lalu)', () => {
+    expect(Object.keys(BERTYMON_TEMPLATES).length).toBe(4);
   });
 
   test('should have Treebeast template', () => {
@@ -73,14 +73,23 @@ describe('BERTYMON_TEMPLATES Data Structure', () => {
     expect(BERTYMON_TEMPLATES.Aquawing.speed).toBe(50);
   });
 
+  test('should have Lalu template', () => {
+    expect(BERTYMON_TEMPLATES.Lalu.name).toBe('Lalu');
+    expect(BERTYMON_TEMPLATES.Lalu.type).toBe('Normal');
+    expect(BERTYMON_TEMPLATES.Lalu.hp).toBe(60);
+    expect(BERTYMON_TEMPLATES.Lalu.attack).toBe(35);
+    expect(BERTYMON_TEMPLATES.Lalu.defense).toBe(35);
+    expect(BERTYMON_TEMPLATES.Lalu.speed).toBe(40);
+  });
+
   test('all templates should have required properties', () => {
     Object.values(BERTYMON_TEMPLATES).forEach(template => {
       expect(template.name).toBeDefined();
       expect(template.type).toBeDefined();
       expect(template.sprite).toBeDefined();
-      expect(template.hp).toBe(100);
-      expect(template.attack).toBe(50);
-      expect(template.defense).toBe(50);
+      expect(template.hp).toBeGreaterThan(0);
+      expect(template.attack).toBeGreaterThan(0);
+      expect(template.defense).toBeGreaterThan(0);
       expect(Array.isArray(template.moves)).toBe(true);
     });
   });
@@ -96,6 +105,18 @@ describe('createBertymon()', () => {
     expect(bmon.attack).toBe(50);
     expect(bmon.defense).toBe(50);
     expect(bmon.speed).toBe(45);
+  });
+
+  test('should create Lalu with correct stats', () => {
+    const bmon = createBertymon('Lalu');
+    expect(bmon.name).toBe('Lalu');
+    expect(bmon.type).toBe('Normal');
+    expect(bmon.hp).toBe(60);
+    expect(bmon.maxHp).toBe(60);
+    expect(bmon.attack).toBe(35);
+    expect(bmon.defense).toBe(35);
+    expect(bmon.speed).toBe(40);
+    expect(bmon.moves).toEqual(['QuickAttack', 'TailWag']);
   });
 
   test('should have initial stat stages at 0', () => {
