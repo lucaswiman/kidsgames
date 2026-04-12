@@ -1,6 +1,6 @@
 // Lalu sprite with hunger state machine
 class LaluSprite extends Sprite {
-  constructor(id, x, y, getVisibleSprites, nest, mother = null) {
+  constructor(id, x, y, getVisibleSprites, nest, mother = null, stats = null) {
     super(id, 'lalu', x, y, getVisibleSprites);
     this.nest = nest;
     this.homeX = nest ? nest.x : x;
@@ -13,6 +13,28 @@ class LaluSprite extends Sprite {
     this.mother = mother; // Reference to mother for babies
     this.babyAge = 0; // Days as a baby
     this.hasReproduced = false; // Track if this lalu has reproduced this day
+
+    // Stats - inherited from parents or randomly assigned
+    this.fluffiness = stats ? stats.fluffiness : LaluSprite.randomStat();
+  }
+
+  // Generate a random stat value: -1, 0, or 1
+  static randomStat() {
+    return Math.floor(Math.random() * 3) - 1;
+  }
+
+  // Inherit a stat from two parents, with a chance of mutation
+  static inheritStat(parentA, parentB) {
+    // Pick one parent's value at random
+    const inherited = Math.random() < 0.5 ? parentA : parentB;
+
+    // 20% chance of mutation
+    if (Math.random() < 0.2) {
+      const direction = Math.random() < 0.5 ? -1 : 1;
+      return Math.max(-1, Math.min(1, inherited + direction));
+    }
+
+    return inherited;
   }
 
   computeClassNames() {
@@ -24,10 +46,11 @@ class LaluSprite extends Sprite {
   }
 
   getTitle() {
+    const fluff = this.fluffiness > 0 ? 'fluffy' : this.fluffiness < 0 ? 'sleek' : 'normal';
     if (this.state === 'baby') {
-      return `Baby Lalu (${this.gender}, ${this.babyAge} days)`;
+      return `Baby Lalu (${this.gender}, ${this.babyAge} days, ${fluff})`;
     }
-    return `Lalu (${this.state}, ${this.gender})`;
+    return `Lalu (${this.state}, ${this.gender}, ${fluff})`;
   }
 
   getWidth() {
@@ -261,8 +284,8 @@ class LaluSprite extends Sprite {
         const female = this.gender === 'female' ? this : otherSprite;
         const male = this.gender === 'male' ? this : otherSprite;
 
-        // Create baby near the female
-        this.createBaby(female);
+        // Create baby near the female, inheriting stats from both parents
+        this.createBaby(female, male);
 
         // Mark both parents as having reproduced this day
         this.hasReproduced = true;
@@ -296,18 +319,25 @@ class LaluSprite extends Sprite {
     );
   }
 
-  createBaby(mother) {
+  createBaby(mother, father) {
     // Access the global game instance to add a new sprite
     if (window.game) {
       const babyX = mother.x + Math.random() * 20 - 10; // Near mother
       const babyY = mother.y + Math.random() * 20 - 10;
+
+      // Inherit stats from parents with possible mutation
+      const stats = {
+        fluffiness: LaluSprite.inheritStat(mother.fluffiness, father.fluffiness),
+      };
+
       const baby = new LaluSprite(
         `lalu_${Math.random().toString(36).substr(2, 9)}`,
         babyX,
         babyY,
         this.getVisibleSprites,
         mother.nest,
-        mother
+        mother,
+        stats
       );
       window.game.sprites.push(baby);
     }
