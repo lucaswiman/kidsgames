@@ -1,0 +1,254 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body, html {
+    height: 100%;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+
+#game-board {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    background: linear-gradient(to right, #E8A87C 0%, #D4E09B 50%, #A8D8EA 100%);
+}
+
+.sprite {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.sprite.tree {
+    user-select: none;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 80px !important;
+    height: 80px !important;
+    background-color: transparent !important;
+    border-radius: 0 !important;
+}
+
+.sprite:hover {
+    transform: scale(1.2);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.sprite.dragging {
+    z-index: 100;
+    transform: scale(1.3);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+}
+
+.sprite.lalu {
+    user-select: none;
+    background-image: url('lalu-transparent.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 50px !important;
+    height: 50px !important;
+    background-color: transparent !important;
+    border-radius: 0 !important;
+    transition: width 0.3s ease, height 0.3s ease;
+}
+
+.sprite.lalu.in-nest {
+    width: 12.5px !important;
+    height: 12.5px !important;
+}
+
+.sprite.nest {
+    background-color: #8B4513;
+    border-radius: 50%;
+    width: 40px !important;
+    height: 40px !important;
+}
+
+.gender-label {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 16px;
+    height: 16px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #333;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.gender-male::after {
+    content: 'M';
+}
+
+.gender-female::after {
+    content: 'F';
+}
+
+.day-ticker {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    min-width: 120px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    border-radius: 3px;
+    transition: width 0.1s ease;
+    width: 0%;
+}
+
+.settings-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: rotate(90deg);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: none;
+    border-radius: 10px;
+    width: 300px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    right: 15px;
+    top: 10px;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+}
+
+.setting {
+    margin-bottom: 15px;
+}
+
+.setting label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+.setting input {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.setting input:focus {
+    border-color: #4CAF50;
+    outline: none;
+}
+
+.modal-content button {
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+}
+
+.modal-content button:hover {
+    background-color: #45a049;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+    .modal-content {
+        width: 90%;
+        margin: 20% auto;
+    }
+
+    .settings-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+}

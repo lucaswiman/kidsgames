@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bertymon - Adventure Awaits!</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#87ceeb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Bertymon" />
+    <link rel="apple-touch-icon" href="sprites/Bertymon logo.png" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #2c3e50;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: 'Courier New', monospace;
+      }
+      canvas {
+        border: 2px solid #34495e;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://unpkg.com/kaplay@3001.0.0/dist/kaplay.js"></script>
+    <script type="module" src="game.js"></script>
+  </body>
+</html>

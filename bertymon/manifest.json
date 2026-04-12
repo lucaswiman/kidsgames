@@ -1,0 +1,23 @@
+{
+  "name": "Bertymon",
+  "short_name": "Bertymon",
+  "description": "A Pokemon-inspired adventure game for Berty!",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#87ceeb",
+  "theme_color": "#87ceeb",
+  "icons": [
+    {
+      "src": "sprites/Bertymon logo.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "sprites/Bertymon logo.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "orientation": "landscape"
+}
