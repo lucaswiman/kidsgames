@@ -2,17 +2,15 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: 'pages'
-  cancel-in-progress: false
+  group: 'pages-${{ github.ref }}'
+  cancel-in-progress: true
 
 jobs:
   unit-tests:
@@ -62,7 +60,7 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     needs:
       - unit-tests
@@ -71,43 +69,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Bertymon
+      - name: Build site
         run: |
-          cd bertymon
-          mkdir -p ../dist/bertymon
-          cp index.html ../dist/bertymon/
-          cp game.js ../dist/bertymon/
-          cp manifest.json ../dist/bertymon/
-          cp -r sprites ../dist/bertymon/
-
-      - name: Copy additional directories
-        run: |
-          if [ -d "lalu" ]; then
-            cp -r lalu dist/
-          fi
-          if [ -d "sphere-folder" ]; then
-            cp -r sphere-folder dist/
-          fi
-
-      - name: Copy root index.html
-        run: |
+          mkdir -p dist/bertymon
+          cp bertymon/index.html dist/bertymon/
+          cp bertymon/game.js dist/bertymon/
+          cp bertymon/manifest.json dist/bertymon/
+          cp -r bertymon/sprites dist/bertymon/
+          if [ -d "lalu" ]; then cp -r lalu dist/; fi
+          if [ -d "sphere-folder" ]; then cp -r sphere-folder dist/; fi
           cp index.html dist/
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main'
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: './dist'
+          folder: dist
+          clean: true
+          clean-exclude: dev
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to dev
+        if: github.ref != 'refs/heads/main'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
+          target-folder: dev
+          clean: true
