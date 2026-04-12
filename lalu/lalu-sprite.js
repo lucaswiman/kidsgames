@@ -16,6 +16,9 @@ class LaluSprite extends Sprite {
 
     // Stats - inherited from parents or randomly assigned
     this.fluffiness = stats ? stats.fluffiness : LaluSprite.randomStat();
+
+    // Age in days - increments each day, lalu dies when age exceeds lifespan
+    this.age = 0;
   }
 
   // Generate a random stat value: -1, 0, or 1
@@ -37,6 +40,25 @@ class LaluSprite extends Sprite {
     return inherited;
   }
 
+  // Returns 'hot' or 'cold' based on x position
+  getBiome() {
+    return this.getCenterX() < window.innerWidth / 2 ? 'hot' : 'cold';
+  }
+
+  // Returns lifespan in days based on fluffiness vs current biome
+  // Matched (fluffy in cold, sleek in hot) = 60 days
+  // Neutral (fluffiness 0) = 50 days
+  // Mismatched (fluffy in hot, sleek in cold) = 40 days
+  getLifespan() {
+    if (this.fluffiness === 0) {
+      return 50;
+    }
+    const biome = this.getBiome();
+    const matched =
+      (this.fluffiness > 0 && biome === 'cold') || (this.fluffiness < 0 && biome === 'hot');
+    return matched ? 60 : 40;
+  }
+
   computeClassNames() {
     const classes = ['sprite', 'lalu'];
     if (this.inNest) {
@@ -47,10 +69,11 @@ class LaluSprite extends Sprite {
 
   getTitle() {
     const fluff = this.fluffiness > 0 ? 'fluffy' : this.fluffiness < 0 ? 'sleek' : 'normal';
+    const biome = this.getBiome();
     if (this.state === 'baby') {
-      return `Baby Lalu (${this.gender}, ${this.babyAge} days, ${fluff})`;
+      return `Baby Lalu (${this.gender}, ${this.babyAge} days, ${fluff}, ${biome})`;
     }
-    return `Lalu (${this.state}, ${this.gender}, ${fluff})`;
+    return `Lalu (${this.state}, ${this.gender}, ${fluff}, ${biome}, age ${this.age}/${this.getLifespan()})`;
   }
 
   getWidth() {
@@ -114,8 +137,14 @@ class LaluSprite extends Sprite {
         this.createNewNest(); // Create a new nest when growing up
       }
     } else if (this.state !== 'dead') {
-      this.hungerLevel++;
-      this.updateHungerState();
+      this.age++;
+      if (this.age >= this.getLifespan()) {
+        // Died of old age
+        this.state = 'dead';
+      } else {
+        this.hungerLevel++;
+        this.updateHungerState();
+      }
 
       // If lalu just died, handle death consequences
       if (this.state === 'dead') {

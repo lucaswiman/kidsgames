@@ -14,7 +14,7 @@ body, html {
     width: 100vw;
     height: 100vh;
     position: relative;
-    background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 100%);
+    background: linear-gradient(to right, #E8A87C 0%, #D4E09B 50%, #A8D8EA 100%);
 }
 
 .sprite {
