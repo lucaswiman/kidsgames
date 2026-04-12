@@ -106,6 +106,22 @@ class LaluSprite extends Sprite {
       style.filter = 'grayscale(100%)';
     }
 
+    // Fluffiness visual effect - fluffy lalus get a soft white halo,
+    // sleek lalus stay crisp and tight
+    if (this.state !== 'dead') {
+      if (this.fluffiness > 0) {
+        // Fluffy: layered soft white shadows create a fluffy fur halo
+        style.boxShadow =
+          '0 0 8px 4px rgba(255, 255, 255, 0.8), ' +
+          '0 0 16px 8px rgba(255, 255, 255, 0.5), ' +
+          '0 0 24px 12px rgba(255, 255, 255, 0.3)';
+        style.borderRadius = '50%';
+      } else if (this.fluffiness < 0) {
+        // Sleek: a subtle tight glow, no fluff
+        style.filter = (style.filter || '') + ' contrast(1.1) saturate(1.1)';
+      }
+    }
+
     return style;
   }
 
