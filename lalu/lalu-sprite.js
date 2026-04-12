@@ -107,18 +107,20 @@ class LaluSprite extends Sprite {
     }
 
     // Fluffiness visual effect - fluffy lalus get a soft white halo,
-    // sleek lalus stay crisp and tight
+    // sleek lalus stay crisp and tight.
+    // Use drop-shadow (not box-shadow) so the halo follows the image's
+    // alpha channel rather than the sprite's square bounding box.
     if (this.state !== 'dead') {
       if (this.fluffiness > 0) {
-        // Fluffy: layered soft white shadows create a fluffy fur halo
-        style.boxShadow =
-          '0 0 8px 4px rgba(255, 255, 255, 0.8), ' +
-          '0 0 16px 8px rgba(255, 255, 255, 0.5), ' +
-          '0 0 24px 12px rgba(255, 255, 255, 0.3)';
-        style.borderRadius = '50%';
+        // Fluffy: layered soft white drop-shadows create a fluffy fur halo
+        const fluffyFilter =
+          'drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)) ' +
+          'drop-shadow(0 0 6px rgba(255, 255, 255, 0.7)) ' +
+          'drop-shadow(0 0 10px rgba(255, 255, 255, 0.5))';
+        style.filter = ((style.filter || '') + ' ' + fluffyFilter).trim();
       } else if (this.fluffiness < 0) {
         // Sleek: a subtle tight glow, no fluff
-        style.filter = (style.filter || '') + ' contrast(1.1) saturate(1.1)';
+        style.filter = ((style.filter || '') + ' contrast(1.1) saturate(1.1)').trim();
       }
     }
 
