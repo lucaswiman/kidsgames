@@ -1,6 +1,6 @@
 // Lalu sprite with hunger state machine
 class LaluSprite extends Sprite {
-  constructor(id, x, y, getVisibleSprites, nest, mother = null) {
+  constructor(id, x, y, getVisibleSprites, nest, mother = null, stats = null) {
     super(id, 'lalu', x, y, getVisibleSprites);
     this.nest = nest;
     this.homeX = nest ? nest.x : x;
@@ -13,6 +13,50 @@ class LaluSprite extends Sprite {
     this.mother = mother; // Reference to mother for babies
     this.babyAge = 0; // Days as a baby
     this.hasReproduced = false; // Track if this lalu has reproduced this day
+
+    // Stats - inherited from parents or randomly assigned
+    this.fluffiness = stats ? stats.fluffiness : LaluSprite.randomStat();
+
+    // Age in days - increments each day, lalu dies when age exceeds lifespan
+    this.age = 0;
+  }
+
+  // Generate a random stat value: -1, 0, or 1
+  static randomStat() {
+    return Math.floor(Math.random() * 3) - 1;
+  }
+
+  // Inherit a stat from two parents, with a chance of mutation
+  static inheritStat(parentA, parentB) {
+    // Pick one parent's value at random
+    const inherited = Math.random() < 0.5 ? parentA : parentB;
+
+    // 20% chance of mutation
+    if (Math.random() < 0.2) {
+      const direction = Math.random() < 0.5 ? -1 : 1;
+      return Math.max(-1, Math.min(1, inherited + direction));
+    }
+
+    return inherited;
+  }
+
+  // Returns 'hot' or 'cold' based on x position
+  getBiome() {
+    return this.getCenterX() < window.innerWidth / 2 ? 'hot' : 'cold';
+  }
+
+  // Returns lifespan in days based on fluffiness vs current biome
+  // Matched (fluffy in cold, sleek in hot) = 60 days
+  // Neutral (fluffiness 0) = 50 days
+  // Mismatched (fluffy in hot, sleek in cold) = 40 days
+  getLifespan() {
+    if (this.fluffiness === 0) {
+      return 50;
+    }
+    const biome = this.getBiome();
+    const matched =
+      (this.fluffiness > 0 && biome === 'cold') || (this.fluffiness < 0 && biome === 'hot');
+    return matched ? 60 : 40;
   }
 
   computeClassNames() {
@@ -24,10 +68,12 @@ class LaluSprite extends Sprite {
   }
 
   getTitle() {
+    const fluff = this.fluffiness > 0 ? 'fluffy' : this.fluffiness < 0 ? 'sleek' : 'normal';
+    const biome = this.getBiome();
     if (this.state === 'baby') {
-      return `Baby Lalu (${this.gender}, ${this.babyAge} days)`;
+      return `Baby Lalu (${this.gender}, ${this.babyAge} days, ${fluff}, ${biome})`;
     }
-    return `Lalu (${this.state}, ${this.gender})`;
+    return `Lalu (${this.state}, ${this.gender}, ${fluff}, ${biome}, age ${this.age}/${this.getLifespan()})`;
   }
 
   getWidth() {
@@ -58,6 +104,24 @@ class LaluSprite extends Sprite {
     } else if (this.state === 'dead') {
       style.opacity = '0.5';
       style.filter = 'grayscale(100%)';
+    }
+
+    // Fluffiness visual effect - fluffy lalus get a soft white halo,
+    // sleek lalus stay crisp and tight.
+    // Use drop-shadow (not box-shadow) so the halo follows the image's
+    // alpha channel rather than the sprite's square bounding box.
+    if (this.state !== 'dead') {
+      if (this.fluffiness > 0) {
+        // Fluffy: layered soft white drop-shadows create a fluffy fur halo
+        const fluffyFilter =
+          'drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)) ' +
+          'drop-shadow(0 0 6px rgba(255, 255, 255, 0.7)) ' +
+          'drop-shadow(0 0 10px rgba(255, 255, 255, 0.5))';
+        style.filter = ((style.filter || '') + ' ' + fluffyFilter).trim();
+      } else if (this.fluffiness < 0) {
+        // Sleek: a subtle tight glow, no fluff
+        style.filter = ((style.filter || '') + ' contrast(1.1) saturate(1.1)').trim();
+      }
     }
 
     return style;
@@ -91,8 +155,14 @@ class LaluSprite extends Sprite {
         this.createNewNest(); // Create a new nest when growing up
       }
     } else if (this.state !== 'dead') {
-      this.hungerLevel++;
-      this.updateHungerState();
+      this.age++;
+      if (this.age >= this.getLifespan()) {
+        // Died of old age
+        this.state = 'dead';
+      } else {
+        this.hungerLevel++;
+        this.updateHungerState();
+      }
 
       // If lalu just died, handle death consequences
       if (this.state === 'dead') {
@@ -261,8 +331,8 @@ class LaluSprite extends Sprite {
         const female = this.gender === 'female' ? this : otherSprite;
         const male = this.gender === 'male' ? this : otherSprite;
 
-        // Create baby near the female
-        this.createBaby(female);
+        // Create baby near the female, inheriting stats from both parents
+        this.createBaby(female, male);
 
         // Mark both parents as having reproduced this day
         this.hasReproduced = true;
@@ -296,18 +366,25 @@ class LaluSprite extends Sprite {
     );
   }
 
-  createBaby(mother) {
+  createBaby(mother, father) {
     // Access the global game instance to add a new sprite
     if (window.game) {
       const babyX = mother.x + Math.random() * 20 - 10; // Near mother
       const babyY = mother.y + Math.random() * 20 - 10;
+
+      // Inherit stats from parents with possible mutation
+      const stats = {
+        fluffiness: LaluSprite.inheritStat(mother.fluffiness, father.fluffiness),
+      };
+
       const baby = new LaluSprite(
         `lalu_${Math.random().toString(36).substr(2, 9)}`,
         babyX,
         babyY,
         this.getVisibleSprites,
         mother.nest,
-        mother
+        mother,
+        stats
       );
       window.game.sprites.push(baby);
     }
