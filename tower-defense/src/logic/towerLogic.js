@@ -4,7 +4,6 @@ function dist(ax, ay, bx, by) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Returns the closest living enemy within range, or null.
 export function findTarget(tx, ty, enemies, range) {
   let best = null;
   let bestDist = Infinity;
@@ -19,12 +18,10 @@ export function findTarget(tx, ty, enemies, range) {
   return best;
 }
 
-// Returns true when the tower is ready to fire.
 export function canFire(cooldownUntil, now) {
   return now >= cooldownUntil;
 }
 
-// Returns the next cooldown timestamp.
 export function nextCooldown(now, fireRate) {
   return now + fireRate;
 }

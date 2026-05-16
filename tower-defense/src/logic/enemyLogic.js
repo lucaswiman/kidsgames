@@ -12,12 +12,10 @@ export function enemyStats(wave) {
   };
 }
 
-// Advance path progress t by one frame. Returns new t clamped to [0,1].
 export function advancePath(t, speed, pathLength, delta) {
   return Math.min(1, t + (speed * delta) / (pathLength * 1000));
 }
 
-// Returns hp ratio for rendering the health bar.
 export function hpRatio(hp, maxHp) {
   return Math.max(0, hp / maxHp);
 }

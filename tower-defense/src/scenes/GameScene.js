@@ -17,7 +17,6 @@ const PATH_POINTS = [
 const GRID_SIZE = 40;
 const STARTING_GOLD = 150;
 const TOWER_COST = 50;
-const TOWER_SELL = 25;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -47,12 +46,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    let uiDirty = false;
     const alive = [];
     for (const enemy of this.enemies) {
       enemy.update(delta);
       if (enemy.reachedEnd()) {
         this.lives -= 1;
-        this._updateUI();
+        uiDirty = true;
         enemy.destroy();
         if (this.lives <= 0) {
           this._gameOver();
@@ -63,11 +63,12 @@ export default class GameScene extends Phaser.Scene {
       } else {
         this.gold += enemy.reward;
         this.score += enemy.reward;
-        this._updateUI();
+        uiDirty = true;
         enemy.destroy();
       }
     }
     this.enemies = alive;
+    if (uiDirty) this._updateUI();
 
     for (const tower of this.towers) {
       tower.update(this.enemies);
@@ -79,24 +80,28 @@ export default class GameScene extends Phaser.Scene {
     graphics.lineStyle(GRID_SIZE, 0x8b7355, 1);
     graphics.beginPath();
     graphics.moveTo(PATH_POINTS[0].x, PATH_POINTS[0].y);
-    for (let i = 1; i < PATH_POINTS.length; i++) {
-      graphics.lineTo(PATH_POINTS[i].x, PATH_POINTS[i].y);
-    }
-    graphics.strokePath();
-
     this.path = new Phaser.Curves.Path(PATH_POINTS[0].x, PATH_POINTS[0].y);
     for (let i = 1; i < PATH_POINTS.length; i++) {
+      graphics.lineTo(PATH_POINTS[i].x, PATH_POINTS[i].y);
       this.path.lineTo(PATH_POINTS[i].x, PATH_POINTS[i].y);
     }
+    graphics.strokePath();
   }
 
   _buildGrid() {
-    // Track which cells are occupied by path or towers
     this.occupiedCells = new Set();
-    for (const pt of PATH_POINTS) {
-      const col = Math.floor(pt.x / GRID_SIZE);
-      const row = Math.floor(pt.y / GRID_SIZE);
-      this.occupiedCells.add(`${col},${row}`);
+    for (let i = 0; i < PATH_POINTS.length - 1; i++) {
+      const a = PATH_POINTS[i];
+      const b = PATH_POINTS[i + 1];
+      const c1 = Math.floor(a.x / GRID_SIZE);
+      const r1 = Math.floor(a.y / GRID_SIZE);
+      const c2 = Math.floor(b.x / GRID_SIZE);
+      const r2 = Math.floor(b.y / GRID_SIZE);
+      for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) {
+        for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++) {
+          this.occupiedCells.add(`${c},${r}`);
+        }
+      }
     }
 
     this.preview = this.add.rectangle(0, 0, GRID_SIZE - 4, GRID_SIZE - 4, 0x00ff00, 0.4);
@@ -134,7 +139,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _bindInput() {
-    this.input.on('pointermove', (ptr) => {
+    this.input.on('pointermove', ptr => {
       if (!this.placingTower) return;
       const col = Math.floor(ptr.x / GRID_SIZE);
       const row = Math.floor(ptr.y / GRID_SIZE);
@@ -145,7 +150,7 @@ export default class GameScene extends Phaser.Scene {
       this.preview.setFillStyle(ok ? 0x00ff00 : 0xff0000, 0.4);
     });
 
-    this.input.on('pointerdown', (ptr) => {
+    this.input.on('pointerdown', ptr => {
       if (!this.placingTower) return;
       if (ptr.y < 40) return; // UI row
       const col = Math.floor(ptr.x / GRID_SIZE);

@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { enemyStats, advancePath, hpRatio } from '../logic/enemyLogic.js';
 
+const HP_BAR_WIDTH = 28;
+
 export default class Enemy {
   constructor(scene, path, wave) {
     this.scene = scene;
@@ -21,8 +23,8 @@ export default class Enemy {
     this.y = startPt.y;
 
     this.body = scene.add.circle(this.x, this.y, 14, 0xff4444).setDepth(5);
-    this.hpBg = scene.add.rectangle(this.x, this.y - 20, 28, 5, 0x880000).setDepth(4);
-    this.hpBar = scene.add.rectangle(this.x, this.y - 20, 28, 5, 0x00ff00).setDepth(5);
+    this.hpBg = scene.add.rectangle(this.x, this.y - 20, HP_BAR_WIDTH, 5, 0x880000).setDepth(4);
+    this.hpBar = scene.add.rectangle(this.x, this.y - 20, HP_BAR_WIDTH, 5, 0x00ff00).setDepth(5);
   }
 
   update(delta) {
@@ -38,8 +40,8 @@ export default class Enemy {
     this.hpBg.setPosition(this.x, this.y - 20);
 
     const ratio = hpRatio(this.hp, this.maxHp);
-    this.hpBar.setSize(ratio * 28, 5);
-    this.hpBar.setPosition(this.x - (1 - ratio) * 14, this.y - 20);
+    this.hpBar.setSize(ratio * HP_BAR_WIDTH, 5);
+    this.hpBar.setPosition(this.x - (1 - ratio) * (HP_BAR_WIDTH / 2), this.y - 20);
   }
 
   takeDamage(amount) {

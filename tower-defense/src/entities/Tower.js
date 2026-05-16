@@ -13,11 +13,9 @@ export default class Tower {
     this.y = y;
     this.cooldown = 0;
 
-    // Body
     this.base = scene.add.rectangle(x, y, 32, 32, 0x4444ff);
     this.barrel = scene.add.rectangle(x, y - 10, 8, 20, 0x2222aa);
 
-    // Range ring (shown briefly on place)
     this.rangeCircle = scene.add.circle(x, y, RANGE, 0x4444ff, 0.1);
     scene.time.delayedCall(1500, () => this.rangeCircle.setVisible(false));
   }
@@ -40,9 +38,7 @@ export default class Tower {
   }
 
   _fireBullet(target) {
-    const dx = target.x - this.x;
-    const dy = target.y - this.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
+    const d = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
     const bullet = this.scene.add.circle(this.x, this.y, 5, 0xffff00);
     this.scene.tweens.add({
       targets: bullet,
@@ -50,7 +46,7 @@ export default class Tower {
       y: target.y,
       duration: (d / BULLET_SPEED) * 1000,
       onComplete: () => {
-        target.takeDamage(DAMAGE);
+        if (!target.isDead() && !target.reachedEnd()) target.takeDamage(DAMAGE);
         bullet.destroy();
       },
     });
