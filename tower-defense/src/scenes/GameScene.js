@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Tower from '../entities/Tower.js';
 import Enemy from '../entities/Enemy.js';
 import { saveHighScore, loadHighScore } from '../utils/storage.js';
+import { enemiesForWave, SPAWN_INTERVAL_MS } from '../logic/waveLogic.js';
 
 // Waypoints enemies walk through (pixel coords)
 const PATH_POINTS = [
@@ -166,9 +167,9 @@ export default class GameScene extends Phaser.Scene {
   _startWave() {
     this.wave += 1;
     this._updateUI();
-    const count = 5 + this.wave * 2;
+    const count = enemiesForWave(this.wave);
     for (let i = 0; i < count; i++) {
-      this.time.delayedCall(i * 600, () => {
+      this.time.delayedCall(i * SPAWN_INTERVAL_MS, () => {
         if (!this.scene.isActive('GameScene')) return;
         this.enemies.push(new Enemy(this, this.path, this.wave));
       });

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { findTarget, canFire, nextCooldown } from '../logic/towerLogic.js';
 
 const RANGE = 120;
 const FIRE_RATE = 800; // ms between shots
@@ -23,28 +24,14 @@ export default class Tower {
 
   update(enemies) {
     const now = this.scene.time.now;
-    if (now < this.cooldown) return;
+    if (!canFire(this.cooldown, now)) return;
 
-    const target = this._nearestEnemy(enemies);
+    const target = findTarget(this.x, this.y, enemies, RANGE);
     if (!target) return;
 
-    this.cooldown = now + FIRE_RATE;
+    this.cooldown = nextCooldown(now, FIRE_RATE);
     this._aimAt(target);
     this._fireBullet(target);
-  }
-
-  _nearestEnemy(enemies) {
-    let best = null;
-    let bestDist = Infinity;
-    for (const e of enemies) {
-      if (e.isDead()) continue;
-      const d = Phaser.Math.Distance.Between(this.x, this.y, e.x, e.y);
-      if (d <= RANGE && d < bestDist) {
-        bestDist = d;
-        best = e;
-      }
-    }
-    return best;
   }
 
   _aimAt(enemy) {
@@ -53,12 +40,15 @@ export default class Tower {
   }
 
   _fireBullet(target) {
+    const dx = target.x - this.x;
+    const dy = target.y - this.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
     const bullet = this.scene.add.circle(this.x, this.y, 5, 0xffff00);
     this.scene.tweens.add({
       targets: bullet,
       x: target.x,
       y: target.y,
-      duration: (Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y) / BULLET_SPEED) * 1000,
+      duration: (d / BULLET_SPEED) * 1000,
       onComplete: () => {
         target.takeDamage(DAMAGE);
         bullet.destroy();

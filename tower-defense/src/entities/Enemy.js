@@ -1,8 +1,5 @@
 import Phaser from 'phaser';
-
-const BASE_HP = 60;
-const BASE_SPEED = 80; // pixels per second
-const BASE_REWARD = 10;
+import { enemyStats, advancePath, hpRatio } from '../logic/enemyLogic.js';
 
 export default class Enemy {
   constructor(scene, path, wave) {
@@ -10,12 +7,12 @@ export default class Enemy {
     this.path = path;
     this._dead = false;
 
-    const hpScale = 1 + (wave - 1) * 0.3;
-    this.hp = Math.round(BASE_HP * hpScale);
-    this.maxHp = this.hp;
-    this.reward = BASE_REWARD + wave * 2;
+    const stats = enemyStats(wave);
+    this.hp = stats.hp;
+    this.maxHp = stats.maxHp;
+    this._speed = stats.speed;
+    this.reward = stats.reward;
 
-    this._speed = BASE_SPEED + wave * 5;
     this._pathLength = path.getLength();
     this._t = 0; // 0..1 progress along path
 
@@ -31,8 +28,7 @@ export default class Enemy {
   update(delta) {
     if (this._dead || this._t >= 1) return;
 
-    this._t += (this._speed * delta) / (this._pathLength * 1000);
-    if (this._t > 1) this._t = 1;
+    this._t = advancePath(this._t, this._speed, this._pathLength, delta);
 
     const pt = this.path.getPoint(this._t);
     this.x = pt.x;
@@ -41,7 +37,7 @@ export default class Enemy {
     this.body.setPosition(this.x, this.y);
     this.hpBg.setPosition(this.x, this.y - 20);
 
-    const ratio = this.hp / this.maxHp;
+    const ratio = hpRatio(this.hp, this.maxHp);
     this.hpBar.setSize(ratio * 28, 5);
     this.hpBar.setPosition(this.x - (1 - ratio) * 14, this.y - 20);
   }
