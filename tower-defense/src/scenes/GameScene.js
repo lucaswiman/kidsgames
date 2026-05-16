@@ -45,10 +45,10 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  update() {
+  update(time, delta) {
     const alive = [];
     for (const enemy of this.enemies) {
-      enemy.update();
+      enemy.update(delta);
       if (enemy.reachedEnd()) {
         this.lives -= 1;
         this._updateUI();

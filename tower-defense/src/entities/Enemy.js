@@ -7,48 +7,43 @@ const BASE_REWARD = 10;
 export default class Enemy {
   constructor(scene, path, wave) {
     this.scene = scene;
+    this.path = path;
     this._dead = false;
-    this._ended = false;
 
     const hpScale = 1 + (wave - 1) * 0.3;
     this.hp = Math.round(BASE_HP * hpScale);
     this.maxHp = this.hp;
     this.reward = BASE_REWARD + wave * 2;
 
-    // Follow path using Phaser's PathFollower
-    this.follower = scene.add.follower(path, 0, 300, undefined);
-    this.body = scene.add.circle(0, 0, 14, 0xff4444);
-    this.hpBar = scene.add.rectangle(0, -20, 28, 5, 0x00ff00);
-    this.hpBg = scene.add.rectangle(0, -20, 28, 5, 0x880000);
-    this.hpBg.setDepth(4);
-    this.hpBar.setDepth(5);
-    this.body.setDepth(5);
+    this._speed = BASE_SPEED + wave * 5;
+    this._pathLength = path.getLength();
+    this._t = 0; // 0..1 progress along path
 
-    const speed = BASE_SPEED + wave * 5;
-    const duration = (path.getLength() / speed) * 1000;
-    this.follower.startFollow({
-      duration,
-      onComplete: () => {
-        this._ended = true;
-      },
-    });
+    const startPt = path.getPoint(0);
+    this.x = startPt.x;
+    this.y = startPt.y;
+
+    this.body = scene.add.circle(this.x, this.y, 14, 0xff4444).setDepth(5);
+    this.hpBg = scene.add.rectangle(this.x, this.y - 20, 28, 5, 0x880000).setDepth(4);
+    this.hpBar = scene.add.rectangle(this.x, this.y - 20, 28, 5, 0x00ff00).setDepth(5);
   }
 
-  get x() {
-    return this.follower.x;
-  }
+  update(delta) {
+    if (this._dead || this._t >= 1) return;
 
-  get y() {
-    return this.follower.y;
-  }
+    this._t += (this._speed * delta) / (this._pathLength * 1000);
+    if (this._t > 1) this._t = 1;
 
-  update() {
-    if (this._dead || this._ended) return;
-    const { x, y } = this.follower;
-    this.body.setPosition(x, y);
-    this.hpBg.setPosition(x, y - 20);
-    this.hpBar.setPosition(x - (1 - this.hp / this.maxHp) * 14, y - 20);
-    this.hpBar.setSize((this.hp / this.maxHp) * 28, 5);
+    const pt = this.path.getPoint(this._t);
+    this.x = pt.x;
+    this.y = pt.y;
+
+    this.body.setPosition(this.x, this.y);
+    this.hpBg.setPosition(this.x, this.y - 20);
+
+    const ratio = this.hp / this.maxHp;
+    this.hpBar.setSize(ratio * 28, 5);
+    this.hpBar.setPosition(this.x - (1 - ratio) * 14, this.y - 20);
   }
 
   takeDamage(amount) {
@@ -61,12 +56,10 @@ export default class Enemy {
   }
 
   reachedEnd() {
-    return this._ended;
+    return this._t >= 1;
   }
 
   destroy() {
-    this.follower.stopFollow();
-    this.follower.destroy();
     this.body.destroy();
     this.hpBar.destroy();
     this.hpBg.destroy();
