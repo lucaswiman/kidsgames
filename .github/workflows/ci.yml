@@ -25,6 +25,25 @@ jobs:
       - name: Run unit tests
         run: npm test
 
+  tower-defense-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install tower-defense dependencies
+        working-directory: tower-defense
+        run: npm ci
+
+      - name: Run tower-defense tests
+        working-directory: tower-defense
+        run: npm test
+
   e2e-tests:
     runs-on: ubuntu-latest
     steps:

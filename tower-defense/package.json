@@ -1,0 +1,22 @@
+{
+  "name": "tower-defense",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "vite": "^6.3.4",
+    "vitest": "^3.1.0",
+    "@vitest/coverage-v8": "^3.1.0",
+    "jsdom": "^26.0.0"
+  }
+}

@@ -69,6 +69,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build tower-defense
+        working-directory: tower-defense
+        run: |
+          npm ci
+          npm run build
+
       - name: Build site
         run: |
           mkdir -p dist/bertymon
@@ -78,6 +89,7 @@ jobs:
           cp -r bertymon/sprites dist/bertymon/
           if [ -d "lalu" ]; then cp -r lalu dist/; fi
           if [ -d "sphere-folder" ]; then cp -r sphere-folder dist/; fi
+          cp -r tower-defense/dist dist/tower-defense
           cp index.html dist/
 
       - name: Deploy to production

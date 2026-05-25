@@ -1,0 +1,18 @@
+import Phaser from 'phaser';
+import BootScene from './scenes/BootScene.js';
+import MainMenuScene from './scenes/MainMenuScene.js';
+import GameScene from './scenes/GameScene.js';
+
+const config = {
+  type: Phaser.AUTO,
+  backgroundColor: '#1a1a2e',
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 800,
+    height: 600,
+  },
+  scene: [BootScene, MainMenuScene, GameScene],
+};
+
+new Phaser.Game(config);

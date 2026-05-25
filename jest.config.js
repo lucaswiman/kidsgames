@@ -1,7 +1,7 @@
 module.exports = {
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.test.js', '**/*.test.js'],
-  testPathIgnorePatterns: ['/node_modules/', '\\.e2e\\.test\\.js$'],
+  testPathIgnorePatterns: ['/node_modules/', '\\.e2e\\.test\\.js$', '/tower-defense/'],
   transform: {
     'game-logic\\.js$': './jest-transform-esm.js',
   },
