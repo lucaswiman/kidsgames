@@ -18,7 +18,6 @@ class LaluSprite extends Sprite {
     this.fluffiness = stats ? stats.fluffiness : LaluSprite.randomStat();
     // Ear size: -1 small, 0 normal, 1 big. Females prefer males with bigger ears.
     this.earSize = stats ? stats.earSize : LaluSprite.randomStat();
-    this.rejectedMates = new Set(); // Males this female has turned down today
 
     // Age in days - increments each day, lalu dies when age exceeds lifespan
     this.age = 0;
@@ -43,14 +42,27 @@ class LaluSprite extends Sprite {
     return inherited;
   }
 
-  // Chance that a female accepts a male with the given ear size when they meet
-  static mateAcceptChance(earSize) {
-    return [0.3, 0.6, 0.9][earSize + 1];
+  // Healthy lalus of the opposite gender that are ready to breed with this one
+  getPotentialMates() {
+    if (this.hasReproduced || this.hasCurrentBaby()) {
+      return [];
+    }
+    const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
+    return visibleSprites.filter(
+      sprite =>
+        sprite.type === 'lalu' &&
+        sprite.state === 'healthy' &&
+        sprite.gender !== this.gender &&
+        sprite.isAlive() &&
+        !sprite.hasReproduced &&
+        !sprite.hasCurrentBaby()
+    );
   }
 
-  // Whether either of the two lalus has turned the other down today
-  hasRejected(otherSprite) {
-    return this.rejectedMates.has(otherSprite) || otherSprite.rejectedMates.has(this);
+  // A female only chooses a male whose ears are the biggest among the males ready to breed
+  choosesMate(male) {
+    const biggestEars = Math.max(...this.getPotentialMates().map(mate => mate.earSize));
+    return male.earSize === biggestEars;
   }
 
   getEarDescription() {
@@ -197,7 +209,6 @@ class LaluSprite extends Sprite {
 
     // Reset reproduction flag each day
     this.hasReproduced = false;
-    this.rejectedMates.clear();
   }
 
   eatFruit() {
@@ -291,25 +302,10 @@ class LaluSprite extends Sprite {
     } else if (this.state === 'healthy') {
       // If not a mother with a current baby, seek potential mates
       if (!this.hasCurrentBaby()) {
-        const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
-        const potentialMates = visibleSprites.filter(
-          sprite =>
-            sprite.type === 'lalu' &&
-            sprite.state === 'healthy' &&
-            sprite.gender !== this.gender &&
-            sprite.isAlive() &&
-            !sprite.hasReproduced &&
-            !this.hasReproduced &&
-            !sprite.hasCurrentBaby() &&
-            !this.hasRejected(sprite)
+        // Females head for the biggest-eared males; males for females that would choose them
+        const preferredMates = this.getPotentialMates().filter(mate =>
+          this.gender === 'female' ? this.choosesMate(mate) : mate.choosesMate(this)
         );
-
-        // Females head for the males with the biggest ears; males for the nearest female
-        const biggestEars = Math.max(...potentialMates.map(mate => mate.earSize));
-        const preferredMates =
-          this.gender === 'female'
-            ? potentialMates.filter(mate => mate.earSize === biggestEars)
-            : potentialMates;
 
         // Find nearest preferred mate
         let nearestMate = null;
@@ -367,16 +363,14 @@ class LaluSprite extends Sprite {
         !this.hasReproduced &&
         !otherSprite.hasReproduced &&
         !this.hasCurrentBaby() &&
-        !otherSprite.hasCurrentBaby() &&
-        !this.hasRejected(otherSprite)
+        !otherSprite.hasCurrentBaby()
       ) {
         // Determine which is the female (will be the mother)
         const female = this.gender === 'female' ? this : otherSprite;
         const male = this.gender === 'male' ? this : otherSprite;
 
-        // The female may turn him down; bigger ears make her more likely to accept
-        if (Math.random() >= LaluSprite.mateAcceptChance(male.earSize)) {
-          female.rejectedMates.add(male);
+        // She only mates with the biggest-eared male that's ready
+        if (!female.choosesMate(male)) {
           return false;
         }
 
