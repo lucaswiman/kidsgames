@@ -33,11 +33,6 @@ class Sprite {
     return null;
   }
 
-  // Override in subclasses to show text (e.g. an emoji) inside the sprite
-  getLabel() {
-    return null;
-  }
-
   // Badge showing M/F for sprites that have a gender
   createGenderLabel() {
     const genderLabel = document.createElement('div');

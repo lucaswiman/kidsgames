@@ -47,8 +47,8 @@ class PredatorSprite extends Sprite {
     return this.state === 'cub' ? 30 : 60;
   }
 
-  getLabel() {
-    return '🦊';
+  getBackgroundImage() {
+    return 'url("fox-transparent.png")';
   }
 
   getStyle() {

@@ -164,11 +164,6 @@ class GameBoard {
         element.style.backgroundPosition = 'center';
       }
 
-      const label = sprite.getLabel();
-      if (label) {
-        element.textContent = label;
-      }
-
       if (sprite.gender) {
         // Add gender label
         element.appendChild(sprite.createGenderLabel());
