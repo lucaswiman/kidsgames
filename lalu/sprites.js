@@ -7,6 +7,8 @@ function createSprite(type, x, y, getVisibleSprites, nest = null) {
       return new NestSprite(id, x, y, getVisibleSprites);
     case 'tree':
       return new TreeSprite(id, x, y, getVisibleSprites);
+    case 'predator':
+      return new PredatorSprite(id, x, y, getVisibleSprites);
     case 'lalu':
       return new LaluSprite(id, x, y, getVisibleSprites, nest);
     default:

@@ -42,6 +42,7 @@
     "NestSprite": "readonly",
     "TreeSprite": "readonly",
     "LaluSprite": "readonly",
+    "PredatorSprite": "readonly",
     "createSprite": "readonly"
   },
   "rules": {

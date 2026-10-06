@@ -33,6 +33,11 @@ class Sprite {
     return null;
   }
 
+  // Override in subclasses to show text (e.g. an emoji) inside the sprite
+  getLabel() {
+    return null;
+  }
+
   // Override in subclasses
   getStyle() {
     return {};
