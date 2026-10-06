@@ -128,7 +128,7 @@ describe('PredatorSprite breeding', () => {
     game.sprites.push(male, female);
   });
 
-  const cubs = () => game.sprites.filter(s => s.state === 'cub');
+  const cubs = () => game.sprites.filter(s => s.state === 'baby');
 
   test('well-fed foxes of opposite genders seek each other out', () => {
     expect(male.getTargetPosition()).toEqual({ x: female.getCenterX(), y: female.getCenterY() });
@@ -178,12 +178,12 @@ describe('PredatorSprite breeding', () => {
     expect(female.canReproduce()).toBe(false);
   });
 
-  test('cubs do not get hungry and grow up after CUB_DAYS days', () => {
+  test('cubs do not get hungry and grow up after BABY_DAYS days', () => {
     male.onCollision(female);
     const cub = cubs()[0];
-    for (let day = 1; day < game.PredatorSprite.CUB_DAYS; day++) {
+    for (let day = 1; day < game.AnimalSprite.BABY_DAYS; day++) {
       cub.onDayEnd();
-      expect(cub.state).toBe('cub');
+      expect(cub.state).toBe('baby');
       expect(cub.daysWithoutFood).toBe(0);
     }
     cub.onDayEnd();

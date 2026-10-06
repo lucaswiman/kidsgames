@@ -7,6 +7,7 @@ const SCRIPTS = [
   'tree-sprite.js',
   'nest-sprite.js',
   'lalu-sprite.js',
+  'animal-sprite.js',
   'predator-sprite.js',
   'omnivore-sprite.js',
 ];
@@ -20,7 +21,7 @@ function loadGame() {
   const sprites = [];
   const getVisibleSprites = sprite => sprites.filter(s => s !== sprite);
   const classes = vm.runInContext(
-    '({ TreeSprite, NestSprite, LaluSprite, PredatorSprite, OmnivoreSprite })',
+    '({ TreeSprite, NestSprite, LaluSprite, AnimalSprite, PredatorSprite, OmnivoreSprite })',
     context
   );
   context.window.game = { sprites, dragState: { isDragging: false, dragSprite: null } };

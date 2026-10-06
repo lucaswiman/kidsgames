@@ -1,37 +1,50 @@
 // Omnivore sprite that eats both fruit and foxes; each one is either blue or green
-class OmnivoreSprite extends Sprite {
-  constructor(id, x, y, getVisibleSprites) {
-    super(id, 'omnivore', x, y, getVisibleSprites);
-    this.state = 'alive';
+class OmnivoreSprite extends AnimalSprite {
+  constructor(id, x, y, getVisibleSprites, mother = null, father = null) {
+    super(id, 'omnivore', x, y, getVisibleSprites, mother);
     this.hungerLevel = 0; // Goes up each day; eating brings it back down
-    this.color = Math.random() < 0.5 ? 'blue' : 'green';
+    // Babies get their color from one of their parents
+    const parent = mother && father ? (Math.random() < 0.5 ? mother : father) : null;
+    this.color = parent ? parent.color : Math.random() < 0.5 ? 'blue' : 'green';
   }
 
   static SIGHT_RANGE = 250; // How far away (px) it can spot a fox
   static STARVE_LEVEL = 3; // Hunger level at which it starves
 
+  getLifespan() {
+    return 20;
+  }
+
+  // Like healthy lalus, only full omnivores breed
+  isReadyToBreed() {
+    return this.hungerLevel === 0;
+  }
+
   computeClassNames() {
     const classes = ['sprite', 'omnivore'];
-    if (this.state === 'dead') {
-      classes.push('dead');
+    if (this.state !== 'alive') {
+      classes.push(this.state);
     }
     return classes;
   }
 
   getTitle() {
     if (this.state === 'dead') {
-      return `Omnivore (${this.color}, dead)`;
+      return `Omnivore (${this.color}, ${this.gender}, dead)`;
+    }
+    if (this.isBaby()) {
+      return `Baby omnivore (${this.color}, ${this.gender}, ${this.babyAge} days)`;
     }
     const hunger = this.hungerLevel === 0 ? 'full' : `hungry ${this.hungerLevel}`;
-    return `Omnivore (${this.color}, ${hunger}/${OmnivoreSprite.STARVE_LEVEL})`;
+    return `Omnivore (${this.color}, ${this.gender}, age ${this.age}/${this.getLifespan()}, ${hunger}/${OmnivoreSprite.STARVE_LEVEL})`;
   }
 
   getWidth() {
-    return 50;
+    return this.isBaby() ? 25 : 50;
   }
 
   getHeight() {
-    return 50;
+    return this.isBaby() ? 25 : 50;
   }
 
   getBackgroundImage() {
@@ -57,12 +70,8 @@ class OmnivoreSprite extends Sprite {
     return style;
   }
 
-  isAlive() {
-    return this.state !== 'dead';
-  }
-
   isHungry() {
-    return this.isAlive() && this.hungerLevel > 0;
+    return this.isAlive() && !this.isBaby() && this.hungerLevel > 0;
   }
 
   getMaxVelocity() {
@@ -79,6 +88,9 @@ class OmnivoreSprite extends Sprite {
   getTargetPosition() {
     if (!this.isAlive()) {
       return null;
+    }
+    if (this.isBaby()) {
+      return this.getMotherPosition();
     }
 
     // Hungry omnivores head for the nearest food: any tree with fruit, or a fox in sight
@@ -98,10 +110,21 @@ class OmnivoreSprite extends Sprite {
       }
     }
 
+    // Full omnivores seek the nearest available mate
+    const nearestMate = this.findNearestMate();
+    if (nearestMate) {
+      this.wanderTarget = null;
+      return { x: nearestMate.getCenterX(), y: nearestMate.getCenterY() };
+    }
+
     return this.getWanderTarget();
   }
 
   onCollision(otherSprite) {
+    if (this.breedWith(otherSprite)) {
+      return true;
+    }
+
     if (!this.isHungry() || !this.canEat(otherSprite)) {
       return false;
     }
@@ -123,11 +146,12 @@ class OmnivoreSprite extends Sprite {
   }
 
   onDayEnd() {
-    if (this.isAlive()) {
-      this.hungerLevel++;
-      if (this.hungerLevel >= OmnivoreSprite.STARVE_LEVEL) {
-        this.state = 'dead';
-      }
+    if (!this.ageOneDay()) {
+      return;
+    }
+    this.hungerLevel++;
+    if (this.hungerLevel >= OmnivoreSprite.STARVE_LEVEL) {
+      this.die();
     }
   }
 }
