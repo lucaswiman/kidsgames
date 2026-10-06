@@ -131,3 +131,100 @@ describe('PredatorSprite', () => {
     }
   });
 });
+
+describe('PredatorSprite breeding', () => {
+  let game;
+  let male;
+  let female;
+
+  beforeEach(() => {
+    game = loadGame();
+    male = new game.PredatorSprite('fox_m', 100, 100, game.getVisibleSprites);
+    female = new game.PredatorSprite('fox_f', 300, 100, game.getVisibleSprites);
+    male.gender = 'male';
+    female.gender = 'female';
+    game.sprites.push(male, female);
+  });
+
+  const cubs = () => game.sprites.filter(s => s.state === 'cub');
+
+  test('well-fed foxes of opposite genders seek each other out', () => {
+    expect(male.getTargetPosition()).toEqual({ x: female.getCenterX(), y: female.getCenterY() });
+  });
+
+  test('foxes of the same gender do not mate', () => {
+    female.gender = 'male';
+    expect(male.onCollision(female)).toBe(false);
+    expect(cubs()).toHaveLength(0);
+  });
+
+  test('mating produces a cub that follows its mother', () => {
+    expect(male.onCollision(female)).toBe(true);
+    expect(cubs()).toHaveLength(1);
+    const cub = cubs()[0];
+    expect(cub.mother).toBe(female);
+    expect(cub.getWidth()).toBeLessThan(female.getWidth());
+    expect(cub.getTargetPosition()).toEqual({ x: female.getCenterX(), y: female.getCenterY() });
+  });
+
+  test('sleeping foxes cannot breed', () => {
+    female.state = 'sleeping';
+    expect(male.canMateWith(female)).toBe(false);
+    expect(female.canMateWith(male)).toBe(false);
+    expect(male.onCollision(female)).toBe(false);
+    expect(cubs()).toHaveLength(0);
+  });
+
+  test('hungry foxes cannot breed', () => {
+    male.daysWithoutFood = 1;
+    expect(male.onCollision(female)).toBe(false);
+  });
+
+  test('foxes breed at most once per day', () => {
+    male.onCollision(female);
+    const otherFemale = new game.PredatorSprite('fox_f2', 120, 100, game.getVisibleSprites);
+    otherFemale.gender = 'female';
+    game.sprites.push(otherFemale);
+    expect(male.onCollision(otherFemale)).toBe(false);
+    expect(cubs()).toHaveLength(1);
+  });
+
+  test('a mother cannot breed again while she has a cub', () => {
+    male.onCollision(female);
+    male.hasReproduced = false;
+    female.hasReproduced = false;
+    expect(female.canReproduce()).toBe(false);
+  });
+
+  test('cubs do not get hungry and grow up after CUB_DAYS days', () => {
+    male.onCollision(female);
+    const cub = cubs()[0];
+    for (let day = 1; day < game.PredatorSprite.CUB_DAYS; day++) {
+      cub.onDayEnd();
+      expect(cub.state).toBe('cub');
+      expect(cub.daysWithoutFood).toBe(0);
+    }
+    cub.onDayEnd();
+    expect(cub.state).toBe('hunting');
+    expect(cub.mother).toBeNull();
+  });
+
+  test('a cub dies if its mother starves', () => {
+    male.onCollision(female);
+    const cub = cubs()[0];
+    for (let day = 0; day < game.PredatorSprite.STARVE_DAYS; day++) {
+      female.onDayEnd();
+    }
+    expect(female.isAlive()).toBe(false);
+    expect(cub.isAlive()).toBe(false);
+  });
+
+  test('cubs do not hunt lalus', () => {
+    male.onCollision(female);
+    const cub = cubs()[0];
+    const lalu = new game.LaluSprite('lalu_1', 100, 100, game.getVisibleSprites, null);
+    lalu.inNest = false;
+    expect(cub.onCollision(lalu)).toBe(false);
+    expect(lalu.isAlive()).toBe(true);
+  });
+});

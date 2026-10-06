@@ -352,12 +352,6 @@ class LaluSprite extends Sprite {
     return false;
   }
 
-  createGenderLabel() {
-    const genderLabel = document.createElement('div');
-    genderLabel.className = `gender-label gender-${this.gender}`;
-    return genderLabel;
-  }
-
   canReproduce() {
     return this.state === 'healthy' && this.isAlive();
   }

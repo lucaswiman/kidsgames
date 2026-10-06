@@ -25,7 +25,7 @@ class GameBoard {
       numTrees: 5,
       numLalus: 2,
       numNests: 2,
-      numPredators: 1,
+      numPredators: 2,
     };
     const saved = localStorage.getItem('laluGameConfig');
     if (saved) {
@@ -169,7 +169,7 @@ class GameBoard {
         element.textContent = label;
       }
 
-      if (sprite.type === 'lalu') {
+      if (sprite.gender) {
         // Add gender label
         element.appendChild(sprite.createGenderLabel());
       }

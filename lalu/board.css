@@ -276,3 +276,7 @@ body, html {
     right: -10px;
     font-size: 20px;
 }
+
+.sprite.predator.cub {
+    font-size: 24px;
+}
