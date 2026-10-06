@@ -72,6 +72,39 @@ describe('PredatorSprite', () => {
     expect(fox.state).toBe('hunting');
   });
 
+  test('starves after STARVE_DAYS awake days without eating', () => {
+    for (let day = 1; day < game.PredatorSprite.STARVE_DAYS; day++) {
+      fox.onDayEnd();
+      expect(fox.isAlive()).toBe(true);
+    }
+    fox.onDayEnd();
+    expect(fox.state).toBe('dead');
+    expect(fox.getTargetPosition()).toBeNull();
+    expect(fox.onCollision(lalu)).toBe(false);
+    expect(lalu.isAlive()).toBe(true);
+  });
+
+  test('eating resets hunger', () => {
+    fox.onDayEnd();
+    fox.onDayEnd();
+    fox.onCollision(lalu);
+    expect(fox.daysWithoutFood).toBe(0);
+  });
+
+  test('hunger does not grow while sleeping', () => {
+    fox.onCollision(lalu);
+    for (let day = 0; day < game.PredatorSprite.SLEEP_DAYS; day++) {
+      fox.onDayEnd();
+    }
+    expect(fox.state).toBe('hunting');
+    expect(fox.daysWithoutFood).toBe(0);
+    // After waking, it still gets the full STARVE_DAYS to find food
+    for (let day = 1; day < game.PredatorSprite.STARVE_DAYS; day++) {
+      fox.onDayEnd();
+    }
+    expect(fox.isAlive()).toBe(true);
+  });
+
   test('does not eat while sleeping', () => {
     fox.state = 'sleeping';
     expect(fox.onCollision(lalu)).toBe(false);
