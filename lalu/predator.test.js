@@ -1,22 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
-
-// The lalu game uses plain browser scripts, so load them into a shared VM context
-function loadGame() {
-  const context = vm.createContext({ window: { innerWidth: 1000, innerHeight: 800 }, Math });
-  ['base-sprite.js', 'nest-sprite.js', 'lalu-sprite.js', 'predator-sprite.js'].forEach(file => {
-    vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context);
-  });
-  const sprites = [];
-  const getVisibleSprites = sprite => sprites.filter(s => s !== sprite);
-  const { NestSprite, LaluSprite, PredatorSprite } = vm.runInContext(
-    '({ NestSprite, LaluSprite, PredatorSprite })',
-    context
-  );
-  context.window.game = { sprites, dragState: { isDragging: false, dragSprite: null } };
-  return { context, sprites, getVisibleSprites, NestSprite, LaluSprite, PredatorSprite };
-}
+const { loadGame } = require('./load-game');
 
 describe('PredatorSprite', () => {
   let game;

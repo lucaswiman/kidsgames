@@ -6,7 +6,6 @@ class PredatorSprite extends Sprite {
     this.state = mother ? 'cub' : 'hunting';
     this.sleepDaysLeft = 0;
     this.daysWithoutFood = 0; // Only counts days spent awake
-    this.wanderTarget = null;
     this.gender = Math.random() < 0.5 ? 'male' : 'female';
     this.mother = mother; // Reference to mother for cubs
     this.cubAge = 0; // Days as a cub
@@ -79,13 +78,6 @@ class PredatorSprite extends Sprite {
     return 3;
   }
 
-  distanceTo(sprite) {
-    return Math.sqrt(
-      Math.pow(this.getCenterX() - sprite.getCenterX(), 2) +
-        Math.pow(this.getCenterY() - sprite.getCenterY(), 2)
-    );
-  }
-
   canCatch(sprite) {
     if (sprite.type !== 'lalu' || !sprite.isAlive() || sprite.isSafeInNest()) {
       return false;
@@ -125,19 +117,6 @@ class PredatorSprite extends Sprite {
     );
   }
 
-  findNearest(sprites, maxDistance = Infinity) {
-    let nearest = null;
-    let minDistance = maxDistance;
-    sprites.forEach(sprite => {
-      const distance = this.distanceTo(sprite);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = sprite;
-      }
-    });
-    return nearest;
-  }
-
   getTargetPosition() {
     if (this.state === 'cub') {
       // Cubs follow their mother
@@ -166,20 +145,7 @@ class PredatorSprite extends Sprite {
       return { x: nearestPrey.getCenterX(), y: nearestPrey.getCenterY() };
     }
 
-    // Otherwise wander to random spots the fox's center can actually reach
-    const reachedWanderTarget =
-      this.wanderTarget &&
-      Math.hypot(
-        this.wanderTarget.x - this.getCenterX(),
-        this.wanderTarget.y - this.getCenterY()
-      ) <= 5;
-    if (!this.wanderTarget || reachedWanderTarget) {
-      this.wanderTarget = {
-        x: this.getWidth() / 2 + Math.random() * (window.innerWidth - this.getWidth()),
-        y: this.getHeight() / 2 + Math.random() * (window.innerHeight - this.getHeight()),
-      };
-    }
-    return this.wanderTarget;
+    return this.getWanderTarget();
   }
 
   onCollision(otherSprite) {

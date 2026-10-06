@@ -43,6 +43,7 @@
     "TreeSprite": "readonly",
     "LaluSprite": "readonly",
     "PredatorSprite": "readonly",
+    "OmnivoreSprite": "readonly",
     "createSprite": "readonly"
   },
   "rules": {

@@ -271,3 +271,10 @@ body, html {
     left: -10px;
     font-size: 20px;
 }
+
+.sprite.omnivore {
+    user-select: none;
+    background-color: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none;
+}

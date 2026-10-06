@@ -109,6 +109,44 @@ class Sprite {
     return this.y + this.getHeight() / 2;
   }
 
+  distanceTo(sprite) {
+    return Math.sqrt(
+      Math.pow(this.getCenterX() - sprite.getCenterX(), 2) +
+        Math.pow(this.getCenterY() - sprite.getCenterY(), 2)
+    );
+  }
+
+  // Returns the closest of the given sprites within maxDistance, or null
+  findNearest(sprites, maxDistance = Infinity) {
+    let nearest = null;
+    let minDistance = maxDistance;
+    sprites.forEach(sprite => {
+      const distance = this.distanceTo(sprite);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = sprite;
+      }
+    });
+    return nearest;
+  }
+
+  // Picks random spots the sprite's center can actually reach, and a new one on arrival
+  getWanderTarget() {
+    const reachedWanderTarget =
+      this.wanderTarget &&
+      Math.hypot(
+        this.wanderTarget.x - this.getCenterX(),
+        this.wanderTarget.y - this.getCenterY()
+      ) <= 5;
+    if (!this.wanderTarget || reachedWanderTarget) {
+      this.wanderTarget = {
+        x: this.getWidth() / 2 + Math.random() * (window.innerWidth - this.getWidth()),
+        y: this.getHeight() / 2 + Math.random() * (window.innerHeight - this.getHeight()),
+      };
+    }
+    return this.wanderTarget;
+  }
+
   // Check collision with another sprite
   isCollidingWith(otherSprite) {
     const distance = Math.sqrt(

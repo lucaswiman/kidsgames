@@ -26,6 +26,7 @@ class GameBoard {
       numLalus: 2,
       numNests: 2,
       numPredators: 2,
+      numOmnivores: 1,
     };
     const saved = localStorage.getItem('laluGameConfig');
     if (saved) {
@@ -106,6 +107,10 @@ class GameBoard {
       this.sprites.push(this.createPredator());
     }
 
+    for (let i = 0; i < this.config.numOmnivores; i++) {
+      this.sprites.push(this.createOmnivore());
+    }
+
     this.renderSprites();
   }
 
@@ -125,6 +130,12 @@ class GameBoard {
     const x = Math.random() * (window.innerWidth - 60);
     const y = Math.random() * (window.innerHeight - 60);
     return createSprite('predator', x, y, this.getVisibleSprites.bind(this));
+  }
+
+  createOmnivore() {
+    const x = Math.random() * (window.innerWidth - 50);
+    const y = Math.random() * (window.innerHeight - 50);
+    return createSprite('omnivore', x, y, this.getVisibleSprites.bind(this));
   }
 
   createLalu(nest) {
@@ -201,6 +212,10 @@ class GameBoard {
                     <label for="num-predators">Number of Foxes:</label>
                     <input type="number" id="num-predators" min="0" max="5" value="${this.config.numPredators}">
                 </div>
+                <div class="setting">
+                    <label for="num-omnivores">Number of Omnivores:</label>
+                    <input type="number" id="num-omnivores" min="0" max="5" value="${this.config.numOmnivores}">
+                </div>
                 <button onclick="game.saveSettings()">Save Settings</button>
             </div>
         `;
@@ -227,10 +242,12 @@ class GameBoard {
     const numTrees = parseInt(document.getElementById('num-trees').value);
     const numLalus = parseInt(document.getElementById('num-lalus').value);
     const numPredators = parseInt(document.getElementById('num-predators').value);
+    const numOmnivores = parseInt(document.getElementById('num-omnivores').value);
 
     this.config.numTrees = numTrees;
     this.config.numLalus = numLalus;
     this.config.numPredators = numPredators;
+    this.config.numOmnivores = numOmnivores;
     this.saveConfig();
 
     // Restart the day counter for the new board
@@ -360,7 +377,7 @@ class GameBoard {
       }
     });
 
-    // Remove lalus that were eaten by predators
+    // Remove animals that were eaten
     const countBefore = this.sprites.length;
     this.sprites = this.sprites.filter(sprite => !sprite.eaten);
     if (this.sprites.length !== countBefore) {
@@ -423,11 +440,11 @@ class GameBoard {
   }
 
   processDayEnd() {
-    // Increase hunger for all living lalus
+    // Increase hunger for all living animals
     this.sprites.forEach(sprite => {
       if (sprite.type === 'lalu') {
         sprite.increaseHunger();
-      } else if (sprite.type === 'predator') {
+      } else if (sprite.onDayEnd) {
         sprite.onDayEnd();
       }
     });
