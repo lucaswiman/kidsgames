@@ -180,6 +180,10 @@ class GameBoard {
         element.appendChild(sprite.createGenderLabel());
       }
 
+      if (sprite.createEarLabel) {
+        element.appendChild(sprite.createEarLabel());
+      }
+
       board.appendChild(element);
     });
   }

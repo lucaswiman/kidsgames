@@ -278,3 +278,25 @@ body, html {
     border-radius: 0 !important;
     box-shadow: none;
 }
+
+/* Ear-size badge on lalus: the bigger the ear, the bigger the lalu's ears */
+.ear-label {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.ear-small {
+    font-size: 8px;
+}
+
+.ear-normal {
+    font-size: 12px;
+}
+
+.ear-big {
+    font-size: 18px;
+}
