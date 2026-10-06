@@ -216,6 +216,11 @@ class GameBoard {
     this.config.numLalus = numLalus;
     this.saveConfig();
 
+    // Restart the day counter for the new board
+    this.dayCount = 1;
+    this.lastDayUpdate = Date.now();
+    this.updateDayTicker();
+
     this.generateSprites();
     this.hideModal();
   }
