@@ -203,6 +203,14 @@ class LaluSprite extends Sprite {
     return this.state !== 'dead';
   }
 
+  // Lalus in their nest are safe from predators; babies are safe while their mother is
+  isSafeInNest() {
+    if (this.state === 'baby') {
+      return !this.mother || this.mother.inNest;
+    }
+    return this.inNest;
+  }
+
   // Check if lalu is at nest position
   isAtNest() {
     if (!this.nest) {
@@ -342,12 +350,6 @@ class LaluSprite extends Sprite {
       }
     }
     return false;
-  }
-
-  createGenderLabel() {
-    const genderLabel = document.createElement('div');
-    genderLabel.className = `gender-label gender-${this.gender}`;
-    return genderLabel;
   }
 
   canReproduce() {
