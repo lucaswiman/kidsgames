@@ -23,3 +23,12 @@ const game = new Phaser.Game({
 
 // Handy for automated tests and poking around in the browser console.
 window.slimyStretch = game;
+
+// Save the game on the device so it works offline from the iPad Home Screen.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // Still playable online without it.
+    });
+  });
+}
