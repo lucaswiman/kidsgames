@@ -44,6 +44,29 @@ jobs:
         working-directory: tower-defense
         run: npm test
 
+  slimy-stretch-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install slimy-stretch dependencies
+        working-directory: slimy-stretch
+        run: npm ci
+
+      - name: Run slimy-stretch tests
+        working-directory: slimy-stretch
+        run: npm test
+
+      - name: Build slimy-stretch
+        working-directory: slimy-stretch
+        run: npm run build
+
   e2e-tests:
     runs-on: ubuntu-latest
     steps:
