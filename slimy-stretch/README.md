@@ -19,6 +19,15 @@ npm run build   # build the website into dist/
 
 It deploys with the rest of the repo to GitHub Pages at `slimy-stretch/`.
 
+## Putting it on the iPad Home Screen
+
+Open the game in Safari, tap the Share button, then **Add to Home Screen**. It opens full screen
+like an app and works without Wi-Fi after the first visit. (The Home Screen app keeps its own
+saved progress, separate from Safari's.)
+
+The icons in `public/` are drawn by `scripts/make-icons.py`; run `python3 scripts/make-icons.py`
+to redraw them.
+
 ## Making your own level
 
 Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
