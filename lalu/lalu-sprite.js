@@ -16,6 +16,8 @@ class LaluSprite extends Sprite {
 
     // Stats - inherited from parents or randomly assigned
     this.fluffiness = stats ? stats.fluffiness : LaluSprite.randomStat();
+    // Ear size: -1 small, 0 normal, 1 big. Females prefer males with bigger ears.
+    this.earSize = stats ? stats.earSize : LaluSprite.randomStat();
 
     // Age in days - increments each day, lalu dies when age exceeds lifespan
     this.age = 0;
@@ -38,6 +40,40 @@ class LaluSprite extends Sprite {
     }
 
     return inherited;
+  }
+
+  // Healthy lalus of the opposite gender that are ready to breed with this one
+  getPotentialMates() {
+    if (this.hasReproduced || this.hasCurrentBaby()) {
+      return [];
+    }
+    const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
+    return visibleSprites.filter(
+      sprite =>
+        sprite.type === 'lalu' &&
+        sprite.state === 'healthy' &&
+        sprite.gender !== this.gender &&
+        sprite.isAlive() &&
+        !sprite.hasReproduced &&
+        !sprite.hasCurrentBaby()
+    );
+  }
+
+  // A female only chooses a male whose ears are the biggest among the males ready to breed
+  choosesMate(male) {
+    const biggestEars = Math.max(...this.getPotentialMates().map(mate => mate.earSize));
+    return male.earSize === biggestEars;
+  }
+
+  getEarDescription() {
+    return this.earSize > 0 ? 'big ears' : this.earSize < 0 ? 'small ears' : 'normal ears';
+  }
+
+  createEarLabel() {
+    const earLabel = document.createElement('div');
+    earLabel.className = `ear-label ear-${this.getEarDescription().split(' ')[0]}`;
+    earLabel.textContent = '👂';
+    return earLabel;
   }
 
   // Returns 'hot' or 'cold' based on x position
@@ -69,11 +105,12 @@ class LaluSprite extends Sprite {
 
   getTitle() {
     const fluff = this.fluffiness > 0 ? 'fluffy' : this.fluffiness < 0 ? 'sleek' : 'normal';
+    const ears = this.getEarDescription();
     const biome = this.getBiome();
     if (this.state === 'baby') {
-      return `Baby Lalu (${this.gender}, ${this.babyAge} days, ${fluff}, ${biome})`;
+      return `Baby Lalu (${this.gender}, ${this.babyAge} days, ${fluff}, ${ears}, ${biome})`;
     }
-    return `Lalu (${this.state}, ${this.gender}, ${fluff}, ${biome}, age ${this.age}/${this.getLifespan()})`;
+    return `Lalu (${this.state}, ${this.gender}, ${fluff}, ${ears}, ${biome}, age ${this.age}/${this.getLifespan()})`;
   }
 
   getWidth() {
@@ -265,23 +302,16 @@ class LaluSprite extends Sprite {
     } else if (this.state === 'healthy') {
       // If not a mother with a current baby, seek potential mates
       if (!this.hasCurrentBaby()) {
-        const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
-        const potentialMates = visibleSprites.filter(
-          sprite =>
-            sprite.type === 'lalu' &&
-            sprite.state === 'healthy' &&
-            sprite.gender !== this.gender &&
-            sprite.isAlive() &&
-            !sprite.hasReproduced &&
-            !this.hasReproduced &&
-            !sprite.hasCurrentBaby()
+        // Females head for the biggest-eared males; males for females that would choose them
+        const preferredMates = this.getPotentialMates().filter(mate =>
+          this.gender === 'female' ? this.choosesMate(mate) : mate.choosesMate(this)
         );
 
-        // Find nearest potential mate
+        // Find nearest preferred mate
         let nearestMate = null;
         let minDistance = Infinity;
 
-        potentialMates.forEach(mate => {
+        preferredMates.forEach(mate => {
           const distance = Math.sqrt(
             Math.pow(this.getCenterX() - mate.getCenterX(), 2) +
               Math.pow(this.getCenterY() - mate.getCenterY(), 2)
@@ -339,6 +369,11 @@ class LaluSprite extends Sprite {
         const female = this.gender === 'female' ? this : otherSprite;
         const male = this.gender === 'male' ? this : otherSprite;
 
+        // She only mates with the biggest-eared male that's ready
+        if (!female.choosesMate(male)) {
+          return false;
+        }
+
         // Create baby near the female, inheriting stats from both parents
         this.createBaby(female, male);
 
@@ -377,6 +412,7 @@ class LaluSprite extends Sprite {
       // Inherit stats from parents with possible mutation
       const stats = {
         fluffiness: LaluSprite.inheritStat(mother.fluffiness, father.fluffiness),
+        earSize: LaluSprite.inheritStat(mother.earSize, father.earSize),
       };
 
       const baby = new LaluSprite(

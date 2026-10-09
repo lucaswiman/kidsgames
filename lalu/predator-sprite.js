@@ -1,22 +1,24 @@
 // Predator sprite (a fox) that hunts lalus outside their nests
-// Fox state machine: cub -> hunting <-> sleeping, and hunting -> dead when starved
-class PredatorSprite extends Sprite {
+// Fox state machine: baby -> hunting <-> sleeping, and hunting -> dead when starved or old
+class PredatorSprite extends AnimalSprite {
   constructor(id, x, y, getVisibleSprites, mother = null) {
-    super(id, 'predator', x, y, getVisibleSprites);
-    this.state = mother ? 'cub' : 'hunting';
+    super(id, 'predator', x, y, getVisibleSprites, mother);
     this.sleepDaysLeft = 0;
     this.daysWithoutFood = 0; // Only counts days spent awake
-    this.wanderTarget = null;
-    this.gender = Math.random() < 0.5 ? 'male' : 'female';
-    this.mother = mother; // Reference to mother for cubs
-    this.cubAge = 0; // Days as a cub
-    this.hasReproduced = false; // Track if this fox has reproduced this day
   }
 
   static SIGHT_RANGE = 250; // How far away (px) the fox can spot a lalu
   static SLEEP_DAYS = 2; // Days the fox sleeps after eating
   static STARVE_DAYS = 3; // Awake days without eating before the fox starves
-  static CUB_DAYS = 5; // Days before a cub grows up
+
+  getAdultState() {
+    return 'hunting';
+  }
+
+  // Like healthy lalus, only well-fed, awake foxes breed
+  isReadyToBreed() {
+    return this.state === 'hunting' && this.daysWithoutFood === 0;
+  }
 
   computeClassNames() {
     const classes = ['sprite', 'predator'];
@@ -30,25 +32,26 @@ class PredatorSprite extends Sprite {
     if (this.state === 'dead') {
       return `Fox (dead, ${this.gender})`;
     }
-    if (this.state === 'cub') {
-      return `Fox cub (${this.gender}, ${this.cubAge} days)`;
+    if (this.isBaby()) {
+      return `Fox cub (${this.gender}, ${this.babyAge} days)`;
     }
+    const age = `age ${this.age}/${this.getLifespan()}`;
     if (this.state === 'sleeping') {
-      return `Fox (sleeping, ${this.gender}, ${this.sleepDaysLeft} days left)`;
+      return `Fox (sleeping, ${this.gender}, ${age}, ${this.sleepDaysLeft} days left)`;
     }
-    return `Fox (hunting, ${this.gender}, ${this.daysWithoutFood}/${PredatorSprite.STARVE_DAYS} days without food)`;
+    return `Fox (hunting, ${this.gender}, ${age}, ${this.daysWithoutFood}/${PredatorSprite.STARVE_DAYS} days without food)`;
   }
 
   getWidth() {
-    return this.state === 'cub' ? 30 : 60;
+    return this.isBaby() ? 30 : 60;
   }
 
   getHeight() {
-    return this.state === 'cub' ? 30 : 60;
+    return this.isBaby() ? 30 : 60;
   }
 
-  getLabel() {
-    return '🦊';
+  getBackgroundImage() {
+    return 'url("fox-transparent.png")';
   }
 
   getStyle() {
@@ -70,20 +73,9 @@ class PredatorSprite extends Sprite {
     return style;
   }
 
-  isAlive() {
-    return this.state !== 'dead';
-  }
-
   // Slower than lalus, so a lalu heading away can outrun it
   getMaxVelocity() {
     return 3;
-  }
-
-  distanceTo(sprite) {
-    return Math.sqrt(
-      Math.pow(this.getCenterX() - sprite.getCenterX(), 2) +
-        Math.pow(this.getCenterY() - sprite.getCenterY(), 2)
-    );
   }
 
   canCatch(sprite) {
@@ -95,68 +87,23 @@ class PredatorSprite extends Sprite {
     return !(dragState && dragState.isDragging && dragState.dragSprite === sprite);
   }
 
-  // Like healthy lalus, only well-fed foxes breed; sleeping foxes and cubs can't
-  canReproduce() {
-    return (
-      this.state === 'hunting' &&
-      this.daysWithoutFood === 0 &&
-      !this.hasReproduced &&
-      !this.hasCurrentCub()
-    );
-  }
-
-  canMateWith(otherSprite) {
-    return (
-      otherSprite.type === 'predator' &&
-      otherSprite.gender !== this.gender &&
-      this.canReproduce() &&
-      otherSprite.canReproduce()
-    );
-  }
-
-  hasCurrentCub() {
-    // Check if this fox is currently a mother with a cub following her
-    if (this.gender !== 'female') {
-      return false;
-    }
-    const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
-    return visibleSprites.some(
-      sprite => sprite.type === 'predator' && sprite.state === 'cub' && sprite.mother === this
-    );
-  }
-
-  findNearest(sprites, maxDistance = Infinity) {
-    let nearest = null;
-    let minDistance = maxDistance;
-    sprites.forEach(sprite => {
-      const distance = this.distanceTo(sprite);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = sprite;
-      }
-    });
-    return nearest;
-  }
-
   getTargetPosition() {
-    if (this.state === 'cub') {
-      // Cubs follow their mother
-      return this.mother ? { x: this.mother.getCenterX(), y: this.mother.getCenterY() } : null;
+    if (this.isBaby()) {
+      return this.getMotherPosition();
     }
     if (this.state !== 'hunting') {
       return null;
     }
 
-    const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
-
     // Well-fed foxes seek the nearest available mate
-    const nearestMate = this.findNearest(visibleSprites.filter(s => this.canMateWith(s)));
+    const nearestMate = this.findNearestMate();
     if (nearestMate) {
       this.wanderTarget = null;
       return { x: nearestMate.getCenterX(), y: nearestMate.getCenterY() };
     }
 
     // Otherwise chase the nearest catchable lalu in sight
+    const visibleSprites = this.getVisibleSprites ? this.getVisibleSprites(this) : [];
     const nearestPrey = this.findNearest(
       visibleSprites.filter(s => this.canCatch(s)),
       PredatorSprite.SIGHT_RANGE
@@ -166,28 +113,11 @@ class PredatorSprite extends Sprite {
       return { x: nearestPrey.getCenterX(), y: nearestPrey.getCenterY() };
     }
 
-    // Otherwise wander to random spots the fox's center can actually reach
-    const reachedWanderTarget =
-      this.wanderTarget &&
-      Math.hypot(
-        this.wanderTarget.x - this.getCenterX(),
-        this.wanderTarget.y - this.getCenterY()
-      ) <= 5;
-    if (!this.wanderTarget || reachedWanderTarget) {
-      this.wanderTarget = {
-        x: this.getWidth() / 2 + Math.random() * (window.innerWidth - this.getWidth()),
-        y: this.getHeight() / 2 + Math.random() * (window.innerHeight - this.getHeight()),
-      };
-    }
-    return this.wanderTarget;
+    return this.getWanderTarget();
   }
 
   onCollision(otherSprite) {
-    if (this.canMateWith(otherSprite)) {
-      const mother = this.gender === 'female' ? this : otherSprite;
-      this.createCub(mother);
-      this.hasReproduced = true;
-      otherSprite.hasReproduced = true;
+    if (this.breedWith(otherSprite)) {
       return true;
     }
 
@@ -206,53 +136,21 @@ class PredatorSprite extends Sprite {
     return true;
   }
 
-  createCub(mother) {
-    if (window.game) {
-      const cub = new PredatorSprite(
-        `predator_${Math.random().toString(36).substr(2, 9)}`,
-        mother.x + Math.random() * 20 - 10, // Near mother
-        mother.y + Math.random() * 20 - 10,
-        this.getVisibleSprites,
-        mother
-      );
-      window.game.sprites.push(cub);
-    }
-  }
-
-  handleDeath() {
-    // Cubs can't survive without their mother
-    if (window.game) {
-      window.game.sprites.forEach(sprite => {
-        if (sprite.type === 'predator' && sprite.state === 'cub' && sprite.mother === this) {
-          sprite.state = 'dead';
-        }
-      });
-    }
-  }
-
   onDayEnd() {
-    if (this.state === 'cub') {
-      // Cubs don't get hungry; they grow up after CUB_DAYS days
-      this.cubAge++;
-      if (this.cubAge >= PredatorSprite.CUB_DAYS) {
-        this.state = 'hunting';
-        this.mother = null;
-      }
-    } else if (this.state === 'sleeping') {
+    if (!this.ageOneDay()) {
+      return;
+    }
+    if (this.state === 'sleeping') {
       // Sleeping foxes don't get hungrier
       this.sleepDaysLeft--;
       if (this.sleepDaysLeft <= 0) {
         this.state = 'hunting';
       }
-    } else if (this.state === 'hunting') {
+    } else {
       this.daysWithoutFood++;
       if (this.daysWithoutFood >= PredatorSprite.STARVE_DAYS) {
-        this.state = 'dead';
-        this.handleDeath();
+        this.die();
       }
     }
-
-    // Reset reproduction flag each day
-    this.hasReproduced = false;
   }
 }
