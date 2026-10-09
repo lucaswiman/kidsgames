@@ -1,22 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
-
-// The lalu game uses plain browser scripts, so load them into a shared VM context
-function loadGame() {
-  const context = vm.createContext({ window: { innerWidth: 1000, innerHeight: 800 }, Math });
-  ['base-sprite.js', 'nest-sprite.js', 'lalu-sprite.js', 'predator-sprite.js'].forEach(file => {
-    vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context);
-  });
-  const sprites = [];
-  const getVisibleSprites = sprite => sprites.filter(s => s !== sprite);
-  const { NestSprite, LaluSprite, PredatorSprite } = vm.runInContext(
-    '({ NestSprite, LaluSprite, PredatorSprite })',
-    context
-  );
-  context.window.game = { sprites, dragState: { isDragging: false, dragSprite: null } };
-  return { context, sprites, getVisibleSprites, NestSprite, LaluSprite, PredatorSprite };
-}
+const { loadGame } = require('./load-game');
 
 describe('PredatorSprite', () => {
   let game;
@@ -146,7 +128,7 @@ describe('PredatorSprite breeding', () => {
     game.sprites.push(male, female);
   });
 
-  const cubs = () => game.sprites.filter(s => s.state === 'cub');
+  const cubs = () => game.sprites.filter(s => s.state === 'baby');
 
   test('well-fed foxes of opposite genders seek each other out', () => {
     expect(male.getTargetPosition()).toEqual({ x: female.getCenterX(), y: female.getCenterY() });
@@ -196,12 +178,12 @@ describe('PredatorSprite breeding', () => {
     expect(female.canReproduce()).toBe(false);
   });
 
-  test('cubs do not get hungry and grow up after CUB_DAYS days', () => {
+  test('cubs do not get hungry and grow up after BABY_DAYS days', () => {
     male.onCollision(female);
     const cub = cubs()[0];
-    for (let day = 1; day < game.PredatorSprite.CUB_DAYS; day++) {
+    for (let day = 1; day < game.AnimalSprite.BABY_DAYS; day++) {
       cub.onDayEnd();
-      expect(cub.state).toBe('cub');
+      expect(cub.state).toBe('baby');
       expect(cub.daysWithoutFood).toBe(0);
     }
     cub.onDayEnd();
