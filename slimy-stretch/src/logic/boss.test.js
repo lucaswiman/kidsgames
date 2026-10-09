@@ -100,6 +100,21 @@ describe('Boss', () => {
     expect(boss.takeEvents()).toContain('blocked');
   });
 
+  it('keeps its damage when the slime dies (each hit is a checkpoint)', () => {
+    const { slime, boss } = setup();
+    boss.hp = 2;
+    boss.state = 'stompDown';
+    boss.shieldOn = true;
+    boss.bombs.push({ x: 300, y: 300, vx: 0, vy: 0, fuse: 3, state: 'resting' });
+    boss.resetAfterSlimeDeath();
+    expect(boss.hp).toBe(2);
+    expect(boss.phase).toBe(2);
+    expect(boss.state).toBe('idle');
+    expect(boss.y).toBe(boss.homeY);
+    expect(boss.bombs).toEqual([]);
+    expect(boss.shieldOn).toBe(false);
+  });
+
   it('is defeated after 3 hits', () => {
     const { slime, boss } = setup();
     for (let i = 0; i < 3; i++) {

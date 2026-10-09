@@ -362,9 +362,12 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(1100, () => {
       drops.destroy();
       if (this.boss) {
-        // The boss fight has no checkpoints: start the whole fight again.
-        this.scene.restart({ levelIndex: this.levelIndex });
-        return;
+        // Each hit on the robot is a checkpoint: it keeps its damage.
+        this.boss.resetAfterSlimeDeath();
+        if (this.boss.hp < 3) {
+          const hp = this.boss.hp;
+          this.showBanner(`The robot still has ${hp} hit${hp > 1 ? 's' : ''} left!`, 2000);
+        }
       }
       this.respawn();
     });

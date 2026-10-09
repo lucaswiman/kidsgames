@@ -42,6 +42,24 @@ export class Boss {
     this.stompTargetX = this.x;
   }
 
+  /**
+   * The slime died. Every hit on the robot counts as a checkpoint, so it keeps
+   * its damage, but it goes back home and the bombs are cleared away.
+   */
+  resetAfterSlimeDeath() {
+    this.x = this.level.robot.x;
+    this.y = this.homeY;
+    this.state = 'idle';
+    this.stateTime = 0;
+    this.throwTimer = 2;
+    this.stompTimer = STOMP_EVERY[Math.max(2, this.phase)];
+    this.shieldTimer = SHIELD_EVERY;
+    this.shieldOn = false;
+    this.hurtTime = 0;
+    this.bombs = [];
+    this.events = [];
+  }
+
   get phase() {
     return Math.min(3, 4 - this.hp);
   }
