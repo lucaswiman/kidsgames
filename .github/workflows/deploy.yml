@@ -80,6 +80,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Build slimy-stretch
+        working-directory: slimy-stretch
+        run: |
+          npm ci
+          npm run build
+
       - name: Build site
         run: |
           mkdir -p dist/bertymon
@@ -90,6 +96,7 @@ jobs:
           if [ -d "lalu" ]; then cp -r lalu dist/; fi
           if [ -d "sphere-folder" ]; then cp -r sphere-folder dist/; fi
           cp -r tower-defense/dist dist/tower-defense
+          cp -r slimy-stretch/dist dist/slimy-stretch
           cp index.html dist/
 
       - name: Deploy to production
