@@ -84,6 +84,17 @@ export default class BootScene extends Phaser.Scene {
       });
     }
 
+    // White so it can be tinted red, blue or yellow.
+    make('key', 40, 24, g => {
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(10, 12, 9);
+      g.fillRect(16, 9, 22, 6);
+      g.fillRect(28, 15, 4, 7);
+      g.fillRect(34, 15, 4, 5);
+      g.fillStyle(0x000000, 0.35);
+      g.fillCircle(10, 12, 4);
+    });
+
     make('drop', 12, 12, g => {
       g.fillStyle(0x55e05a, 1);
       g.fillCircle(6, 6, 6);

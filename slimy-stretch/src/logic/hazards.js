@@ -118,7 +118,8 @@ export function touchedItems(slime, items, radius) {
   const touched = [];
   const pts = slime.bodyPoints(10);
   items.forEach((item, i) => {
-    if (item.taken) {
+    // Things inside metal boxes can only be had by eating the box.
+    if (item.taken || item.inBox !== undefined) {
       return;
     }
     const isEnd = slime.ends.some(e => dist(e, item) < radius + END_RADIUS);

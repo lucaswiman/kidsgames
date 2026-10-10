@@ -21,18 +21,26 @@ export default class LevelSelectScene extends Phaser.Scene {
     g.fillGradientStyle(0x141a33, 0x141a33, 0x1f4a2c, 0x1f4a2c, 1);
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    this.add.text(GAME_WIDTH / 2, 60, 'Pick a Level', textStyle(56, '#7dff7a')).setOrigin(0.5);
+    this.add.text(GAME_WIDTH / 2, 52, 'Pick a Level', textStyle(52, '#7dff7a')).setOrigin(0.5);
 
+    // Fit all the worlds on one screen.
+    const rowHeight = (GAME_HEIGHT - 120) / WORLDS.length;
     WORLDS.forEach((world, w) => {
-      const y = 190 + w * 190;
+      const top = 110 + w * rowHeight;
+      const y = top + rowHeight * 0.55; // middle of the level buttons
       const theme = THEMES[world.theme];
       const band = this.add.graphics();
       band.fillStyle(theme.skyBottom, 0.9);
-      band.fillRoundedRect(40, y - 70, GAME_WIDTH - 80, 160, 24);
+      band.fillRoundedRect(40, top, GAME_WIDTH - 80, rowHeight - 12, 22);
       band.fillStyle(theme.wall, 1);
-      band.fillRoundedRect(40, y + 60, GAME_WIDTH - 80, 30, { tl: 0, tr: 0, bl: 24, br: 24 });
+      band.fillRoundedRect(40, top + rowHeight - 34, GAME_WIDTH - 80, 22, {
+        tl: 0,
+        tr: 0,
+        bl: 22,
+        br: 22,
+      });
       this.add
-        .text(70, y - 55, `World ${w + 1}: ${world.name}`, textStyle(32, '#ffffff'))
+        .text(64, top + 6, `World ${w + 1}: ${world.name}`, textStyle(26, '#ffffff'))
         .setOrigin(0, 0);
 
       const levels = LEVELS.map((l, i) => ({ ...l, index: i })).filter(l => l.world === world.id);
@@ -44,17 +52,17 @@ export default class LevelSelectScene extends Phaser.Scene {
         makeButton(
           this,
           x,
-          y + 20,
+          y,
           label,
           () => {
             if (unlocked) {
               this.scene.start('Game', { levelIndex: level.index });
             }
           },
-          { width: 150, height: 74, fontSize: 32, color: unlocked ? 0x2fae4a : 0x555a66 }
+          { width: 140, height: 60, fontSize: 28, color: unlocked ? 0x2fae4a : 0x555a66 }
         );
         if (best) {
-          this.add.text(x, y + 70, `★ ${best.score}`, textStyle(20, '#ffe066')).setOrigin(0.5);
+          this.add.text(x + 96, y, `★\n${best.score}`, textStyle(16, '#ffe066')).setOrigin(0.5);
         }
       });
     });

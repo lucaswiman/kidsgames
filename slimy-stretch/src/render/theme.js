@@ -35,6 +35,17 @@ export const THEMES = {
     fluidTop: 0xffd040,
     text: '#ffe6cc',
   },
+  canyon: {
+    skyTop: 0x5fa8e0,
+    skyBottom: 0xf6c98a,
+    grid: null,
+    wall: 0xc8643a,
+    wallDark: 0x8a3f22,
+    wallLight: 0xeaa070,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
 };
 
 // A tiny repeatable random number so wall cracks don't flicker between draws.
@@ -73,6 +84,30 @@ export function drawBackdrop(scene, level, theme, themeName) {
         x + 160,
         level.pixelHeight - h,
         x + 320,
+        level.pixelHeight
+      );
+    }
+  } else if (themeName === 'canyon') {
+    // Far-away flat-topped mesas.
+    g.fillStyle(0xb85a36, 0.35);
+    for (let x = -80; x < level.pixelWidth + 200; x += 300) {
+      const h = 140 + hash(x, 5) * 160;
+      const w = 160 + hash(x, 6) * 120;
+      g.fillRect(x + 30, level.pixelHeight - h, w, h);
+      g.fillTriangle(
+        x,
+        level.pixelHeight,
+        x + 30,
+        level.pixelHeight - h,
+        x + 30,
+        level.pixelHeight
+      );
+      g.fillTriangle(
+        x + 30 + w,
+        level.pixelHeight,
+        x + 30 + w,
+        level.pixelHeight - h,
+        x + 60 + w,
         level.pixelHeight
       );
     }
@@ -158,6 +193,16 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
     }
     g.fillStyle(theme.wallDark, 0.5);
     g.fillCircle(x + 14 + hash(col, row) * 20, y + 26 + hash(row, col) * 12, 5);
+  } else if (themeName === 'canyon') {
+    if (openUp) {
+      g.fillStyle(theme.wallLight, 1);
+      g.fillRect(x, y, TILE, 6);
+    }
+    // Stripes of rock layers.
+    g.fillStyle(theme.wallDark, 0.35);
+    g.fillRect(x, y + 16, TILE, 4);
+    g.fillStyle(0xf0b080, 0.35);
+    g.fillRect(x, y + 32, TILE, 5);
   } else {
     if (openUp) {
       g.fillStyle(theme.wallLight, 1);
@@ -220,5 +265,40 @@ export function drawFluids(g, level, time) {
         g.fillRect(x, y + wave, TILE, 4);
       }
     }
+  }
+}
+
+/** A crumbling rock. `shake` jiggles it while it's about to fall apart. */
+export function drawCrumble(g, x, y, shake = 0, alpha = 1) {
+  const dx = shake ? (Math.random() - 0.5) * shake : 0;
+  const dy = shake ? (Math.random() - 0.5) * shake : 0;
+  g.fillStyle(0xd98a52, alpha);
+  g.fillRect(x + dx, y + dy, TILE, TILE);
+  g.fillStyle(0x9a5530, alpha);
+  g.fillRect(x + dx, y + dy + TILE - 6, TILE, 6);
+  // Cracks show it's not safe.
+  g.lineStyle(3, 0x5a2a12, alpha);
+  g.lineBetween(x + dx + 8, y + dy + 6, x + dx + 20, y + dy + 22);
+  g.lineBetween(x + dx + 20, y + dy + 22, x + dx + 14, y + dy + 40);
+  g.lineBetween(x + dx + 20, y + dy + 22, x + dx + 38, y + dy + 30);
+}
+
+/** A metal box (eat it with the tongue). */
+export function drawBox(g, x, y, size = TILE) {
+  const s = size / TILE;
+  g.fillStyle(0x8c96a3, 1);
+  g.fillRect(x, y, size, size);
+  g.lineStyle(4 * s, 0x58616d, 1);
+  g.strokeRect(x + 2 * s, y + 2 * s, size - 4 * s, size - 4 * s);
+  g.lineBetween(x + 4 * s, y + 4 * s, x + size - 4 * s, y + size - 4 * s);
+  g.lineBetween(x + size - 4 * s, y + 4 * s, x + 4 * s, y + size - 4 * s);
+  g.fillStyle(0xd8dee6, 1);
+  for (const [px, py] of [
+    [7, 7],
+    [41, 7],
+    [7, 41],
+    [41, 41],
+  ]) {
+    g.fillCircle(x + px * s, y + py * s, 2.5 * s);
   }
 }

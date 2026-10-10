@@ -8,7 +8,9 @@ import {
   segmentTouchesDeadly,
 } from './collision.js';
 import { buildLasers } from './hazards.js';
+import { TileKind } from './level.js';
 import { canReach } from './slime.js';
+import { TONGUE_RADIUS, touchesBox } from './tongue.js';
 
 /**
  * Checks that a level can be finished, by playing it the way a kid would:
@@ -27,7 +29,7 @@ export function dropPoint(level, p) {
   return castCircle(level, p, { x: p.x, y: level.pixelHeight + TILE * 4 }, END_RADIUS, 2);
 }
 
-export function solveLevel(level) {
+function explore(level) {
   const blockers = buildLasers(level).filter(l => l.off <= 0);
   const safe = (a, b) =>
     !segmentTouchesDeadly(level, a, b, END_RADIUS * 0.6, 8) &&
@@ -83,13 +85,74 @@ export function solveLevel(level) {
   };
   const canTouch = (target, radius) => movesTo(target, radius) < Infinity;
 
+  return { start, reached, movesTo, canTouch, safe };
+}
+
+/** A copy of the level with eaten boxes removed and gates open or (deadly) closed. */
+function levelView(level, eaten, openColors) {
+  const tiles = level.tiles.map(row => row.slice());
+  level.boxes.forEach((b, i) => {
+    if (eaten.has(i)) {
+      tiles[b.row][b.col] = TileKind.EMPTY;
+    }
+  });
+  for (const g of level.gates) {
+    // A closed gate zaps you, which the checker treats like lava.
+    tiles[g.row][g.col] = openColors.has(g.color) ? TileKind.EMPTY : TileKind.LAVA;
+  }
+  return { ...level, tiles };
+}
+
+export function solveLevel(level) {
+  // Keep exploring until no new box can be eaten and no new gate opened.
+  const eaten = new Set();
+  const openColors = new Set();
+  let view;
+  let result;
+  for (;;) {
+    view = levelView(level, eaten, openColors);
+    result = explore(view);
+    let changed = false;
+    level.boxes.forEach((box, i) => {
+      if (!eaten.has(i) && tongueCanReach(view, result.reached, box, result.safe)) {
+        eaten.add(i);
+        changed = true;
+      }
+    });
+    for (const key of level.keys) {
+      const got =
+        key.inBox !== undefined ? eaten.has(key.inBox) : result.canTouch(key, ITEM_RADIUS);
+      if (got && !openColors.has(key.color)) {
+        openColors.add(key.color);
+        changed = true;
+      }
+    }
+    if (!changed) {
+      break;
+    }
+  }
+  const item = (it, radius) =>
+    it.inBox !== undefined ? eaten.has(it.inBox) : result.canTouch(it, radius);
   return {
-    start,
-    reached,
-    exit: level.exit ? canTouch(level.exit, TILE / 2) : true,
-    exitMoves: level.exit ? movesTo(level.exit, TILE / 2) : 0,
-    tokens: level.tokens.map(t => canTouch(t, ITEM_RADIUS)),
-    cores: level.cores.map(c => canTouch(c, ITEM_RADIUS)),
-    checkpoints: level.checkpoints.map(c => canTouch(c, TILE / 2)),
+    start: result.start,
+    reached: result.reached,
+    exit: level.exit ? result.canTouch(level.exit, TILE / 2) : true,
+    exitMoves: level.exit ? result.movesTo(level.exit, TILE / 2) : 0,
+    tokens: level.tokens.map(t => item(t, ITEM_RADIUS)),
+    cores: level.cores.map(c => item(c, ITEM_RADIUS)),
+    checkpoints: level.checkpoints.map(c => result.canTouch(c, TILE / 2)),
+    keys: level.keys.map(k => item(k, ITEM_RADIUS)),
+    boxes: level.boxes.map((_b, i) => eaten.has(i)),
   };
+}
+
+/** Can the tongue reach `box` from any spot the slime can get to? */
+function tongueCanReach(level, reached, box, safe) {
+  return reached.some(a => {
+    if (dist(a, box) > MAX_STRETCH + TILE) {
+      return false;
+    }
+    const tip = castCircle(level, a, clampToRange(a, box, MAX_STRETCH), TONGUE_RADIUS, 4);
+    return touchesBox(tip, box) && safe(a, tip);
+  });
 }
