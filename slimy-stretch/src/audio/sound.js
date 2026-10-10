@@ -143,6 +143,34 @@ export const sfx = {
   },
   jump: () => tone({ freq: 150, to: 500, dur: 0.3, vol: 0.2, type: 'square' }),
   shield: () => tone({ freq: 600, to: 1200, dur: 0.3, vol: 0.12, type: 'sine' }),
+  rumble: () => noise({ dur: 0.5, vol: 0.18, filter: 300, to: 80 }),
+  crumble: () => {
+    noise({ dur: 0.5, vol: 0.4, filter: 900, to: 60 });
+    tone({ freq: 110, to: 50, dur: 0.3, vol: 0.25 });
+  },
+  key: () => {
+    [784, 988, 1175].forEach((f, i) =>
+      tone({ freq: f, dur: 0.12, vol: 0.18, type: 'triangle', delay: i * 0.05 })
+    );
+  },
+  gateOpen: () => {
+    tone({ freq: 900, to: 200, dur: 0.4, vol: 0.2, type: 'sawtooth' });
+    [523, 784].forEach((f, i) =>
+      tone({ freq: f, dur: 0.15, vol: 0.15, type: 'square', delay: 0.3 + i * 0.08 })
+    );
+  },
+  tongue: () => tone({ freq: 300, to: 700, dur: 0.12, vol: 0.18, type: 'triangle' }),
+  chomp: () => {
+    noise({ dur: 0.12, vol: 0.35, filter: 1800, to: 300 });
+    tone({ freq: 200, to: 90, dur: 0.15, vol: 0.3, type: 'square', delay: 0.05 });
+    tone({ freq: 180, to: 80, dur: 0.15, vol: 0.25, type: 'square', delay: 0.2 });
+  },
+  boulderCrack: () => noise({ dur: 0.25, vol: 0.25, filter: 2500, to: 400 }),
+  thud: () => {
+    noise({ dur: 0.35, vol: 0.4, filter: 500, to: 40 });
+    tone({ freq: 80, to: 35, dur: 0.3, vol: 0.4 });
+  },
+  wind: () => noise({ dur: 1.6, vol: 0.12, filter: 1400, to: 500 }),
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -188,6 +216,13 @@ const SONGS = {
     root: 57,
     lead: [0, 0, 3, 0, 6, 0, 5, 3, 0, 0, 3, 0, 7, 6, 5, 3],
     bass: [-12, -12, null, -12, -9, null, -10, null, -12, -12, null, -12, -6, null, -7, null],
+  },
+  canyon: {
+    bpm: 108,
+    root: 55,
+    // A bouncy cowboy tune on the minor pentatonic scale.
+    lead: [0, null, 3, 5, 7, null, 5, 3, 0, null, 10, null, 7, 5, 3, null],
+    bass: [-12, null, -5, null, -12, null, -5, null, -14, null, -7, null, -12, null, -5, null],
   },
   boss: {
     bpm: 156,

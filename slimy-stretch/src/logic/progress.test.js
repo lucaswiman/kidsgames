@@ -46,3 +46,13 @@ describe('progress', () => {
     expect(() => saveProgress(emptyProgress(), broken)).not.toThrow();
   });
 });
+
+describe('tongue', () => {
+  it('is unlocked by beating the robot', async () => {
+    const { hasTongue } = await import('./progress.js');
+    const p = emptyProgress();
+    expect(hasTongue(p)).toBe(false);
+    p.best['3-4'] = { score: 1000, tokens: 0 };
+    expect(hasTongue(p)).toBe(true);
+  });
+});

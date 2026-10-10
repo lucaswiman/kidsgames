@@ -20,10 +20,18 @@ describe('levels', () => {
     expect(new Set(LEVELS.map(l => l.id)).size).toBe(LEVELS.length);
   });
 
-  it('the last level is the robot boss', () => {
-    const last = LEVELS[LEVELS.length - 1];
-    expect(last.type).toBe('boss');
-    expect(parseLevel(last).robot).toBeTruthy();
+  it('bosses are only in worlds that are multiples of 3, at the end of the world', () => {
+    WORLDS.forEach((world, w) => {
+      const levels = LEVELS.filter(l => l.world === world.id);
+      const bosses = levels.filter(l => l.type === 'boss');
+      if ((w + 1) % 3 === 0) {
+        expect(bosses.length).toBe(1);
+        expect(levels[levels.length - 1].type).toBe('boss');
+        expect(parseLevel(bosses[0]).robot).toBeTruthy();
+      } else {
+        expect(bosses.length).toBe(0);
+      }
+    });
   });
 
   for (const def of LEVELS) {
@@ -47,6 +55,7 @@ describe('levels', () => {
         expect(result.tokens.every(Boolean)).toBe(true);
         expect(result.cores.every(Boolean)).toBe(true);
         expect(result.checkpoints.every(Boolean)).toBe(true);
+        expect(result.keys.every(Boolean)).toBe(true);
 
         if (def.chaser) {
           // The chaser must leave enough time to reach the exit.

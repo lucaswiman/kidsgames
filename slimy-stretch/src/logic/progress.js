@@ -45,3 +45,8 @@ export function recordFinish(progress, levelIndex, levelId, result) {
   }
   return false;
 }
+
+/** The tongue is the reward for beating the robot boss. */
+export function hasTongue(progress) {
+  return !!progress.tongue || !!progress.best['3-4'];
+}

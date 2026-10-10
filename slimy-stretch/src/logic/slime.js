@@ -16,6 +16,9 @@ import {
   solidLengthBetween,
 } from './collision.js';
 
+// How close to something solid a stuck end has to be to stay stuck.
+const SUPPORT_MARGIN = 6;
+
 /**
  * Can one end be at `p` while the other end is at `anchor`? It has to be
  * within reach, not inside a wall, and the body can only bend a little
@@ -53,6 +56,8 @@ export class Slime {
     this.lead = 0;
     this.finger = { x: 0, y: 0 };
     this.smoothFinger = { x: 0, y: 0 };
+    // Wind pushes the end you're dragging this far sideways (set each frame).
+    this.wind = { x: 0, y: 0 };
     this.fingerSamples = [];
     this.events = [];
     this.spawn(spawnPoint);
@@ -178,6 +183,36 @@ export class Slime {
     return velocity;
   }
 
+  /**
+   * Something the slime was stuck to just disappeared (crumbling rock, an
+   * eaten box). Any stuck end left touching nothing solid lets go: it boings
+   * back to the other end, or if both ends lost their grip the slime falls.
+   */
+  checkSupport(level) {
+    if (this.isFalling) {
+      return;
+    }
+    const supported = end =>
+      end.state !== 'stuck' || circleHitsSolid(level, end, END_RADIUS + SUPPORT_MARGIN);
+    const lost = this.ends.map(end => !supported(end));
+    if (!lost[0] && !lost[1]) {
+      return;
+    }
+    const held = this.heldIndex;
+    if (held >= 0 ? lost[1 - held] : lost[0] && lost[1]) {
+      // Nothing left holding on: fall.
+      this.knockLoose(0, 0);
+      return;
+    }
+    this.ends.forEach((end, i) => {
+      if (lost[i]) {
+        end.state = 'snapping';
+        this.lead = 1 - i;
+        this.events.push('snap');
+      }
+    });
+  }
+
   /** Throw the whole slime loose (for example, the boss stomping nearby). */
   knockLoose(vx, vy) {
     const c = this.center;
@@ -203,7 +238,11 @@ export class Slime {
         const k = 1 - Math.exp(-FOLLOW_RATE * dt);
         this.smoothFinger.x += (this.finger.x - this.smoothFinger.x) * k;
         this.smoothFinger.y += (this.finger.y - this.smoothFinger.y) * k;
-        const desired = clampToRange(other, this.smoothFinger, MAX_STRETCH);
+        const pushed = {
+          x: this.smoothFinger.x + this.wind.x,
+          y: this.smoothFinger.y + this.wind.y,
+        };
+        const desired = clampToRange(other, pushed, MAX_STRETCH);
         slideToward(level, end, other, desired);
       } else if (end.state === 'snapping') {
         const d = dist(end, other);

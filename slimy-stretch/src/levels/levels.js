@@ -6,11 +6,16 @@
 //         'boss'    - beat the robot
 // hint:   text shown at the start of the level
 // chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball
+// wind:   gusts that push the end you're dragging: { every, gust, strength, dir }
+//         (a gust every `every` seconds, lasting `gust` seconds; dir 1 = right, -1 = left)
+// boxItems: what's inside each metal box (M), in reading order
+// boulderEvery: seconds between boulders from each ceiling crack (O), default 4.5
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
   { id: 'tundra', name: 'The Tundra', theme: 'tundra' },
   { id: 'volcano', name: 'The Volcano', theme: 'volcano' },
+  { id: 'canyon', name: 'The Canyon', theme: 'canyon' },
 ];
 
 export const LEVELS = [
@@ -330,6 +335,108 @@ export const LEVELS = [
       '#...................#',
       '#..S............R...#',
       '#####################',
+    ],
+  },
+  // ------------------------------------------------------------- THE CANYON
+  {
+    id: '4-1',
+    world: 'canyon',
+    name: 'Crumbly Cliffs',
+    type: 'normal',
+    hint: 'Cracked rocks crumble 3 seconds after you stick to them. Keep moving! Watch out for falling boulders.',
+    map: [
+      '##########O#########O#########O#########',
+      '#......................................#',
+      '#......................................#',
+      '#................T.....................#',
+      '#......................................#',
+      '#......XXX...XXX...XXX...XXX...........#',
+      '#......................................#',
+      '#......................................#',
+      '#..S.........................#..C....E.#',
+      '####WWWWWWWWWWWWWWWWWWWWWWWWW###########',
+      '########################################',
+    ],
+  },
+  {
+    id: '4-2',
+    world: 'canyon',
+    name: 'Key to the Canyon',
+    type: 'normal',
+    hint: 'Tap 👅 then drag to stick out your tongue and eat a metal box. Bring the red key to the red laser gate!',
+    // What's inside each metal box, in reading order.
+    boxItems: [null, null, null, 'token', null, null, null],
+    map: [
+      '##############################',
+      '#.......M.......a............#',
+      '#.1.....M.......a............#',
+      '#####...M.......a.....T......#',
+      '#.......M.......a............#',
+      '#.......M.......a............#',
+      '#.......M.......a............#',
+      '#..S....M...T...a.........E..#',
+      '##############################',
+    ],
+  },
+  {
+    id: '4-3',
+    world: 'canyon',
+    name: 'Windy Mesa',
+    type: 'collect',
+    hint: 'Wind gusts push your slime around. Find all 3 power cores. Some are hidden in boxes!',
+    // A gust every 5 seconds that lasts 2 seconds and blows to the right.
+    wind: { every: 5, gust: 2, strength: 90, dir: 1 },
+    // What's inside each metal box, in reading order.
+    boxItems: ['key-blue', 'core'],
+    map: [
+      '##########################',
+      '#........................#',
+      '#.P...................M..#',
+      '#####............#########',
+      '#........................#',
+      '#........................#',
+      '#.......####.............#',
+      '#........................#',
+      '#..................#######',
+      '#..................b..P..#',
+      '#..................#######',
+      '#.....M..................#',
+      '#..S.............C.....E.#',
+      '##########################',
+    ],
+  },
+  {
+    id: '4-4',
+    world: 'canyon',
+    name: 'Rockslide!',
+    type: 'escape',
+    hint: 'Rockslide and flood! Climb to the top before the water gets you!',
+    chaser: { kind: 'rise', fluid: 'water', delay: 4, speed: 24 },
+    map: [
+      '#######O####O#####',
+      '#.......E........#',
+      '#....#######.....#',
+      '#................#',
+      '#................#',
+      '#..XXX......XXX..#',
+      '#................#',
+      '#................#',
+      '#####.......######',
+      '#................#',
+      '#........T.......#',
+      '#...XXXX.........#',
+      '#................#',
+      '#................#',
+      '#.........####...#',
+      '#................#',
+      '#................#',
+      '###.....XXX......#',
+      '#................#',
+      '#................#',
+      '#.....####.......#',
+      '#................#',
+      '#..S.............#',
+      '##################',
     ],
   },
 ];
