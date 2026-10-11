@@ -155,6 +155,28 @@ export class CanyonStuff {
   }
 
   /**
+   * A mining machine's pickaxe smashed box `i`. The box is gone and whatever
+   * was inside drops out where anyone can grab it. Returns the item.
+   */
+  smashBox(i, slime) {
+    const box = this.boxes[i];
+    if (box.eaten) {
+      return null;
+    }
+    box.eaten = true;
+    box.smashed = true;
+    this.level.tiles[box.row][box.col] = TileKind.EMPTY;
+    const key = this.keys.find(k => k.inBox === i);
+    if (key) {
+      delete key.inBox;
+    }
+    if (slime) {
+      slime.checkSupport(this.level);
+    }
+    return box.item;
+  }
+
+  /**
    * The tongue ate box `i`: remove it and hand over what was inside.
    * Returns the item ('token', 'core', 'key-red', ...) or null.
    */
