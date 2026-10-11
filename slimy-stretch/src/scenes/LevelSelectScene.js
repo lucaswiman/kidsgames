@@ -27,17 +27,18 @@ export default class LevelSelectScene extends Phaser.Scene {
     const rowHeight = (GAME_HEIGHT - 120) / WORLDS.length;
     WORLDS.forEach((world, w) => {
       const top = 110 + w * rowHeight;
-      const y = top + rowHeight * 0.55; // middle of the level buttons
+      const buttonHeight = Math.min(60, rowHeight - 70);
+      const y = top + 42 + buttonHeight / 2; // middle of the level buttons
       const theme = THEMES[world.theme];
       const band = this.add.graphics();
       band.fillStyle(theme.skyBottom, 0.9);
       band.fillRoundedRect(40, top, GAME_WIDTH - 80, rowHeight - 12, 22);
       band.fillStyle(theme.wall, 1);
-      band.fillRoundedRect(40, top + rowHeight - 34, GAME_WIDTH - 80, 22, {
+      band.fillRoundedRect(40, top + rowHeight - 26, GAME_WIDTH - 80, 14, {
         tl: 0,
         tr: 0,
-        bl: 22,
-        br: 22,
+        bl: 14,
+        br: 14,
       });
       this.add
         .text(64, top + 6, `World ${w + 1}: ${world.name}`, textStyle(26, '#ffffff'))
@@ -59,7 +60,12 @@ export default class LevelSelectScene extends Phaser.Scene {
               this.scene.start('Game', { levelIndex: level.index });
             }
           },
-          { width: 140, height: 60, fontSize: 28, color: unlocked ? 0x2fae4a : 0x555a66 }
+          {
+            width: 140,
+            height: buttonHeight,
+            fontSize: 26,
+            color: unlocked ? 0x2fae4a : 0x555a66,
+          }
         );
         if (best) {
           this.add.text(x + 96, y, `★\n${best.score}`, textStyle(16, '#ffe066')).setOrigin(0.5);

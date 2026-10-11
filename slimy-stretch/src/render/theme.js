@@ -35,6 +35,17 @@ export const THEMES = {
     fluidTop: 0xffd040,
     text: '#ffe6cc',
   },
+  warehouse: {
+    skyTop: 0x1f1c1a,
+    skyBottom: 0x3e362e,
+    grid: null,
+    wall: 0x8a857c,
+    wallDark: 0x58534b,
+    wallLight: 0xb9b3a6,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -86,6 +97,22 @@ export function drawBackdrop(scene, level, theme, themeName) {
         x + 320,
         level.pixelHeight
       );
+    }
+  } else if (themeName === 'warehouse') {
+    // Tall shelves full of boxes in the background.
+    for (let x = 60; x < level.pixelWidth; x += 360) {
+      g.fillStyle(0x2c2622, 0.9);
+      g.fillRect(x, 0, 12, level.pixelHeight);
+      g.fillRect(x + 200, 0, 12, level.pixelHeight);
+      for (let y = 140; y < level.pixelHeight; y += 150) {
+        g.fillStyle(0x2c2622, 0.9);
+        g.fillRect(x, y, 212, 10);
+        g.fillStyle(0x6b5a44, 0.45);
+        for (let b = 0; b < 4; b++) {
+          const h = 40 + hash(x + b, y) * 50;
+          g.fillRect(x + 18 + b * 46, y - h, 38, h);
+        }
+      }
     }
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
@@ -142,6 +169,8 @@ export function drawTiles(scene, level, theme, themeName) {
         drawIce(g, x, y);
       } else if (kind === TileKind.SPIKES) {
         drawSpikes(g, level, col, row, x, y);
+      } else if (kind === TileKind.PLATFORM) {
+        drawPlatform(g, x, y);
       } else if (kind === TileKind.EMITTER) {
         g.fillStyle(0x333344, 1);
         g.fillRect(x + 4, y + 4, TILE - 8, TILE - 8);
@@ -193,6 +222,16 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
     }
     g.fillStyle(theme.wallDark, 0.5);
     g.fillCircle(x + 14 + hash(col, row) * 20, y + 26 + hash(row, col) * 12, 5);
+  } else if (themeName === 'warehouse') {
+    // Concrete with yellow-and-black safety stripes on top.
+    if (openUp) {
+      for (let i = 0; i < 4; i++) {
+        g.fillStyle(i % 2 ? 0x222222 : 0xf2c230, 1);
+        g.fillRect(x + i * 12, y, 12, 7);
+      }
+    }
+    g.fillStyle(theme.wallDark, 0.4);
+    g.fillRect(x + 6 + hash(col, row) * 24, y + 20 + hash(row, col) * 16, 8, 3);
   } else if (themeName === 'canyon') {
     if (openUp) {
       g.fillStyle(theme.wallLight, 1);
@@ -301,4 +340,40 @@ export function drawBox(g, x, y, size = TILE) {
   ]) {
     g.fillCircle(x + px * s, y + py * s, 2.5 * s);
   }
+}
+
+/** A one-way platform: a thin grate you can stretch up through. */
+function drawPlatform(g, x, y) {
+  g.fillStyle(0x6d747c, 1);
+  g.fillRect(x, y, TILE, 9);
+  g.fillStyle(0x9aa3ad, 1);
+  g.fillRect(x, y, TILE, 3);
+  g.fillStyle(0x3d4248, 1);
+  for (let i = 6; i < TILE; i += 12) {
+    g.fillRect(x + i, y + 4, 6, 3);
+  }
+  // Little arrows show you can come up through it.
+  g.fillStyle(0xffffff, 0.35);
+  g.fillTriangle(x + 24, y + 14, x + 18, y + 22, x + 30, y + 22);
+}
+
+/** A conveyor belt. `offset` scrolls the stripes to show which way it moves. */
+export function drawBelt(g, x, y, dir, offset) {
+  g.fillStyle(0x2e2e33, 1);
+  g.fillRect(x, y, TILE, TILE);
+  g.fillStyle(0x4a4a52, 1);
+  g.fillRect(x, y + 4, TILE, TILE - 8);
+  g.lineStyle(4, 0xf2c230, 1);
+  const shift = (((offset * dir) % 16) + 16) % 16;
+  for (let i = -16; i < TILE + 16; i += 16) {
+    const cx = x + i + shift;
+    if (cx < x + 4 || cx > x + TILE - 4) {
+      continue;
+    }
+    g.lineBetween(cx - dir * 5, y + 14, cx + dir * 3, y + 24);
+    g.lineBetween(cx + dir * 3, y + 24, cx - dir * 5, y + 34);
+  }
+  g.fillStyle(0x1b1b1f, 1);
+  g.fillCircle(x + 6, y + TILE / 2, 4);
+  g.fillCircle(x + TILE - 6, y + TILE / 2, 4);
 }

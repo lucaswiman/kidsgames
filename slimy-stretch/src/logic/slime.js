@@ -13,6 +13,9 @@ import {
   clampToRange,
   dist,
   findStickSpot,
+  isSupported,
+  isTouchingSticky,
+  platformLanding,
   solidLengthBetween,
 } from './collision.js';
 
@@ -65,6 +68,7 @@ export class Slime {
 
   /** Drop the slime in at a point. It falls until it lands on something. */
   spawn(point) {
+    this.frozen = false;
     this.falling = { x: point.x, y: point.y, vx: 0, vy: 0 };
     this.heldIndex = -1;
     for (const end of this.ends) {
@@ -100,7 +104,7 @@ export class Slime {
 
   /** Finger went down. Grab whichever end is closest to it. */
   grab(point, time = 0) {
-    if (this.isFalling || this.heldIndex >= 0) {
+    if (this.isFalling || this.frozen || this.heldIndex >= 0) {
       return false;
     }
     // Grabbing again while a missed stretch is still boinging back finishes the boing.
@@ -193,7 +197,7 @@ export class Slime {
       return;
     }
     const supported = end =>
-      end.state !== 'stuck' || circleHitsSolid(level, end, END_RADIUS + SUPPORT_MARGIN);
+      end.state !== 'stuck' || isSupported(level, end, END_RADIUS, SUPPORT_MARGIN);
     const lost = this.ends.map(end => !supported(end));
     if (!lost[0] && !lost[1]) {
       return;
@@ -216,6 +220,7 @@ export class Slime {
   /** Throw the whole slime loose (for example, the boss stomping nearby). */
   knockLoose(vx, vy) {
     const c = this.center;
+    this.frozen = false;
     this.heldIndex = -1;
     this.falling = { x: c.x, y: c.y, vx, vy };
     for (const end of this.ends) {
@@ -225,7 +230,37 @@ export class Slime {
     }
   }
 
+  /**
+   * Shoot the slime out of a cannon. While flying it sticks to the first
+   * sticky thing it hits.
+   */
+  launch(x, y, vx, vy) {
+    this.frozen = false;
+    this.heldIndex = -1;
+    this.falling = { x, y, vx, vy, sticky: true };
+    for (const end of this.ends) {
+      end.x = x;
+      end.y = y;
+      end.state = 'stuck';
+    }
+  }
+
+  /** Hold the whole slime at one spot (inside a cannon, or in a claw). */
+  holdAt(x, y) {
+    this.frozen = true;
+    this.falling = null;
+    this.heldIndex = -1;
+    for (const end of this.ends) {
+      end.x = x;
+      end.y = y;
+      end.state = 'stuck';
+    }
+  }
+
   update(dt, level) {
+    if (this.frozen) {
+      return;
+    }
     if (this.isFalling) {
       this.updateFalling(dt, level);
       return;
@@ -265,16 +300,26 @@ export class Slime {
     // Move in small steps so fast falls can't tunnel through floors.
     const steps = Math.max(1, Math.ceil((Math.hypot(f.vx, f.vy) * dt) / 4));
     let landed = false;
+    // Shot from a cannon: stick to the first sticky thing we bump into.
+    const stickHere = () => f.sticky && isTouchingSticky(level, f, END_RADIUS, 3);
     for (let i = 0; i < steps && !landed; i++) {
       const nx = f.x + (f.vx * dt) / steps;
       if (circleHitsSolid(level, { x: nx, y: f.y }, END_RADIUS)) {
         f.vx = 0;
+        landed = stickHere();
       } else {
         f.x = nx;
       }
+      if (landed) {
+        break;
+      }
       const ny = f.y + (f.vy * dt) / steps;
-      if (circleHitsSolid(level, { x: f.x, y: ny }, END_RADIUS)) {
-        if (f.vy > 0) {
+      const platformY = f.vy > 0 ? platformLanding(level, f.x, f.y, ny, END_RADIUS) : null;
+      if (platformY !== null) {
+        f.y = platformY;
+        landed = true;
+      } else if (circleHitsSolid(level, { x: f.x, y: ny }, END_RADIUS)) {
+        if (f.vy > 0 || stickHere()) {
           landed = true;
         }
         f.vy = 0;

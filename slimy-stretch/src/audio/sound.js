@@ -171,6 +171,17 @@ export const sfx = {
     tone({ freq: 80, to: 35, dur: 0.3, vol: 0.4 });
   },
   wind: () => noise({ dur: 1.6, vol: 0.12, filter: 1400, to: 500 }),
+  cannonIn: () => tone({ freq: 180, to: 90, dur: 0.15, vol: 0.3, type: 'square' }),
+  cannonFire: () => {
+    noise({ dur: 0.45, vol: 0.5, filter: 2500, to: 100 });
+    tone({ freq: 120, to: 40, dur: 0.35, vol: 0.45 });
+  },
+  clawGrab: () => {
+    tone({ freq: 700, dur: 0.08, vol: 0.2, type: 'square' });
+    tone({ freq: 500, dur: 0.12, vol: 0.2, type: 'square', delay: 0.07 });
+  },
+  clawDrop: () => tone({ freq: 400, to: 900, dur: 0.25, vol: 0.15, type: 'triangle' }),
+  sore: () => tone({ freq: 500, to: 150, dur: 0.6, vol: 0.25, type: 'sawtooth' }),
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -216,6 +227,13 @@ const SONGS = {
     root: 57,
     lead: [0, 0, 3, 0, 6, 0, 5, 3, 0, 0, 3, 0, 7, 6, 5, 3],
     bass: [-12, -12, null, -12, -9, null, -10, null, -12, -12, null, -12, -6, null, -7, null],
+  },
+  warehouse: {
+    bpm: 118,
+    root: 52,
+    // A clanky, busy factory beat.
+    lead: [0, 7, null, 7, 12, null, 10, 7, 0, 7, null, 7, 15, 14, 12, 10],
+    bass: [-12, -12, null, -12, -12, null, -9, null, -12, -12, null, -12, -14, null, -10, null],
   },
   canyon: {
     bpm: 108,

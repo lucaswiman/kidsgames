@@ -13,6 +13,9 @@ import { TILE } from './constants.js';
 //   O  crack in the ceiling that drops boulders
 //   1 2 3    red / blue / yellow key
 //   a b c    red / blue / yellow laser gate (turns off for good with its key)
+//   > <  conveyor belt moving right / left (sticky; carries whatever is stuck to it)
+//   -  one-way platform (stretch up through it from below, stick to its top)
+//   U  slime cannon
 //   .  empty
 
 export const TileKind = {
@@ -25,6 +28,9 @@ export const TileKind = {
   EMITTER: 6,
   CRUMBLE: 7,
   BOX: 8,
+  PLATFORM: 9,
+  BELT_RIGHT: 10,
+  BELT_LEFT: 11,
 };
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
@@ -38,14 +44,25 @@ const LASER_DIRS = {
   d: { dx: 0, dy: 1 },
 };
 
+// One-way platforms are not in either list: they are handled specially, since
+// they're only "there" from above (see platformTopBelow in collision.js).
 const SOLID = new Set([
   TileKind.WALL,
   TileKind.ICE,
   TileKind.EMITTER,
   TileKind.CRUMBLE,
   TileKind.BOX,
+  TileKind.BELT_RIGHT,
+  TileKind.BELT_LEFT,
 ]);
-const STICKY = new Set([TileKind.WALL, TileKind.EMITTER, TileKind.CRUMBLE, TileKind.BOX]);
+const STICKY = new Set([
+  TileKind.WALL,
+  TileKind.EMITTER,
+  TileKind.CRUMBLE,
+  TileKind.BOX,
+  TileKind.BELT_RIGHT,
+  TileKind.BELT_LEFT,
+]);
 
 export function isSolidKind(kind) {
   return SOLID.has(kind);
@@ -91,6 +108,7 @@ export function parseLevel(def) {
     keys: [],
     gates: [],
     boulderSpawners: [],
+    cannons: [],
   };
 
   rows.forEach((line, row) => {
@@ -165,6 +183,18 @@ export function parseLevel(def) {
         case 'c':
           level.gates.push({ col, row, color: GATE_CHARS[ch] });
           break;
+        case '>':
+          kind = TileKind.BELT_RIGHT;
+          break;
+        case '<':
+          kind = TileKind.BELT_LEFT;
+          break;
+        case '-':
+          kind = TileKind.PLATFORM;
+          break;
+        case 'U':
+          level.cannons.push({ ...center, col, row });
+          break;
         case '.':
           break;
         default:
@@ -187,8 +217,8 @@ export function parseLevel(def) {
 
 /**
  * Put things inside metal boxes. `def.boxItems[i]` is what's in the i-th box
- * (in reading order): 'token', 'core', 'key-red', 'key-blue', 'key-yellow' or
- * null. Items in boxes join the normal lists with `inBox` set, so totals count
+ * (in reading order): 'token', 'core', 'key-red', 'key-blue', 'key-yellow',
+ * 'bomb' (blows up on your tongue) or null. Items in boxes join the normal lists with `inBox` set, so totals count
  * them, but they can only be collected by eating the box.
  */
 function placeBoxItems(level) {
@@ -199,7 +229,7 @@ function placeBoxItems(level) {
   items.forEach((item, i) => {
     const box = level.boxes[i];
     box.item = item || null;
-    if (!item) {
+    if (!item || item === 'bomb') {
       return;
     }
     const spot = { x: box.x, y: box.y, inBox: i };

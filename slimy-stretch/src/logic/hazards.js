@@ -95,7 +95,8 @@ export function findHazard(level, slime, lasers, time, chaser) {
       return 'chaser';
     }
   }
-  if (a.y > level.pixelHeight + TILE && b.y > level.pixelHeight + TILE) {
+  // Anything below the bottom edge has fallen off the screen.
+  if (a.y > level.pixelHeight || b.y > level.pixelHeight) {
     return 'fell';
   }
   return null;
