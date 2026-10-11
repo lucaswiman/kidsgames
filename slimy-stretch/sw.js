@@ -2,7 +2,7 @@
 // offline from the Home Screen. The build fills in PRECACHE with every
 // built file, and a new build gets a new cache name so old copies are dropped.
 
-const PRECACHE = {"version":"b31e791a2850","files":["./","./index.html","./assets/index-DAmAr3ff.js","./manifest.webmanifest","./icon-180.png","./icon-192.png","./icon-512.png","./icon-maskable-512.png","./favicon-32.png"]};
+const PRECACHE = {"version":"088438108d0d","files":["./","./index.html","./assets/index-C1zj3ceQ.js","./manifest.webmanifest","./icon-180.png","./icon-192.png","./icon-512.png","./icon-maskable-512.png","./favicon-32.png"]};
 const CACHE = `slimy-stretch-${PRECACHE.version}`;
 
 self.addEventListener('install', event => {
