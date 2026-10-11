@@ -22,6 +22,8 @@ import {
 import { BOMB_FUSE, Boss, EXPLOSION_RADIUS, ROBOT_HEIGHT, ROBOT_WIDTH } from '../logic/boss.js';
 import { BOULDER_RADIUS, CanyonStuff, windAmount } from '../logic/canyon.js';
 import { Tongue, TONGUE_RADIUS } from '../logic/tongue.js';
+import { CLAW_RADIUS, simulateShot, TONGUE_SORE_TIME, WarehouseStuff } from '../logic/warehouse.js';
+import { TileKind } from '../logic/level.js';
 import {
   hasTongue,
   loadProgress,
@@ -33,6 +35,7 @@ import { playMusic, sfx, unlockAudio } from '../audio/sound.js';
 import {
   drawBackdrop,
   drawBackground,
+  drawBelt,
   drawBox,
   drawCrumble,
   drawFluids,
@@ -82,6 +85,18 @@ export default class GameScene extends Phaser.Scene {
     this.lasers = buildLasers(this.level);
     this.chaser = this.def.chaser || null;
     this.canyon = new CanyonStuff(this.level);
+    this.warehouse = new WarehouseStuff(this.level);
+    this.aiming = false;
+    this.aimPath = null;
+    this.bombBlasts = [];
+    this.belts = [];
+    this.level.tiles.forEach((row, r) =>
+      row.forEach((kind, c) => {
+        if (kind === TileKind.BELT_RIGHT || kind === TileKind.BELT_LEFT) {
+          this.belts.push({ col: c, row: r, dir: kind === TileKind.BELT_RIGHT ? 1 : -1 });
+        }
+      })
+    );
     this.tongue = new Tongue();
     this.tongueArmed = false;
     this.hasTongue = UNLOCK_ALL || hasTongue(loadProgress());
@@ -186,6 +201,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   armTongue(armed) {
+    if (armed && this.tongue.sore > 0) {
+      sfx.locked();
+      return;
+    }
     this.tongueArmed = armed;
     if (this.tongueButton) {
       this.tongueButton.setScale(armed ? 1.25 : 1);
@@ -211,7 +230,13 @@ export default class GameScene extends Phaser.Scene {
         return;
       }
       this.activePointer = pointer;
-      if (this.tongueArmed && !this.slime.isFalling && !this.slime.heldEnd) {
+      if (this.warehouse.inCannon !== null) {
+        // In a cannon: dragging aims it, letting go fires.
+        this.aiming = true;
+        this.warehouse.aim(this.worldPoint(pointer));
+        return;
+      }
+      if (this.tongueArmed && !this.slime.isFalling && !this.slime.heldEnd && !this.slime.frozen) {
         // Shoot the tongue out of the slime's head instead of stretching.
         this.tongue.start(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
         this.armTongue(false);
@@ -225,6 +250,13 @@ export default class GameScene extends Phaser.Scene {
       }
       this.activePointer = null;
       if (this.status !== 'playing') {
+        return;
+      }
+      if (this.aiming) {
+        this.aiming = false;
+        this.warehouse.aim(this.worldPoint(pointer));
+        this.warehouse.fire(this.slime);
+        this.aimPath = null;
         return;
       }
       if (this.tongue.active) {
@@ -260,12 +292,17 @@ export default class GameScene extends Phaser.Scene {
       if (this.activePointer && this.tongue.state === 'out') {
         this.tongue.moveFinger(this.worldPoint(this.activePointer));
       }
+      if (this.activePointer && this.aiming) {
+        this.warehouse.aim(this.worldPoint(this.activePointer));
+      }
       this.updateWind(dt);
       this.slime.update(dt, this.level);
+      this.warehouse.update(dt, this.slime);
       this.updateTongue(dt);
       const canyonHit = this.canyon.update(dt, this.slime);
       this.playSlimeSounds();
       this.playCanyonSounds();
+      this.playWarehouseSounds();
       this.updateBoss(dt);
       this.checkPickups();
       this.checkExit(dt);
@@ -315,11 +352,26 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateTongue(dt) {
+    this.tongue.tick(dt);
+    this.updateTongueButton();
     if (!this.tongue.active) {
       return;
     }
     const head = this.slime.ends[this.slime.lead];
     const eaten = this.tongue.update(dt, this.level, head, this.canyon.boxes);
+    const grabbed = this.tongue.carrying;
+    if (grabbed !== null && this.canyon.boxes[grabbed].item === 'bomb') {
+      // Surprise! A bomb box blows up on the tongue. It doesn't hurt the
+      // slime, but the tongue is too sore to use for a while.
+      this.canyon.eatBox(grabbed, this.slime);
+      this.bombBlasts.push({ x: this.tongue.tip.x, y: this.tongue.tip.y, age: 0 });
+      this.tongue.blowUp(TONGUE_SORE_TIME);
+      sfx.explode();
+      sfx.sore();
+      this.cameras.main.shake(200, 0.008);
+      this.showBanner('BOOM! A bomb box! Your tongue is too sore for 10 seconds.', 2200);
+      return;
+    }
     for (const e of this.tongue.takeEvents()) {
       if (e === 'tongue') {
         sfx.tongue();
@@ -337,6 +389,36 @@ export default class GameScene extends Phaser.Scene {
       this.collect(inside(this.cores));
       sfx.core();
       this.checkAllCores();
+    }
+  }
+
+  updateTongueButton() {
+    if (!this.tongueButton) {
+      return;
+    }
+    const label = this.tongue.sore > 0 ? `${Math.ceil(this.tongue.sore)}` : '👅';
+    if (this.tongueButton.label.text !== label) {
+      this.tongueButton.label.setText(label);
+      this.tongueButton.setAlpha(this.tongue.sore > 0 ? 0.5 : 0.85);
+    }
+  }
+
+  playWarehouseSounds() {
+    for (const e of this.warehouse.takeEvents()) {
+      if (e === 'enterCannon') {
+        sfx.cannonIn();
+        if (!this.cannonHintShown) {
+          this.cannonHintShown = true;
+          this.showBanner('Drag to aim, then let go to FIRE!', 2000);
+        }
+      } else if (e === 'fire') {
+        sfx.cannonFire();
+        this.cameras.main.shake(150, 0.006);
+      } else if (e === 'clawGrab') {
+        sfx.clawGrab();
+      } else if (e === 'clawDrop') {
+        sfx.clawDrop();
+      }
     }
   }
 
@@ -561,6 +643,9 @@ export default class GameScene extends Phaser.Scene {
 
   respawn() {
     this.canyon.resetAfterDeath();
+    this.warehouse.resetAfterDeath();
+    this.aiming = false;
+    this.aimPath = null;
     this.tongue.state = 'idle';
     const spot = this.checkpoint
       ? { x: this.checkpoint.x, y: this.checkpoint.y }
@@ -700,6 +785,9 @@ export default class GameScene extends Phaser.Scene {
     const over = this.overGfx;
     over.clear();
     this.drawChaser(over);
+    this.drawCannons(over);
+    this.drawClaws(over);
+    this.drawBombBlasts(over, dt);
     this.drawBoulders(over);
     this.drawCarriedKeys(over);
     if (this.boss) {
@@ -708,7 +796,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const visible = ['playing', 'won', 'won-wait', 'crushed'];
-    if (visible.includes(this.status)) {
+    // Inside a cannon the slime is hidden (the cannon draws a peek of it).
+    if (visible.includes(this.status) && this.warehouse.inCannon === null) {
       const look = this.slime.heldEnd ? this.slime.finger : this.slime.ends[1 - this.slime.lead];
       this.slimeView.draw(this.slime, dt, look);
     }
@@ -717,6 +806,9 @@ export default class GameScene extends Phaser.Scene {
   drawCanyonTiles() {
     const g = this.dynGfx;
     g.clear();
+    for (const b of this.belts) {
+      drawBelt(g, b.col * TILE, b.row * TILE, b.dir, this.clock * 40);
+    }
     for (const c of this.canyon.crumbles) {
       const x = c.col * TILE;
       const y = c.row * TILE;
@@ -755,6 +847,96 @@ export default class GameScene extends Phaser.Scene {
         }
       }
     }
+  }
+
+  drawCannons(g) {
+    this.warehouse.cannons.forEach((c, i) => {
+      const inside = this.warehouse.inCannon === i;
+      // Dotted line showing where you'll fly.
+      if (inside) {
+        if (!this.aimPath || this.aimPath.angle !== c.angle) {
+          const shot = simulateShot(this.level, c, c.angle, 1.6);
+          this.aimPath = { angle: c.angle, path: shot ? shot.path : this.previewPath(c) };
+        }
+        g.fillStyle(0xffffff, 0.8);
+        this.aimPath.path.forEach((p, k) => {
+          if (k % 4 === 0) {
+            g.fillCircle(p.x, p.y, 3.5);
+          }
+        });
+      }
+      const cos = Math.cos(c.angle);
+      const sin = Math.sin(c.angle);
+      // Barrel
+      g.lineStyle(26, 0x30343a, 1);
+      g.lineBetween(c.x, c.y, c.x + cos * 34, c.y + sin * 34);
+      g.lineStyle(18, 0x5a616b, 1);
+      g.lineBetween(c.x, c.y, c.x + cos * 32, c.y + sin * 32);
+      if (inside) {
+        g.fillStyle(0x55e05a, 0.9);
+        g.fillCircle(c.x + cos * 30, c.y + sin * 30, 9);
+      }
+      // Base
+      g.fillStyle(0x7a3b2a, 1);
+      g.fillCircle(c.x, c.y + 6, 16);
+      g.fillStyle(0x30343a, 1);
+      g.fillCircle(c.x, c.y + 6, 7);
+    });
+  }
+
+  /** Where a shot would go even if it doesn't land anywhere safe. */
+  previewPath(c) {
+    const path = [];
+    let x = c.x;
+    let y = c.y;
+    const vx = Math.cos(c.angle) * 1050;
+    let vy = Math.sin(c.angle) * 1050;
+    for (let k = 0; k < 60; k++) {
+      vy += 1500 / 60;
+      x += vx / 60;
+      y += vy / 60;
+      path.push({ x, y });
+    }
+    return path;
+  }
+
+  drawClaws(g) {
+    for (const claw of this.warehouse.claws) {
+      const railY = (claw.row + 1) * TILE;
+      // Track along the ceiling
+      g.lineStyle(6, 0x3a3a40, 1);
+      g.lineBetween(
+        (claw.from + 0.5) * TILE - 20,
+        railY + 3,
+        (claw.to + 0.5) * TILE + 20,
+        railY + 3
+      );
+      // The base: green for nice claws, red for mean ones. Look closely!
+      g.fillStyle(claw.nice ? 0x33cc55 : 0xdd3333, 1);
+      g.fillRoundedRect(claw.x - 12, railY, 24, 10, 3);
+      g.lineStyle(3, 0x777777, 1);
+      g.lineBetween(claw.x, railY + 10, claw.x, claw.y - 10);
+      g.fillStyle(0x8c96a3, 1);
+      g.fillRect(claw.x - 14, claw.y - 12, 28, 10);
+      const open = claw.state === 'carry' ? 4 : 12;
+      g.lineStyle(5, 0x8c96a3, 1);
+      g.lineBetween(claw.x - 10, claw.y - 2, claw.x - 10 - open, claw.y + 14);
+      g.lineBetween(claw.x - 10 - open, claw.y + 14, claw.x - 4, claw.y + CLAW_RADIUS - 2);
+      g.lineBetween(claw.x + 10, claw.y - 2, claw.x + 10 + open, claw.y + 14);
+      g.lineBetween(claw.x + 10 + open, claw.y + 14, claw.x + 4, claw.y + CLAW_RADIUS - 2);
+    }
+  }
+
+  drawBombBlasts(g, dt) {
+    for (const b of this.bombBlasts) {
+      b.age += dt;
+      const k = b.age / 0.5;
+      g.fillStyle(0xffd040, Math.max(0, 1 - k));
+      g.fillCircle(b.x, b.y, 50 * (0.4 + k * 0.6));
+      g.fillStyle(0xff5000, Math.max(0, (1 - k) * 0.8));
+      g.fillCircle(b.x, b.y, 50 * (0.2 + k * 0.5));
+    }
+    this.bombBlasts = this.bombBlasts.filter(b => b.age < 0.5);
   }
 
   drawGates(g) {

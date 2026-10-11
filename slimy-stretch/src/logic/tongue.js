@@ -19,7 +19,20 @@ export class Tongue {
     this.tip = { x: 0, y: 0 };
     this.finger = { x: 0, y: 0 };
     this.carrying = null; // index of the box being eaten
+    this.sore = 0; // seconds until the tongue works again after a bomb
     this.events = [];
+  }
+
+  /** Count down how long the tongue is too sore to use. */
+  tick(dt) {
+    this.sore = Math.max(0, this.sore - dt);
+  }
+
+  /** A bomb box blew up on the tongue: it snaps back and rests for a while. */
+  blowUp(seconds) {
+    this.carrying = null;
+    this.state = 'back';
+    this.sore = seconds;
   }
 
   get active() {
@@ -27,11 +40,15 @@ export class Tongue {
   }
 
   start(head, finger) {
+    if (this.sore > 0) {
+      return false;
+    }
     this.state = 'out';
     this.tip = { x: head.x, y: head.y };
     this.finger = { x: finger.x, y: finger.y };
     this.carrying = null;
     this.events.push('tongue');
+    return true;
   }
 
   moveFinger(finger) {

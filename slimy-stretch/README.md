@@ -9,6 +9,9 @@ Climb like an inchworm!
 - **The Volcano:** lava, and a robot boss that throws bombs (grab one and flick it back!)
 - **The Canyon:** crumbling rocks, wind gusts, falling boulders, colored keys and laser gates, and
   metal boxes you eat with your tongue
+- **The Warehouse:** boxes everywhere (some hide bombs that make your tongue too sore to use for 10
+  seconds!), conveyor belts, crane claws (green base = nice, red base = mean), slime cannons, and
+  one-way platforms
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime a new
 ability: the robot gives you a **tongue**. Tap 👅, then drag to stick it out and eat metal boxes.
@@ -55,11 +58,16 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `O`    | crack in the ceiling that drops boulders          |
 | `1`    | red key (`2` blue, `3` yellow)                    |
 | `a`    | red laser gate (`b` blue, `c` yellow)             |
+| `>`    | conveyor belt moving right (`<` moves left)       |
+| `-`    | one-way platform (go up through, stick on top)    |
+| `U`    | slime cannon                                      |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
-reading order, for example `boxItems: [null, 'token', 'key-blue', 'core']`. Add
-`wind: { every: 5, gust: 2, strength: 90, dir: 1 }` for wind gusts.
+reading order, for example `boxItems: [null, 'token', 'key-blue', 'core', 'bomb']`. Add
+`wind: { every: 5, gust: 2, strength: 90, dir: 1 }` for wind gusts, and crane claws with
+`claws: [{ row: 0, from: 4, to: 9, drop: 12, nice: true }]` (the claw runs along the ceiling in
+`row` between columns `from` and `to`, and drops you at column `drop`).
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

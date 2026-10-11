@@ -11,6 +11,9 @@ import { buildLasers } from './hazards.js';
 import { TileKind } from './level.js';
 import { canReach } from './slime.js';
 import { TONGUE_RADIUS, touchesBox } from './tongue.js';
+import { CANNON_ENTER, CLAW_HANG, CLAW_RADIUS, simulateDrop, simulateShot } from './warehouse.js';
+
+const CANNON_ANGLES = 72;
 
 /**
  * Checks that a level can be finished, by playing it the way a kid would:
@@ -24,14 +27,19 @@ const DIRECTIONS = 32;
 const REACHES = [50, 100, 150, MAX_STRETCH];
 const GRID = 10;
 
-/** Where the slime lands after being dropped at `p`. */
+/** Where the slime lands after being dropped at `p` (one-way platforms catch it). */
 export function dropPoint(level, p) {
-  return castCircle(level, p, { x: p.x, y: level.pixelHeight + TILE * 4 }, END_RADIUS, 2);
+  return (
+    simulateDrop(level, p) ||
+    castCircle(level, p, { x: p.x, y: level.pixelHeight + TILE * 4 }, END_RADIUS, 2)
+  );
 }
 
 function explore(level) {
   const blockers = buildLasers(level).filter(l => l.off <= 0);
   const safe = (a, b) =>
+    a.y <= level.pixelHeight &&
+    b.y <= level.pixelHeight &&
     !segmentTouchesDeadly(level, a, b, END_RADIUS * 0.6, 8) &&
     !blockers.some(l => segmentSegmentDist(a, b, l.from, l.to) < END_RADIUS);
 
@@ -43,9 +51,64 @@ function explore(level) {
   const queue = [start];
   seen.add(key(start));
 
+  const visit = (spot, moves) => {
+    if (spot && !seen.has(key(spot))) {
+      seen.add(key(spot));
+      spot.moves = moves;
+      queue.push(spot);
+    }
+  };
+  // Can the slime, stuck at `a`, stretch an end to touch point `q`?
+  const canStretchTo = (a, q, radius) => {
+    if (dist(a, q) > MAX_STRETCH + radius) {
+      return false;
+    }
+    const tip = castCircle(level, a, clampToRange(a, q, MAX_STRETCH), END_RADIUS, 4);
+    return dist(tip, q) < radius && safe(a, tip);
+  };
+  const cannonLandings = [];
+  const landingsFor = i => {
+    if (!cannonLandings[i]) {
+      cannonLandings[i] = [];
+      for (let k = 0; k < CANNON_ANGLES; k++) {
+        const angle = -Math.PI + (k * 2 * Math.PI) / CANNON_ANGLES;
+        const shot = simulateShot(level, level.cannons[i], angle);
+        if (shot) {
+          cannonLandings[i].push({ x: shot.x, y: shot.y });
+        }
+      }
+    }
+    return cannonLandings[i];
+  };
+  // Only nice claws count: mean ones drop you somewhere bad.
+  const niceClaws = (level.def.claws || [])
+    .filter(c => c.nice)
+    .map(c => {
+      const y = (c.row + 1) * TILE + CLAW_HANG;
+      return { ...c, y, landing: simulateDrop(level, { x: (c.drop + 0.5) * TILE, y: y + 12 }) };
+    });
+
   while (queue.length) {
     const anchor = queue.shift();
     reached.push(anchor);
+    level.cannons.forEach((cannon, i) => {
+      if (canStretchTo(anchor, cannon, CANNON_ENTER)) {
+        for (const spot of landingsFor(i)) {
+          visit({ ...spot }, anchor.moves + 2);
+        }
+      }
+    });
+    for (const claw of niceClaws) {
+      if (!claw.landing || seen.has(key(claw.landing))) {
+        continue;
+      }
+      for (let col = claw.from; col <= claw.to; col++) {
+        if (canStretchTo(anchor, { x: (col + 0.5) * TILE, y: claw.y }, CLAW_RADIUS + END_RADIUS)) {
+          visit({ ...claw.landing }, anchor.moves + 2);
+          break;
+        }
+      }
+    }
     const allowed = p => canReach(level, anchor, p) && safe(anchor, p);
     for (let i = 0; i < DIRECTIONS; i++) {
       const angle = (i / DIRECTIONS) * Math.PI * 2;

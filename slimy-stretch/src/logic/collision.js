@@ -1,5 +1,5 @@
 import { TILE } from './constants.js';
-import { isDeadlyKind, isSolidKind, isStickyKind, tileAt, tileAtPoint } from './level.js';
+import { isDeadlyKind, isSolidKind, isStickyKind, TileKind, tileAt, tileAtPoint } from './level.js';
 
 export function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -64,9 +64,89 @@ export function castCircle(level, from, to, r, step = 2) {
   return last;
 }
 
+/**
+ * If a circle at `p` is sitting on (or just above) the top of a one-way
+ * platform, return the y of that platform's top; otherwise null. Platforms
+ * only count from above: from below you pass right through.
+ */
+export function platformTopBelow(level, p, r, margin = 4) {
+  const row = Math.floor((p.y + r + margin) / TILE);
+  const top = row * TILE;
+  if (p.y > top || p.y + r + margin < top) {
+    return null;
+  }
+  const minCol = Math.floor((p.x - r * 0.7) / TILE);
+  const maxCol = Math.floor((p.x + r * 0.7) / TILE);
+  for (let col = minCol; col <= maxCol; col++) {
+    if (tileAt(level, col, row) === TileKind.PLATFORM) {
+      return top;
+    }
+  }
+  return null;
+}
+
 /** True if the circle at `p` is resting against a sticky surface. */
 export function isTouchingSticky(level, p, r, margin = 4) {
-  return circleTouches(level, p, r + margin, isStickyKind);
+  return (
+    circleTouches(level, p, r + margin, isStickyKind) ||
+    platformTopBelow(level, p, r, margin) !== null
+  );
+}
+
+/** True if something (a wall, ice, a platform top) is holding up a circle at `p`. */
+export function isSupported(level, p, r, margin = 6) {
+  return circleHitsSolid(level, p, r + margin) || platformTopBelow(level, p, r, margin) !== null;
+}
+
+/** Spots on top of nearby one-way platforms that an end let go at `p` could snap to. */
+function platformSpots(level, p, r, searchDist) {
+  const spots = [];
+  const minCol = Math.floor((p.x - searchDist) / TILE);
+  const maxCol = Math.floor((p.x + searchDist) / TILE);
+  const minRow = Math.floor((p.y - searchDist) / TILE);
+  const maxRow = Math.floor((p.y + searchDist + r) / TILE);
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      if (tileAt(level, col, row) !== TileKind.PLATFORM) {
+        continue;
+      }
+      const top = row * TILE;
+      // Only from above (or from inside the top half after stretching up through it).
+      if (p.y > top + TILE / 2) {
+        continue;
+      }
+      const spot = {
+        x: Math.max(col * TILE + 4, Math.min((col + 1) * TILE - 4, p.x)),
+        y: top - r - 1,
+      };
+      if (dist(p, spot) <= searchDist && !circleHitsSolid(level, spot, r)) {
+        spots.push(spot);
+      }
+    }
+  }
+  return spots;
+}
+
+/**
+ * Where a falling circle moving from y0 down to y1 lands on a one-way
+ * platform, or null if it doesn't cross one.
+ */
+export function platformLanding(level, x, y0, y1, r) {
+  const fromRow = Math.floor((y0 + r) / TILE) + 1;
+  const toRow = Math.floor((y1 + r) / TILE);
+  for (let row = fromRow; row <= toRow; row++) {
+    const top = row * TILE;
+    if (y0 + r <= top && y1 + r > top) {
+      const minCol = Math.floor((x - r * 0.7) / TILE);
+      const maxCol = Math.floor((x + r * 0.7) / TILE);
+      for (let col = minCol; col <= maxCol; col++) {
+        if (tileAt(level, col, row) === TileKind.PLATFORM) {
+          return top - r - 0.5;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 const SEARCH_DIRS = [];
@@ -92,6 +172,13 @@ export function findStickSpot(level, p, r, searchDist, allowed = () => true) {
     const spot = castCircle(level, p, target, r);
     const d = dist(p, spot);
     if (d < bestDist && isTouchingSticky(level, spot, r) && allowed(spot)) {
+      best = spot;
+      bestDist = d;
+    }
+  }
+  for (const spot of platformSpots(level, p, r, searchDist)) {
+    const d = dist(p, spot);
+    if (d < bestDist && allowed(spot)) {
       best = spot;
       bestDist = d;
     }
