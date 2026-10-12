@@ -95,6 +95,14 @@ export default class BootScene extends Phaser.Scene {
       g.fillCircle(10, 12, 4);
     });
 
+    // A soft round light, used to cut holes in the darkness of dark levels.
+    make('light', 256, 256, g => {
+      for (let r = 128; r > 0; r -= 4) {
+        g.fillStyle(0xffffff, 0.05);
+        g.fillCircle(128, 128, r);
+      }
+    });
+
     make('drop', 12, 12, g => {
       g.fillStyle(0x55e05a, 1);
       g.fillCircle(6, 6, 6);

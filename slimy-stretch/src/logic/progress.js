@@ -50,3 +50,8 @@ export function recordFinish(progress, levelIndex, levelId, result) {
 export function hasTongue(progress) {
   return !!progress.tongue || !!progress.best['3-4'];
 }
+
+/** Glow and slime shot are the reward for beating the crystal robot. */
+export function hasCaveRewards(progress) {
+  return !!progress.caveRewards || !!progress.best['6-4'];
+}

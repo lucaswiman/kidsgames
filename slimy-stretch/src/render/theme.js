@@ -46,6 +46,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  cave: {
+    skyTop: 0x0c0a14,
+    skyBottom: 0x221a2e,
+    grid: null,
+    wall: 0x4a3d52,
+    wallDark: 0x2c2333,
+    wallLight: 0x6f5f7a,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -113,6 +124,22 @@ export function drawBackdrop(scene, level, theme, themeName) {
           g.fillRect(x + 18 + b * 46, y - h, 38, h);
         }
       }
+    }
+  } else if (themeName === 'cave') {
+    // Far-away stalactites and stalagmites.
+    g.fillStyle(0x3a2e44, 0.5);
+    for (let x = 20; x < level.pixelWidth; x += 90) {
+      const h = 40 + hash(x, 8) * 90;
+      g.fillTriangle(x, 0, x + 30, 0, x + 15, h);
+      const h2 = 30 + hash(x, 9) * 70;
+      g.fillTriangle(
+        x + 40,
+        level.pixelHeight,
+        x + 70,
+        level.pixelHeight,
+        x + 55,
+        level.pixelHeight - h2
+      );
     }
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
@@ -232,6 +259,16 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
     }
     g.fillStyle(theme.wallDark, 0.4);
     g.fillRect(x + 6 + hash(col, row) * 24, y + 20 + hash(row, col) * 16, 8, 3);
+  } else if (themeName === 'cave') {
+    if (openUp) {
+      g.fillStyle(theme.wallLight, 1);
+      g.fillRect(x, y, TILE, 5);
+    }
+    // Little sparkly crystal bits in the rock.
+    if (hash(col, row) > 0.7) {
+      g.fillStyle(0x7ff0ff, 0.8);
+      g.fillCircle(x + 10 + hash(row, col) * 28, y + 12 + hash(col + 1, row) * 24, 2.5);
+    }
   } else if (themeName === 'canyon') {
     if (openUp) {
       g.fillStyle(theme.wallLight, 1);

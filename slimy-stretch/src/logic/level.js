@@ -16,6 +16,11 @@ import { TILE } from './constants.js';
 //   > <  conveyor belt moving right / left (sticky; carries whatever is stuck to it)
 //   -  one-way platform (stretch up through it from below, stick to its top)
 //   U  slime cannon
+//   V  stalactite (hangs from the ceiling, falls when you go under it)
+//   B  bat (just flies around, harmless)
+//   K  mining machine (swings a pickaxe that hurts, and smashes metal boxes)
+//   =  mine cart track          H  mine cart (on its track)
+//   G  glowing crystal (lights up dark levels)
 //   .  empty
 
 export const TileKind = {
@@ -31,6 +36,9 @@ export const TileKind = {
   PLATFORM: 9,
   BELT_RIGHT: 10,
   BELT_LEFT: 11,
+  MACHINE: 12,
+  CART: 13,
+  RAIL: 14,
 };
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
@@ -54,6 +62,8 @@ const SOLID = new Set([
   TileKind.BOX,
   TileKind.BELT_RIGHT,
   TileKind.BELT_LEFT,
+  TileKind.MACHINE,
+  TileKind.CART,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -62,6 +72,8 @@ const STICKY = new Set([
   TileKind.BOX,
   TileKind.BELT_RIGHT,
   TileKind.BELT_LEFT,
+  TileKind.MACHINE,
+  TileKind.CART,
 ]);
 
 export function isSolidKind(kind) {
@@ -109,6 +121,11 @@ export function parseLevel(def) {
     gates: [],
     boulderSpawners: [],
     cannons: [],
+    stalactites: [],
+    bats: [],
+    machines: [],
+    carts: [],
+    crystals: [],
   };
 
   rows.forEach((line, row) => {
@@ -195,6 +212,26 @@ export function parseLevel(def) {
         case 'U':
           level.cannons.push({ ...center, col, row });
           break;
+        case 'V':
+          level.stalactites.push({ ...center, col, row });
+          break;
+        case 'B':
+          level.bats.push(center);
+          break;
+        case 'K':
+          kind = TileKind.MACHINE;
+          level.machines.push({ ...center, col, row });
+          break;
+        case '=':
+          kind = TileKind.RAIL;
+          break;
+        case 'H':
+          kind = TileKind.CART;
+          level.carts.push({ col, row });
+          break;
+        case 'G':
+          level.crystals.push(center);
+          break;
         case '.':
           break;
         default:
@@ -209,6 +246,7 @@ export function parseLevel(def) {
     throw new Error(`${def.id}: map has no start (S)`);
   }
   placeBoxItems(level);
+  findCartTracks(level);
   if (!level.exit && def.type !== 'boss') {
     throw new Error(`${def.id}: map has no exit (E)`);
   }
@@ -243,6 +281,26 @@ function placeBoxItems(level) {
       throw new Error(`${level.def.id}: unknown box item '${item}'`);
     }
   });
+}
+
+/** Each mine cart can roll along the run of track (=) it sits on. */
+function findCartTracks(level) {
+  const onTrack = (col, row) => {
+    const ch = level.def.map[row][col];
+    return ch === '=' || ch === 'H';
+  };
+  for (const cart of level.carts) {
+    let min = cart.col;
+    let max = cart.col;
+    while (min > 0 && onTrack(min - 1, cart.row)) {
+      min--;
+    }
+    while (max < level.width - 1 && onTrack(max + 1, cart.row)) {
+      max++;
+    }
+    cart.minCol = min;
+    cart.maxCol = max;
+  }
 }
 
 /** Tile kind at a tile coordinate. Outside the map counts as wall. */

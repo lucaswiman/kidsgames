@@ -11,6 +11,7 @@ import { buildLasers } from './hazards.js';
 import { TileKind } from './level.js';
 import { canReach } from './slime.js';
 import { TONGUE_RADIUS, touchesBox } from './tongue.js';
+import { PICK_RADIUS, pickaxe } from './cave.js';
 import { CANNON_ENTER, CLAW_HANG, CLAW_RADIUS, simulateDrop, simulateShot } from './warehouse.js';
 
 const CANNON_ANGLES = 72;
@@ -98,6 +99,15 @@ function explore(level) {
         }
       }
     });
+    // Mine carts: land on top and ride to either end of the track.
+    for (const cart of level.carts) {
+      const top = { x: (cart.col + 0.5) * TILE, y: cart.row * TILE - END_RADIUS - 1 };
+      if (canStretchTo(anchor, top, END_RADIUS + 6)) {
+        for (const col of [cart.minCol, cart.maxCol]) {
+          visit({ x: (col + 0.5) * TILE, y: top.y }, anchor.moves + 2);
+        }
+      }
+    }
     for (const claw of niceClaws) {
       if (!claw.landing || seen.has(key(claw.landing))) {
         continue;
@@ -166,12 +176,36 @@ function levelView(level, eaten, openColors) {
   return { ...level, tiles };
 }
 
+/** Boxes a mining machine's pickaxe will smash on its own. */
+function smashedBoxes(level) {
+  const smashed = new Set();
+  for (const machine of level.machines) {
+    for (let t = 0; t < 2.4; t += 0.05) {
+      const { head } = pickaxe({ ...machine, phase: 0 }, t);
+      level.boxes.forEach((box, i) => {
+        if (dist(head, box) < PICK_RADIUS + TILE * 0.7) {
+          smashed.add(i);
+        }
+      });
+    }
+  }
+  return smashed;
+}
+
 export function solveLevel(level) {
   // Keep exploring until no new box can be eaten and no new gate opened.
-  const eaten = new Set();
+  // Boxes in reach of a mining machine get smashed for you.
+  const smashed = level.machines.length ? smashedBoxes(level) : new Set();
+  const eaten = new Set(smashed);
   const openColors = new Set();
   let view;
   let result;
+  // Things in eaten boxes come straight to you; things in smashed boxes drop
+  // out where the box was, so you still have to get there.
+  const item = (it, radius) =>
+    it.inBox === undefined || smashed.has(it.inBox)
+      ? result.canTouch(it, radius)
+      : eaten.has(it.inBox);
   for (;;) {
     view = levelView(level, eaten, openColors);
     result = explore(view);
@@ -183,8 +217,7 @@ export function solveLevel(level) {
       }
     });
     for (const key of level.keys) {
-      const got =
-        key.inBox !== undefined ? eaten.has(key.inBox) : result.canTouch(key, ITEM_RADIUS);
+      const got = item(key, ITEM_RADIUS);
       if (got && !openColors.has(key.color)) {
         openColors.add(key.color);
         changed = true;
@@ -194,8 +227,6 @@ export function solveLevel(level) {
       break;
     }
   }
-  const item = (it, radius) =>
-    it.inBox !== undefined ? eaten.has(it.inBox) : result.canTouch(it, radius);
   return {
     start: result.start,
     reached: result.reached,

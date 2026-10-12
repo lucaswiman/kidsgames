@@ -5,7 +5,6 @@ import {
   GAME_HEIGHT,
   GAME_WIDTH,
   ITEM_RADIUS,
-  MAX_STRETCH,
   TILE,
 } from '../logic/constants.js';
 import { LEVELS, WORLDS } from '../levels/levels.js';
@@ -24,7 +23,11 @@ import { BOULDER_RADIUS, CanyonStuff, windAmount } from '../logic/canyon.js';
 import { Tongue, TONGUE_RADIUS } from '../logic/tongue.js';
 import { CLAW_RADIUS, simulateShot, TONGUE_SORE_TIME, WarehouseStuff } from '../logic/warehouse.js';
 import { TileKind } from '../logic/level.js';
+import { batPosition, CaveStuff, PICK_RADIUS, pickaxe } from '../logic/cave.js';
+import { BLOB_RADIUS, SlimeShots } from '../logic/slimeShot.js';
+import { CRYSTAL_WIDTH, CrystalBoss, SHARD_RADIUS } from '../logic/crystalBoss.js';
 import {
+  hasCaveRewards,
   hasTongue,
   loadProgress,
   recordFinish,
@@ -73,6 +76,7 @@ export default class GameScene extends Phaser.Scene {
     this.lockedMessageTimer = 0;
 
     playMusic(this.def.type === 'boss' ? 'boss' : this.themeName);
+    this.isBoss = this.def.type === 'boss';
 
     drawBackground(this, this.theme);
     drawBackdrop(this, this.level, this.theme, this.themeName);
@@ -100,6 +104,10 @@ export default class GameScene extends Phaser.Scene {
     this.tongue = new Tongue();
     this.tongueArmed = false;
     this.hasTongue = UNLOCK_ALL || hasTongue(loadProgress());
+    // Rewards for beating the crystal robot.
+    this.hasCaveRewards = UNLOCK_ALL || hasCaveRewards(loadProgress());
+    this.shots = new SlimeShots();
+    this.shotArmed = false;
     this.windWasBlowing = false;
     this.windStreaks = [];
     this.windGfx = this.add.graphics().setScrollFactor(0).setDepth(150);
@@ -107,7 +115,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.slime = new Slime(this.level.start);
     this.slimeView = new SlimeView(this);
-    this.boss = this.def.type === 'boss' ? new Boss(this.level) : null;
+    this.cave = new CaveStuff(this.level, this.canyon);
+    this.crystal = this.isBoss && this.def.boss === 'crystal' ? new CrystalBoss(this.level) : null;
+    this.boss = this.isBoss && !this.crystal ? new Boss(this.level) : null;
+    this.blasts = [];
+    this.createDarkness();
     this.bombSprites = new Map();
 
     this.setupCamera();
@@ -188,16 +200,39 @@ export default class GameScene extends Phaser.Scene {
         this.armTongue(!this.tongueArmed)
       );
     }
+    if (this.hasCaveRewards) {
+      this.shotButton = makeIconButton(this, GAME_WIDTH - 140, GAME_HEIGHT - 60, '💧', () =>
+        this.armShot(!this.shotArmed)
+      );
+    }
 
-    if (this.def.type === 'boss') {
+    if (this.isBoss) {
       this.bossBar = this.add.graphics().setScrollFactor(0).setDepth(200);
       this.add
-        .text(GAME_WIDTH / 2, 100, 'ROBOT', textStyle(22, '#ff8080'))
+        .text(
+          GAME_WIDTH / 2,
+          100,
+          this.crystal ? 'CRYSTAL ROBOT' : 'ROBOT',
+          textStyle(22, '#ff8080')
+        )
         .setOrigin(0.5)
         .setScrollFactor(0)
         .setDepth(200);
     }
     this.updateHud();
+  }
+
+  armShot(armed) {
+    if (armed && this.shots.count >= 3) {
+      sfx.locked();
+      this.showBanner('All 3 slime blobs are out. Touch one to get it back!', 1800);
+      return;
+    }
+    this.shotArmed = armed;
+    if (armed) {
+      this.armTongue(false);
+    }
+    this.shotButton.setScale(armed ? 1.25 : 1);
   }
 
   armTongue(armed) {
@@ -234,6 +269,13 @@ export default class GameScene extends Phaser.Scene {
         // In a cannon: dragging aims it, letting go fires.
         this.aiming = true;
         this.warehouse.aim(this.worldPoint(pointer));
+        return;
+      }
+      if (this.shotArmed && !this.slime.frozen) {
+        // Fire a blob of slime toward where you tapped.
+        this.shots.fire(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
+        this.armShot(false);
+        this.activePointer = null;
         return;
       }
       if (this.tongueArmed && !this.slime.isFalling && !this.slime.heldEnd && !this.slime.frozen) {
@@ -300,16 +342,20 @@ export default class GameScene extends Phaser.Scene {
       this.warehouse.update(dt, this.slime);
       this.updateTongue(dt);
       const canyonHit = this.canyon.update(dt, this.slime);
+      const caveHit = this.cave.update(dt, this.slime);
+      this.updateShots(dt);
       this.playSlimeSounds();
       this.playCanyonSounds();
       this.playWarehouseSounds();
+      this.playCaveSounds();
       this.updateBoss(dt);
+      this.updateCrystal(dt);
       this.checkPickups();
       this.checkExit(dt);
       const hazard = findHazard(this.level, this.slime, this.lasers, this.time_, this.chaser);
       if (canyonHit === 'boulder') {
         this.startCrush();
-      } else if (hazard || canyonHit || this.bossHurtSlime) {
+      } else if (hazard || canyonHit || caveHit || this.bossHurtSlime) {
         this.die();
       }
     } else if (this.status === 'crushed') {
@@ -318,6 +364,7 @@ export default class GameScene extends Phaser.Scene {
       // Keep explosions animating after the fight ends.
       this.boss.update(dt, this.slime);
     }
+    this.blasts = this.blasts.filter(b => (b.age += dt) < 0.5);
 
     this.camTarget.setPosition(this.slime.center.x, this.slime.center.y);
     this.render(dt);
@@ -359,6 +406,15 @@ export default class GameScene extends Phaser.Scene {
     }
     const head = this.slime.ends[this.slime.lead];
     const eaten = this.tongue.update(dt, this.level, head, this.canyon.boxes);
+    if (this.crystal && this.tongue.state === 'out' && this.crystal.inRect(this.tongue.tip, 6)) {
+      // Licking the crystal robot: if its armor is cracked, gobble an orb!
+      if (this.crystal.eatOrb()) {
+        sfx.chomp();
+      } else {
+        sfx.clang();
+      }
+      this.tongue.release();
+    }
     const grabbed = this.tongue.carrying;
     if (grabbed !== null && this.canyon.boxes[grabbed].item === 'bomb') {
       // Surprise! A bomb box blows up on the tongue. It doesn't hurt the
@@ -400,6 +456,104 @@ export default class GameScene extends Phaser.Scene {
     if (this.tongueButton.label.text !== label) {
       this.tongueButton.label.setText(label);
       this.tongueButton.setAlpha(this.tongue.sore > 0 ? 0.5 : 0.85);
+    }
+  }
+
+  updateShots(dt) {
+    this.shots.update(dt, this.level, this.slime, blob => {
+      // A flying blob knocks down any stalactite it hits.
+      for (const s of this.cave.stalactites) {
+        if (s.state === 'hanging' && Math.hypot(blob.x - s.x, blob.y - s.y) < 22 + BLOB_RADIUS) {
+          this.cave.knockDown(s);
+        }
+      }
+    });
+    this.slime.reach = this.shots.reach();
+    for (const e of this.shots.takeEvents()) {
+      if (e === 'shoot') {
+        sfx.throwBomb();
+      } else if (e === 'splat') {
+        sfx.splorch();
+      } else if (e === 'absorb' || e === 'return') {
+        sfx.grab();
+      }
+    }
+  }
+
+  playCaveSounds() {
+    for (const e of this.cave.takeEvents()) {
+      if (e.type === 'crack') {
+        sfx.boulderCrack();
+      } else if (e.type === 'shatter') {
+        sfx.crumble();
+      } else if (e.type === 'smash') {
+        sfx.clang();
+        this.revealBoxItems(e.box);
+      } else if (e.type === 'ride' || e.type === 'push') {
+        sfx.cannonIn();
+      } else if (e.type === 'rideEnd') {
+        sfx.land();
+      }
+    }
+  }
+
+  /** A pickaxe smashed a box: whatever was inside can now be picked up. */
+  revealBoxItems(i) {
+    for (const item of [...this.tokens, ...this.cores]) {
+      if (item.inBox === i && !item.taken) {
+        delete item.inBox;
+        item.sprite.setVisible(true);
+      }
+    }
+    this.canyon.keys.forEach((k, j) => {
+      if (k.inBox === undefined && !k.taken && this.keySprites[j].active) {
+        this.keySprites[j].setVisible(true);
+      }
+    });
+    if (this.canyon.boxes[i].item === 'bomb') {
+      this.blasts.push({ x: this.canyon.boxes[i].x, y: this.canyon.boxes[i].y, age: 0 });
+      sfx.explode();
+    }
+  }
+
+  updateCrystal(dt) {
+    if (!this.crystal) {
+      return;
+    }
+    if (this.crystal.update(dt, this.slime, this.cave.machines)) {
+      this.bossHurtSlime = true;
+    }
+    for (const e of this.crystal.takeEvents()) {
+      if (e === 'windup' || e === 'slamWindup') {
+        sfx.jump();
+      } else if (e === 'charge') {
+        sfx.cannonFire();
+      } else if (e === 'break') {
+        sfx.crumble();
+        sfx.clang();
+        this.cameras.main.shake(300, 0.012);
+        this.showBanner('CRACK! Quick, eat an orb with your tongue!', 1800);
+      } else if (e === 'bonk') {
+        sfx.thud();
+      } else if (e === 'slam') {
+        sfx.stomp();
+        this.cameras.main.shake(250, 0.01);
+      } else if (e === 'shoot') {
+        sfx.robotThrow();
+      } else if (e === 'regen') {
+        sfx.shield();
+        this.showBanner('Too slow! The armor grew back.', 1400);
+      } else if (e === 'orb') {
+        sfx.robotHurt();
+        this.showBanner(
+          this.crystal.phase === 2 ? 'Gulp! Now it can SLAM!' : 'Gulp! Now it shoots crystals!',
+          1800
+        );
+      } else if (e === 'defeated') {
+        sfx.robotHurt();
+        this.status = 'won-wait';
+        this.time.delayedCall(1200, () => this.win());
+      }
     }
   }
 
@@ -629,11 +783,12 @@ export default class GameScene extends Phaser.Scene {
     });
     this.time.delayedCall(1100, () => {
       drops.destroy();
-      if (this.boss) {
-        // Each hit on the robot is a checkpoint: it keeps its damage.
-        this.boss.resetAfterSlimeDeath();
-        if (this.boss.hp < 3) {
-          const hp = this.boss.hp;
+      const boss = this.boss || this.crystal;
+      if (boss) {
+        // Each hit on a boss is a checkpoint: it keeps its damage.
+        boss.resetAfterSlimeDeath();
+        if (boss.hp < 3) {
+          const hp = boss.hp;
           this.showBanner(`The robot still has ${hp} hit${hp > 1 ? 's' : ''} left!`, 2000);
         }
       }
@@ -643,6 +798,7 @@ export default class GameScene extends Phaser.Scene {
 
   respawn() {
     this.canyon.resetAfterDeath();
+    this.shotArmed = false;
     this.warehouse.resetAfterDeath();
     this.aiming = false;
     this.aimPath = null;
@@ -675,6 +831,9 @@ export default class GameScene extends Phaser.Scene {
     if (this.boss) {
       progress.tongue = true;
     }
+    if (this.crystal) {
+      progress.caveRewards = true;
+    }
     saveProgress(progress);
     this.showWinPanel({ tokens, score, isBest, best: progress.best[this.def.id].score });
   }
@@ -691,7 +850,11 @@ export default class GameScene extends Phaser.Scene {
     panel.lineStyle(6, 0x7dff7a, 1);
     panel.strokeRoundedRect(cx - 300, cy - 230, 600, 460, 30);
 
-    const title = this.boss ? 'You beat the robot!' : 'Level Complete!';
+    const title = this.crystal
+      ? 'You beat the crystal robot!'
+      : this.boss
+        ? 'You beat the robot!'
+        : 'Level Complete!';
     const lines = [];
     if (this.tokens.length) {
       lines.push(`Tokens: ${tokens} / ${this.tokens.length}`);
@@ -708,6 +871,12 @@ export default class GameScene extends Phaser.Scene {
     if (this.boss) {
       fixed(
         this.add.text(cx, cy + 70, 'You got a TONGUE! 👅', textStyle(32, '#ff9ad5')).setOrigin(0.5)
+      );
+    } else if (this.crystal) {
+      fixed(
+        this.add
+          .text(cx, cy + 70, 'You got GLOW and SLIME SHOT! 💧', textStyle(30, '#9affc0'))
+          .setOrigin(0.5)
       );
     } else if (isLast) {
       fixed(
@@ -745,7 +914,7 @@ export default class GameScene extends Phaser.Scene {
     const text = this.add
       .text(
         GAME_WIDTH / 2,
-        this.boss ? 200 : 140,
+        this.isBoss ? 200 : 140,
         message,
         textStyle(32, '#ffffff', {
           backgroundColor: '#00000088',
@@ -789,6 +958,11 @@ export default class GameScene extends Phaser.Scene {
     this.drawClaws(over);
     this.drawBombBlasts(over, dt);
     this.drawBoulders(over);
+    this.drawCave(over);
+    this.drawBlobs(over);
+    if (this.crystal) {
+      this.drawCrystal(over);
+    }
     this.drawCarriedKeys(over);
     if (this.boss) {
       this.drawBoss(over);
@@ -799,7 +973,208 @@ export default class GameScene extends Phaser.Scene {
     // Inside a cannon the slime is hidden (the cannon draws a peek of it).
     if (visible.includes(this.status) && this.warehouse.inCannon === null) {
       const look = this.slime.heldEnd ? this.slime.finger : this.slime.ends[1 - this.slime.lead];
-      this.slimeView.draw(this.slime, dt, look);
+      this.slimeView.draw(this.slime, dt, look, this.shots.size(), this.hasCaveRewards);
+    }
+    this.drawDarkness();
+  }
+
+  /** Dark levels: everything is black except near the slime and glowing crystals. */
+  createDarkness() {
+    // With Glow, the slime lights up the whole cave.
+    if (!this.def.dark || this.hasCaveRewards) {
+      this.darkness = null;
+      return;
+    }
+    this.darkness = this.add
+      .renderTexture(0, 0, GAME_WIDTH, GAME_HEIGHT)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(140);
+    this.lightBrush = this.make.image({ key: 'light', add: false }).setOrigin(0.5);
+  }
+
+  drawDarkness() {
+    if (!this.darkness) {
+      return;
+    }
+    const cam = this.cameras.main;
+    const rt = this.darkness;
+    rt.clear();
+    rt.fill(0x000000, 0.94);
+    const light = (x, y, scale) => {
+      this.lightBrush.setScale(scale);
+      rt.erase(this.lightBrush, x - cam.scrollX, y - cam.scrollY);
+    };
+    const c = this.slime.center;
+    light(c.x, c.y, 1.6 + 0.05 * Math.sin(this.clock * 3));
+    for (const crystal of this.level.crystals) {
+      light(crystal.x, crystal.y, 1.1);
+    }
+    if (this.level.exit) {
+      light(this.level.exit.x, this.level.exit.y, 0.5);
+    }
+  }
+
+  drawCave(g) {
+    // Stalactites
+    for (const s of this.cave.stalactites) {
+      if (s.state === 'gone') {
+        continue;
+      }
+      const dx = s.state === 'shaking' ? (Math.random() - 0.5) * 6 : 0;
+      g.fillStyle(0x8a8fa6, 1);
+      g.fillTriangle(s.x - 14 + dx, s.y - 16, s.x + 14 + dx, s.y - 16, s.x + dx, s.y + 20);
+      g.fillStyle(0xc4c8da, 1);
+      g.fillTriangle(s.x - 6 + dx, s.y - 16, s.x + 2 + dx, s.y - 16, s.x - 1 + dx, s.y + 8);
+    }
+    // Bats
+    this.level.bats.forEach((bat, i) => {
+      const p = batPosition(bat, i, this.clock);
+      g.fillStyle(0x2a2233, 1);
+      g.fillCircle(p.x, p.y, 7);
+      const wing = p.flap ? -10 : 6;
+      g.fillTriangle(p.x - 4, p.y, p.x - 22, p.y + wing, p.x - 10, p.y + 6);
+      g.fillTriangle(p.x + 4, p.y, p.x + 22, p.y + wing, p.x + 10, p.y + 6);
+      g.fillStyle(0xff4040, 1);
+      g.fillCircle(p.x - 3, p.y - 2, 1.5);
+      g.fillCircle(p.x + 3, p.y - 2, 1.5);
+    });
+    // Glowing crystals
+    for (const c of this.level.crystals) {
+      const pulse = 0.7 + 0.3 * Math.sin(this.clock * 2 + c.x);
+      g.fillStyle(0x7ff0ff, 0.25 * pulse);
+      g.fillCircle(c.x, c.y, 26);
+      g.fillStyle(0x9ff6ff, 1);
+      g.fillTriangle(c.x - 10, c.y + 18, c.x - 2, c.y - 16, c.x + 4, c.y + 18);
+      g.fillStyle(0x5fd8f0, 1);
+      g.fillTriangle(c.x + 2, c.y + 18, c.x + 10, c.y - 6, c.x + 14, c.y + 18);
+    }
+    // Mining machines and their pickaxes
+    for (const m of this.cave.machines) {
+      const x = m.col * TILE;
+      const y = m.row * TILE;
+      g.fillStyle(0xd9a21b, 1);
+      g.fillRoundedRect(x + 2, y + 6, TILE - 4, TILE - 6, 6);
+      g.fillStyle(0x3b3b3b, 1);
+      g.fillCircle(x + 14, y + TILE - 6, 6);
+      g.fillCircle(x + TILE - 14, y + TILE - 6, 6);
+      g.fillStyle(0xff3030, 1);
+      g.fillCircle(x + TILE / 2, y + 20, 4);
+      const { pivot, head, angle } = pickaxe(m, this.cave.time);
+      g.lineStyle(6, 0x7a4a24, 1);
+      g.lineBetween(pivot.x, pivot.y, head.x, head.y);
+      // The pick's head: a curved blade across the end of the handle.
+      const nx = -Math.sin(angle);
+      const ny = Math.cos(angle);
+      g.lineStyle(7, 0x9aa3ad, 1);
+      g.lineBetween(
+        head.x - nx * PICK_RADIUS,
+        head.y - ny * PICK_RADIUS,
+        head.x + nx * PICK_RADIUS,
+        head.y + ny * PICK_RADIUS
+      );
+      g.fillStyle(0xd8dee6, 1);
+      g.fillCircle(head.x + nx * PICK_RADIUS, head.y + ny * PICK_RADIUS, 4);
+      g.fillCircle(head.x - nx * PICK_RADIUS, head.y - ny * PICK_RADIUS, 4);
+    }
+    // Rails and mine carts
+    for (const cart of this.cave.carts) {
+      const railY = (cart.row + 1) * TILE - 6;
+      g.lineStyle(4, 0x6a5a4a, 1);
+      g.lineBetween(cart.minCol * TILE, railY, (cart.maxCol + 1) * TILE, railY);
+      for (let col = cart.minCol; col <= cart.maxCol; col++) {
+        g.fillStyle(0x4a3a2a, 1);
+        g.fillRect(col * TILE + 6, railY - 2, 6, 6);
+        g.fillRect(col * TILE + 30, railY - 2, 6, 6);
+      }
+      const top = cart.row * TILE + 6;
+      g.fillStyle(0x6b4a2e, 1);
+      g.fillRect(cart.x - 22, top, 44, TILE - 16);
+      g.lineStyle(3, 0x3a2614, 1);
+      g.strokeRect(cart.x - 22, top, 44, TILE - 16);
+      g.fillStyle(0x222222, 1);
+      g.fillCircle(cart.x - 12, railY - 4, 6);
+      g.fillCircle(cart.x + 12, railY - 4, 6);
+    }
+    for (const b of this.blasts) {
+      const k = b.age / 0.5;
+      g.fillStyle(0xffd040, Math.max(0, 1 - k));
+      g.fillCircle(b.x, b.y, 40 * (0.4 + k * 0.6));
+    }
+  }
+
+  drawBlobs(g) {
+    for (const b of this.shots.blobs) {
+      g.fillStyle(0x55e05a, 0.75);
+      g.fillCircle(b.x, b.y, BLOB_RADIUS);
+      g.lineStyle(2, 0x1f8f35, 0.9);
+      g.strokeCircle(b.x, b.y, BLOB_RADIUS);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillCircle(b.x - 2, b.y - 3, 2);
+    }
+  }
+
+  drawCrystal(g) {
+    const boss = this.crystal;
+    const r = boss.rect;
+    const cracked = boss.state === 'broken';
+    const wobble = boss.state === 'windup' || boss.state === 'slamWindup';
+    const dx = wobble ? (Math.random() - 0.5) * 4 : 0;
+    if (!boss.defeated) {
+      // Legs
+      g.fillStyle(0x5a6a8a, 1);
+      g.fillRect(r.left + 14 + dx, r.bottom - 30, 22, 30);
+      g.fillRect(r.right - 36 + dx, r.bottom - 30, 22, 30);
+      // Crystal body: a big faceted gem.
+      const color = cracked ? 0x6a7aa0 : 0x8fe8ff;
+      g.fillStyle(color, cracked ? 0.6 : 0.85);
+      g.fillPoints(
+        [
+          { x: boss.x + dx, y: r.top },
+          { x: r.right + dx, y: r.top + 40 },
+          { x: r.right - 10 + dx, y: r.bottom - 30 },
+          { x: r.left + 10 + dx, y: r.bottom - 30 },
+          { x: r.left + dx, y: r.top + 40 },
+        ],
+        true
+      );
+      g.lineStyle(3, 0xffffff, 0.7);
+      g.lineBetween(boss.x + dx, r.top, boss.x + dx, r.bottom - 30);
+      g.lineBetween(r.left + dx, r.top + 40, r.right + dx, r.top + 40);
+      if (cracked) {
+        g.lineStyle(3, 0x1a1a2a, 1);
+        g.lineBetween(boss.x - 30, r.top + 20, boss.x - 5, r.top + 60);
+        g.lineBetween(boss.x - 5, r.top + 60, boss.x + 25, r.top + 45);
+      }
+      // Eyes
+      g.fillStyle(0xff3080, 1);
+      g.fillCircle(boss.x - 18 + boss.dir * 6, r.top + 34, 6);
+      g.fillCircle(boss.x + 18 + boss.dir * 6, r.top + 34, 6);
+      // The orbs still left, glowing brightly when you can eat one.
+      const orb = boss.orbSpot;
+      for (let i = 0; i < boss.hp; i++) {
+        const ox = orb.x + (i - (boss.hp - 1) / 2) * 22;
+        g.fillStyle(0xffe066, cracked ? 1 : 0.35);
+        g.fillCircle(ox, orb.y, cracked ? 10 + Math.sin(this.clock * 12) * 2 : 7);
+      }
+    }
+    if (boss.slamWave > 0) {
+      const k = 1 - boss.slamWave / 0.4;
+      const from = boss.x + (boss.dir * CRYSTAL_WIDTH) / 2;
+      g.fillStyle(0xc0f0ff, 0.6 * (1 - k));
+      g.fillRect(Math.min(from, from + boss.dir * 200 * k), boss.floorY - 30, 200 * k, 30);
+    }
+    for (const s of boss.shards) {
+      g.fillStyle(0x9ff6ff, 1);
+      g.fillCircle(s.x, s.y, SHARD_RADIUS);
+      g.lineStyle(2, 0xffffff, 1);
+      g.strokeCircle(s.x, s.y, SHARD_RADIUS);
+    }
+    const bar = this.bossBar;
+    bar.clear();
+    for (let i = 0; i < 3; i++) {
+      bar.fillStyle(i < boss.hp ? 0x8fe8ff : 0x223344, 1);
+      bar.fillRoundedRect(GAME_WIDTH / 2 - 105 + i * 72, 120, 66, 20, 6);
     }
   }
 
@@ -1063,7 +1438,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     g.lineStyle(3, 0xffffff, 0.25);
-    g.strokeCircle(anchor.x, anchor.y, MAX_STRETCH + END_RADIUS);
+    g.strokeCircle(anchor.x, anchor.y, this.slime.reach + END_RADIUS);
   }
 
   drawChaser(g) {

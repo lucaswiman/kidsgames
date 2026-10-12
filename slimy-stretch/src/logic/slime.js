@@ -27,9 +27,9 @@ const SUPPORT_MARGIN = 6;
  * within reach, not inside a wall, and the body can only bend a little
  * around corners (it can't reach through a whole wall).
  */
-export function canReach(level, anchor, p) {
+export function canReach(level, anchor, p, reach = MAX_STRETCH) {
   return (
-    dist(anchor, p) <= MAX_STRETCH + 0.5 &&
+    dist(anchor, p) <= reach + 0.5 &&
     !circleHitsSolid(level, p, END_RADIUS) &&
     solidLengthBetween(level, anchor, p) <= CORNER_WRAP
   );
@@ -59,6 +59,8 @@ export class Slime {
     this.lead = 0;
     this.finger = { x: 0, y: 0 };
     this.smoothFinger = { x: 0, y: 0 };
+    // How far one end can stretch from the other. Slime shots make it shorter.
+    this.reach = MAX_STRETCH;
     // Wind pushes the end you're dragging this far sideways (set each frame).
     this.wind = { x: 0, y: 0 };
     this.fingerSamples = [];
@@ -171,7 +173,7 @@ export class Slime {
     const velocity = this.fingerVelocity();
     const anchor = this.anchor;
     const spot = findStickSpot(level, end, END_RADIUS, STICK_SEARCH, p =>
-      canReach(level, anchor, p)
+      canReach(level, anchor, p, this.reach)
     );
     if (spot) {
       end.x = spot.x;
@@ -277,8 +279,8 @@ export class Slime {
           x: this.smoothFinger.x + this.wind.x,
           y: this.smoothFinger.y + this.wind.y,
         };
-        const desired = clampToRange(other, pushed, MAX_STRETCH);
-        slideToward(level, end, other, desired);
+        const desired = clampToRange(other, pushed, this.reach);
+        slideToward(level, end, other, desired, this.reach);
       } else if (end.state === 'snapping') {
         const d = dist(end, other);
         const move = SNAP_SPEED * dt;
@@ -359,7 +361,7 @@ export class Slime {
  * Move `end` toward `target` in small steps. When a wall is in the way, slide
  * along it (try just the x part, then just the y part) instead of stopping.
  */
-function slideToward(level, end, anchor, target, stepSize = 3) {
+function slideToward(level, end, anchor, target, reach, stepSize = 3) {
   const steps = Math.min(200, Math.ceil(dist(end, target) / stepSize));
   for (let i = 0; i < steps; i++) {
     const remaining = steps - i;
@@ -370,7 +372,7 @@ function slideToward(level, end, anchor, target, stepSize = 3) {
       { x: end.x + vx, y: end.y },
       { x: end.x, y: end.y + vy },
     ];
-    const next = options.find(p => canReach(level, anchor, p));
+    const next = options.find(p => canReach(level, anchor, p, reach));
     if (!next) {
       return;
     }

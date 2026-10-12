@@ -3,7 +3,8 @@
 // type:   'normal'  - reach the exit
 //         'collect' - the exit stays locked until every power core (P) is taken
 //         'escape'  - something is chasing you; reach the exit before it gets you
-//         'boss'    - beat the robot
+//         'boss'    - beat the boss (boss: 'crystal' for the crystal robot)
+// dark:   only the area around the slime and glowing crystals can be seen
 // hint:   text shown at the start of the level
 // chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball
 // wind:   gusts that push the end you're dragging: { every, gust, strength, dir }
@@ -18,6 +19,7 @@ export const WORLDS = [
   { id: 'volcano', name: 'The Volcano', theme: 'volcano' },
   { id: 'canyon', name: 'The Canyon', theme: 'canyon' },
   { id: 'warehouse', name: 'The Warehouse', theme: 'warehouse' },
+  { id: 'cave', name: 'The Cave', theme: 'cave' },
 ];
 
 export const LEVELS = [
@@ -573,6 +575,97 @@ export const LEVELS = [
       '#................#',
       '#..S.............#',
       '##################',
+    ],
+  },
+  // --------------------------------------------------------------- THE CAVE
+  {
+    id: '6-1',
+    world: 'cave',
+    name: 'Dark Tunnels',
+    type: 'normal',
+    // Only the area around the slime and glowing crystals can be seen.
+    dark: true,
+    hint: "It's dark in here! Stalactites fall when you go under them. The bats are friendly.",
+    map: [
+      '################################',
+      '#.V......V.......V.......V.....#',
+      '#..............................#',
+      '#....G.........B.........G..E..#',
+      '#..........................#####',
+      '######.....###########.....#####',
+      '#....#.....#.........#.....#...#',
+      '#....#..B..#....T....#.....#...#',
+      '#..........V.........V.........#',
+      '#..............................#',
+      '#..S...........G...............#',
+      '################################',
+    ],
+  },
+  {
+    id: '6-2',
+    world: 'cave',
+    name: 'Mine Shaft',
+    type: 'normal',
+    hint: 'Land on top of the mine cart to ride it over the lava. Watch out for the pickaxe!',
+    // What's inside each metal box, in reading order.
+    boxItems: [null, 'token', null],
+    map: [
+      '#IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII#',
+      '#..................................#',
+      '#..................................#',
+      '#..................................#',
+      '#..................................#',
+      '#.........................M........#',
+      '#.........................M........#',
+      '#.S...H==================.MK...E...#',
+      '#######LLLLLLLLLLLLLLLLLL###########',
+      '####################################',
+    ],
+  },
+  {
+    id: '6-3',
+    world: 'cave',
+    name: 'Deep Dark',
+    type: 'collect',
+    // Only the area around the slime and glowing crystals can be seen.
+    dark: true,
+    hint: 'Find all 3 power cores in the dark. Mining machines smash boxes open for you.',
+    // What's inside each metal box, in reading order.
+    boxItems: ['core', null],
+    map: [
+      '##############################',
+      '#....V.......V.......V.......#',
+      '#..P.........................#',
+      '#####....G..........G...######',
+      '#............................#',
+      '#.....B...................M..#',
+      '#.........................MK.#',
+      '#........#######.........#####',
+      '#..H====.#.....#.............#',
+      '#..#######.....#...P.....G...#',
+      '#..............#.......#.....#',
+      '#..S...C.......#.......#.E...#',
+      '##############################',
+    ],
+  },
+  {
+    id: '6-4',
+    world: 'cave',
+    name: 'Crystal Robot',
+    type: 'boss',
+    boss: 'crystal',
+    hint: 'Trick the crystal robot into crashing into a mining machine, then eat an orb with your tongue!',
+    map: [
+      '#####################',
+      '#...................#',
+      '#...................#',
+      '#...................#',
+      '#..####.......####..#',
+      '#...................#',
+      '#...................#',
+      '#...................#',
+      '#K.S...........R...K#',
+      '#####################',
     ],
   },
 ];

@@ -16,7 +16,11 @@ export class SlimeView {
     this.wobble = 0;
   }
 
-  draw(slime, dt, lookAt) {
+  /**
+   * `size` shrinks the slime (1 = full size) when blobs are shot out;
+   * `glowing` adds a soft light around it.
+   */
+  draw(slime, dt, lookAt, size = 1, glowing = false) {
     const g = this.g;
     g.clear();
     this.wobble += dt;
@@ -30,7 +34,14 @@ export class SlimeView {
     const [a, b] = slime.ends;
     const len = Math.hypot(b.x - a.x, b.y - a.y);
     const t = Math.min(1, len / MAX_STRETCH);
-    const endR = END_RADIUS + 5 - t * 2;
+    const endR = (END_RADIUS + 5 - t * 2) * size;
+
+    if (glowing) {
+      const pulse = 0.12 + 0.04 * Math.sin(this.wobble * 3);
+      g.fillStyle(0xb0ffb0, pulse);
+      g.fillCircle(a.x, a.y, endR * 2.6);
+      g.fillCircle(b.x, b.y, endR * 2.6);
+    }
 
     const outline = this.bodyOutline(a, b, len, endR, t);
     g.fillStyle(BODY, 0.62);

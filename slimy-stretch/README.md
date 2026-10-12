@@ -12,9 +12,17 @@ Climb like an inchworm!
 - **The Warehouse:** boxes everywhere (some hide bombs that make your tongue too sore to use for 10
   seconds!), conveyor belts, crane claws (green base = nice, red base = mean), slime cannons, and
   one-way platforms
+- **The Cave:** dark tunnels, falling stalactites, friendly bats, mining machines with swinging
+  pickaxes (they smash boxes open), mine carts, and a crystal robot boss you trick into crashing
+  into a mining machine
 
-Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime a new
-ability: the robot gives you a **tongue**. Tap 👅, then drag to stick it out and eat metal boxes.
+Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
+abilities:
+
+- The robot gives you a **tongue**. Tap 👅, then drag to stick it out and eat metal boxes.
+- The crystal robot gives you **glow** (dark levels aren't dark anymore) and **slime shot**: tap
+  💧, then tap where to shoot a blob of slime. Each blob out costs 25% of your reach (3 at most);
+  touch a blob to soak it back up. Blobs knock down stalactites.
 
 ## Running it
 
@@ -61,13 +69,19 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `>`    | conveyor belt moving right (`<` moves left)       |
 | `-`    | one-way platform (go up through, stick on top)    |
 | `U`    | slime cannon                                      |
+| `V`    | stalactite (hangs from the ceiling)               |
+| `B`    | bat (just flies around)                           |
+| `K`    | mining machine (pickaxe hurts, smashes boxes)     |
+| `=`    | mine cart track (`H` is the cart)                 |
+| `G`    | glowing crystal (lights up dark levels)           |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
 reading order, for example `boxItems: [null, 'token', 'key-blue', 'core', 'bomb']`. Add
 `wind: { every: 5, gust: 2, strength: 90, dir: 1 }` for wind gusts, and crane claws with
 `claws: [{ row: 0, from: 4, to: 9, drop: 12, nice: true }]` (the claw runs along the ceiling in
-`row` between columns `from` and `to`, and drops you at column `drop`).
+`row` between columns `from` and `to`, and drops you at column `drop`). Add `dark: true` to make a
+level dark.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.
