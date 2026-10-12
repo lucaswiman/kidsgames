@@ -49,7 +49,10 @@ describe('levels', () => {
         }
       });
 
-      it('can be finished, and every item can be reached', { timeout: 30000 }, () => {
+      it('can be finished, and every item can be reached', { timeout: 30000 }, async () => {
+        // The checker is slow and never waits on anything; give vitest a turn
+        // first so its messages don't time out over a long run of levels.
+        await new Promise(resolve => setTimeout(resolve, 0));
         const result = solveLevel(level);
         expect(result.exit).toBe(true);
         expect(result.tokens.every(Boolean)).toBe(true);
