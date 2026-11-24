@@ -101,6 +101,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  space: {
+    skyTop: 0x03041a,
+    skyBottom: 0x1a1040,
+    grid: null,
+    wall: 0xd9dee8,
+    wallDark: 0x8d97aa,
+    wallLight: 0xffffff,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -240,6 +251,8 @@ export function drawBackdrop(scene, level, theme, themeName) {
     g.fillRect(0, level.pixelHeight - 160, level.pixelWidth, 160);
   } else if (themeName === 'sky') {
     drawSkyBackdrop(g, level);
+  } else if (themeName === 'space') {
+    drawSpaceBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -371,6 +384,66 @@ function drawSkyBackdrop(g, level) {
     g.fillEllipse(x + 46, baseY + 6, 190, 40);
     g.fillCircle(x - 20, baseY, 22);
     g.fillCircle(x + 112, baseY, 24);
+  }
+}
+
+/**
+ * Outer space, seen through the space station's big windows: stars, glowing
+ * nebulas and planets, with the window frames in front.
+ */
+function drawSpaceBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  // Soft nebula glows.
+  const nebulas = [0x7a3cff, 0xff4fb0, 0x2fb8ff];
+  for (let i = 0; i < Math.ceil(w / 500) + 1; i++) {
+    const x = hash(i, 21) * w;
+    const y = hash(i, 22) * h;
+    const color = nebulas[i % nebulas.length];
+    for (let k = 4; k > 0; k--) {
+      g.fillStyle(color, 0.05);
+      g.fillCircle(x, y, 60 * k + hash(i, 23) * 60);
+    }
+  }
+  // Stars, some bigger and brighter than others.
+  for (let i = 0; i < (w * h) / 2500; i++) {
+    const x = hash(i, 31) * w;
+    const y = hash(i, 32) * h;
+    const big = hash(i, 33) > 0.9;
+    g.fillStyle(hash(i, 34) > 0.8 ? 0xfff2c0 : 0xffffff, big ? 0.95 : 0.55);
+    g.fillCircle(x, y, big ? 2.2 : 1.2);
+  }
+  // A big ringed planet and a little moon.
+  const px = w * 0.7;
+  const py = h * 0.3;
+  g.fillStyle(0xe8a05a, 0.85);
+  g.fillCircle(px, py, 70);
+  g.fillStyle(0xc77a3a, 0.85);
+  g.fillEllipse(px, py - 18, 136, 16);
+  g.fillEllipse(px + 6, py + 22, 128, 12);
+  g.lineStyle(6, 0xf6d9a8, 0.6);
+  g.strokeEllipse(px, py, 220, 46);
+  g.fillStyle(0xb8c4d8, 0.8);
+  g.fillCircle(w * 0.22, h * 0.68, 26);
+  g.fillStyle(0x8a96ac, 0.8);
+  g.fillCircle(w * 0.22 - 8, h * 0.68 - 6, 6);
+  g.fillCircle(w * 0.22 + 9, h * 0.68 + 8, 4);
+  // The station's window frames: big struts and beams with little blue lights.
+  for (let x = 0; x < w; x += 6 * TILE) {
+    g.fillStyle(0x3a4256, 0.9);
+    g.fillRect(x - 10, 0, 20, h);
+    g.fillStyle(0x56607a, 0.9);
+    g.fillRect(x - 10, 0, 5, h);
+    for (let y = TILE; y < h; y += 3 * TILE) {
+      g.fillStyle(0x5ad2ff, 0.9);
+      g.fillCircle(x, y, 3);
+    }
+  }
+  for (let y = 4 * TILE; y < h; y += 8 * TILE) {
+    g.fillStyle(0x3a4256, 0.9);
+    g.fillRect(0, y - 8, w, 16);
+    g.fillStyle(0x56607a, 0.9);
+    g.fillRect(0, y - 8, w, 4);
   }
 }
 
@@ -539,6 +612,22 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
       g.fillRect(x, y, TILE, 2);
       g.fillStyle(0xd8a830, 1);
       g.fillCircle(x + TILE / 2, y + 4, 2);
+    }
+  } else if (themeName === 'space') {
+    // White station panels with seams, and a strip of blue lights on top.
+    g.lineStyle(2, theme.wallDark, 0.5);
+    g.strokeRect(x + 3, y + 3, TILE - 6, TILE - 6);
+    if (hash(col, row) > 0.6) {
+      g.fillStyle(theme.wallDark, 0.35);
+      g.fillRect(x + 10, y + 14 + hash(row, col) * 16, TILE - 20, 4);
+    }
+    if (openUp) {
+      g.fillStyle(0x5a6680, 1);
+      g.fillRect(x, y, TILE, 6);
+      g.fillStyle(0x5ad2ff, 1);
+      for (let i = 0; i < 3; i++) {
+        g.fillRect(x + 6 + i * 15, y + 2, 7, 2);
+      }
     }
   } else if (themeName === 'canyon') {
     if (openUp) {

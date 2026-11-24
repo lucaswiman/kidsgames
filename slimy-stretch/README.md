@@ -37,6 +37,14 @@ Climb like an inchworm!
   blob comes right back), fluffy clouds you slowly sink through if you sit on them too long, hot
   air balloons, rainbow slides, floating islands that carry you along, kites the wind pulls you
   around with (tap to let go), and stars to collect
+- **Outer Space:** a space station with stars outside the windows. Asteroids zoom along their
+  lanes (the edge blinks red first: hide!), black holes pull you in (the middle hurts, but staying
+  stuck keeps you safe), UFOs beam you up and drop you somewhere annoying, and alien plants chomp
+  when you get close. Zero gravity zones float you around until you bump into something (let go
+  of a stretch in the air to float off that way), gravity switches turn down into up, teleporters,
+  rocket boosters, space elevators, and bouncy moon rocks: pick one up with your tongue (it halves
+  your reach while you carry it) and tap 👅 again to throw it. A moon rock thrown at an alien plant
+  withers it for good. Plus space crystals to collect
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -123,6 +131,11 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `@`    | sleeping cloud (a slime shot wakes it up)         |
 | `f`    | fluffy cloud (you sink through after 2 s)         |
 | `k`    | kite (the wind pulls it along)                    |
+| `0`    | black hole (pulls you in; the middle hurts)       |
+| `p`    | alien plant (chomps; a thrown moon rock stops it) |
+| `g`    | gravity switch (turns down into up)               |
+| `D`    | moon rock (bouncy; pick it up with the tongue)    |
+| `+`    | rocket booster (blasts you off)                   |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -156,6 +169,20 @@ point, carries you along the path and drops you off at the last one), rainbow sl
 floating islands with `islands: [{ from: [26, 9], to: [31, 9], width: 3 }]` (the island's left
 tile floats back and forth between `from` and `to`, sideways or up and down; add `speed` to change
 how fast). Kites (`k`) need `wind`: it pulls them along, and they sink slowly while it's calm.
+
+Outer Space levels can have teleporters with `teleporters: [{ a: [8, 14], b: [11, 14] }]` (touch
+one pad to pop out of the other), space elevators with
+`elevators: [{ col: 12, from: 14, to: 5 }]` (a platform 2 tiles wide, its left tile in column 12,
+going up and down between rows 14 and 5; add `width` or `speed` to change them) and zero gravity
+zones with `zeroG: [{ from: [19, 1], to: [31, 8] }]` (the corners of the zone). Asteroids fly
+along lanes: `asteroids: [{ row: 7, dir: 1, every: 6 }]` sends one in from the left edge
+(`dir: -1` for the right edge) along row 7 every 6 seconds, so that edge of the row must be open.
+UFOs work like crane claws: `ufos: [{ row: 3, from: 33, to: 40, drop: [4, 12] }]` flies between
+columns 33 and 40 and drops anything it beams up at `drop`. Say which way each rocket booster
+(`+`) points, in reading order, with `boosters: ['up-right', 'left']` (`up`, `down`, `left`,
+`right`, or two of them joined like `down-left`). A gravity switch flips gravity until you touch a
+switch again (or lose a life); upside down, falling off the top of the level is falling out of
+the world, one-way platforms still only work from above, and only moon rocks bounce you.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

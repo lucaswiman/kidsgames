@@ -1,6 +1,6 @@
 import { END_RADIUS, TILE } from './constants.js';
 import { dist, pointSegmentDist, segmentTouchesDeadly } from './collision.js';
-import { isSolidKind, tileAt } from './level.js';
+import { isSolidKind, outOfWorld, tileAt } from './level.js';
 
 const LASER_WARN_TIME = 0.5;
 const DEFAULT_LASER_TIMING = { on: 2, off: 2, offset: 0 };
@@ -95,8 +95,9 @@ export function findHazard(level, slime, lasers, time, chaser) {
       return 'chaser';
     }
   }
-  // Anything below the bottom edge has fallen off the screen.
-  if (a.y > level.pixelHeight || b.y > level.pixelHeight) {
+  // Anything below the bottom edge (or above the top, upside down) has fallen
+  // off the screen.
+  if (outOfWorld(level, a) || outOfWorld(level, b)) {
     return 'fell';
   }
   return null;

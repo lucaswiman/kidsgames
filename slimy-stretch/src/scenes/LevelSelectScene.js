@@ -21,35 +21,39 @@ export default class LevelSelectScene extends Phaser.Scene {
     g.fillGradientStyle(0x141a33, 0x141a33, 0x1f4a2c, 0x1f4a2c, 1);
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    this.add.text(GAME_WIDTH / 2, 52, 'Pick a Level', textStyle(52, '#7dff7a')).setOrigin(0.5);
+    this.add.text(GAME_WIDTH / 2, 48, 'Pick a Level', textStyle(52, '#7dff7a')).setOrigin(0.5);
 
     // Fit all the worlds on one screen: in two columns once there are lots.
+    // (Up to 12 worlds fit, in 6 rows, with buttons still big enough to tap.)
     const columns = WORLDS.length > 6 ? 2 : 1;
     const rows = Math.ceil(WORLDS.length / columns);
-    const rowHeight = (GAME_HEIGHT - 120) / rows;
+    const firstTop = 96;
+    const rowHeight = (GAME_HEIGHT - firstTop - 6) / rows;
+    const bandHeight = rowHeight - 8;
     const gap = 16;
     const bandWidth = (GAME_WIDTH - 80 - (columns - 1) * gap) / columns;
     const perWorld = WORLDS.map(w => LEVELS.filter(l => l.world === w.id).length);
     const slot = (bandWidth - 48) / Math.max(...perWorld);
     const buttonWidth = Math.min(140, slot - (columns > 1 ? 10 : 50));
+    const titleSize = rowHeight < 120 ? 22 : 26;
+    const buttonHeight = Math.min(60, rowHeight - 66);
     WORLDS.forEach((world, w) => {
       const left = 40 + Math.floor(w / rows) * (bandWidth + gap);
-      const top = 110 + (w % rows) * rowHeight;
-      const buttonHeight = Math.min(60, rowHeight - 70);
-      const y = top + 42 + buttonHeight / 2; // middle of the level buttons
+      const top = firstTop + (w % rows) * rowHeight;
+      const y = top + titleSize + 14 + buttonHeight / 2; // middle of the level buttons
       const theme = THEMES[world.theme];
       const band = this.add.graphics();
       band.fillStyle(theme.skyBottom, 0.9);
-      band.fillRoundedRect(left, top, bandWidth, rowHeight - 12, 22);
+      band.fillRoundedRect(left, top, bandWidth, bandHeight, 20);
       band.fillStyle(theme.wall, 1);
-      band.fillRoundedRect(left, top + rowHeight - 26, bandWidth, 14, {
+      band.fillRoundedRect(left, top + bandHeight - 6, bandWidth, 6, {
         tl: 0,
         tr: 0,
-        bl: 14,
-        br: 14,
+        bl: 6,
+        br: 6,
       });
       this.add
-        .text(left + 24, top + 6, `World ${w + 1}: ${world.name}`, textStyle(26, '#ffffff'))
+        .text(left + 24, top + 4, `World ${w + 1}: ${world.name}`, textStyle(titleSize, '#ffffff'))
         .setOrigin(0, 0);
 
       const levels = LEVELS.map((l, i) => ({ ...l, index: i })).filter(l => l.world === world.id);
@@ -79,7 +83,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         if (best && columns > 1) {
           // No room beside the button, so the best score goes under it.
           this.add
-            .text(x, y + buttonHeight / 2 + 14, `★ ${best.score}`, textStyle(15, '#ffe066'))
+            .text(x, y + buttonHeight / 2 + 8, `★ ${best.score}`, textStyle(14, '#ffe066'))
             .setOrigin(0.5);
         } else if (best) {
           this.add.text(x + 96, y, `★\n${best.score}`, textStyle(16, '#ffe066')).setOrigin(0.5);

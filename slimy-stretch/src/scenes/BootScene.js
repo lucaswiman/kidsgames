@@ -101,6 +101,36 @@ export default class BootScene extends Phaser.Scene {
       g.fillRect(19, 27, 6, 2);
     });
 
+    // Glowing space crystals are what you collect in Outer Space.
+    make('spacecrystal', 44, 48, g => {
+      g.fillStyle(0xb48aff, 0.3);
+      g.fillCircle(22, 24, 21);
+      g.fillStyle(0x7a4ad8, 1);
+      g.fillPoints(
+        [
+          { x: 22, y: 4 },
+          { x: 34, y: 18 },
+          { x: 28, y: 44 },
+          { x: 16, y: 44 },
+          { x: 10, y: 18 },
+        ],
+        true
+      );
+      g.fillStyle(0xc9a8ff, 1);
+      g.fillPoints(
+        [
+          { x: 22, y: 4 },
+          { x: 26, y: 18 },
+          { x: 22, y: 44 },
+          { x: 16, y: 44 },
+          { x: 10, y: 18 },
+        ],
+        true
+      );
+      g.fillStyle(0xffffff, 0.9);
+      g.fillTriangle(15, 18, 20, 9, 20, 22);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

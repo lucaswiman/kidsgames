@@ -42,6 +42,26 @@
 //         that float back and forth between `from` and `to` (where their left
 //         tile is; sideways or up and down). `width` tiles wide (default 3);
 //         speed in pixels per second (default 55). Anything stuck on top rides along.
+// teleporters: pairs of teleporter pads { a: [col, row], b: [col, row] } (in empty
+//         cells). Touch one pad and the whole slime pops out of the other one.
+// elevators: space elevators { col, from, to, width, speed } that go up and down a
+//         shaft between rows `from` and `to`, with their left tile in column `col`
+//         (`width` tiles wide, default 2; speed default 70). Anything stuck on top rides
+//         along (they're floating islands that only go up and down).
+// zeroG:  zero gravity zones { from: [col, row], to: [col, row] } (the corners of a
+//         rectangle). Loose in one, the slime floats in a straight line until it bumps
+//         into something and sticks; letting go of a stretch in the air floats you off
+//         that way.
+// asteroids: asteroid lanes { row, dir, every, offset, speed }. Every `every` seconds
+//         (default 5) an asteroid flies in along row `row` from the left edge (dir 1) or
+//         the right edge (dir -1), after the edge blinks for a second, until it smashes
+//         into a wall. The edge of that row must be open. speed default 260.
+// ufos:   UFOs { row, from, to, drop: [col, row], speed } that fly back and forth in row
+//         `row` between columns `from` and `to`. Every few seconds the tractor beam
+//         flickers, then shines straight down; it carries a slime it catches off to
+//         `drop` (somewhere annoying, never deadly) and drops it there.
+// boosters: which way each rocket booster (+) points, in reading order: 'up', 'down',
+//         'left', 'right', 'up-left', 'up-right', 'down-left' or 'down-right' (default 'up').
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
@@ -54,6 +74,7 @@ export const WORLDS = [
   { id: 'jungle', name: 'The Jungle', theme: 'jungle' },
   { id: 'factory', name: 'The Factory', theme: 'factory' },
   { id: 'sky', name: 'Sky City', theme: 'sky' },
+  { id: 'space', name: 'Outer Space', theme: 'space' },
 ];
 
 export const LEVELS = [
@@ -1182,6 +1203,121 @@ export const LEVELS = [
       '..#...@....T....................................',
       '..############..................................',
       '.......#######..................................',
+    ],
+  },
+  // ---------------------------------------------------------------- OUTER SPACE
+  {
+    id: '11-1',
+    world: 'space',
+    name: 'Lift Off',
+    type: 'normal',
+    hint: 'Step on the glowing pad to teleport! Ride the elevator up, then float across the zero gravity room.',
+    teleporters: [{ a: [8, 14], b: [11, 14] }],
+    elevators: [{ col: 12, from: 14, to: 5, speed: 90 }],
+    zeroG: [{ from: [19, 1], to: [31, 8] }],
+    map: [
+      '###################IIIIIIIIIIIII########',
+      '###########I.......................#####',
+      '###########I.......................#####',
+      '###########I.............T.........#####',
+      '###########I....C........#..........E..#',
+      '###########I..#####.............########',
+      '###########I..I###I.............I#######',
+      '###########I..I###I.............I#######',
+      '###########I..I###I.............I#######',
+      '###########I..I###I.............I#######',
+      '###########.....................I#######',
+      '#.........#.....................I#######',
+      '#....T....#.....................I#######',
+      '#.........#.....................I#######',
+      '#.S.......#..............T......I#######',
+      '########################################',
+      '########################################',
+    ],
+  },
+  {
+    id: '11-2',
+    world: 'space',
+    name: 'Asteroid Belt',
+    type: 'normal',
+    hint: 'Bounce on the moon rock! Asteroids zoom along the tunnel: hide in the gaps when the edge blinks red.',
+    asteroids: [{ row: 7, dir: 1, every: 6, speed: 280 }],
+    boosters: ['up-right'],
+    map: [
+      '###################################.......######',
+      '###################################............#',
+      '###################################...........E#',
+      '###################################.......######',
+      '##############################............######',
+      '#########.####T####.####.#####.T..........######',
+      '####.####.####.####.####.#####............######',
+      '..........................................######',
+      '##...#########################C.+.........######',
+      'I......I###########################.......######',
+      'I......I###########################.......######',
+      'I......I###########################.......######',
+      'I....T.I###########################.......######',
+      'I......I###########################.......######',
+      'I......I###########################.......######',
+      'I.S.D..I###########################.......######',
+      '###################################.......######',
+      '###################################.......######',
+    ],
+  },
+  {
+    id: '11-3',
+    world: 'space',
+    name: 'Upside Down',
+    type: 'normal',
+    hint: 'Touch a gravity switch and down becomes up! Stay away from black holes, and out from under the UFO when its beam flickers.',
+    ufos: [{ row: 3, from: 33, to: 40, drop: [4, 12] }],
+    map: [
+      '#####################...####################',
+      'I...............................g..........I',
+      'I.....T...............T....................I',
+      'I................0.........................I',
+      'I.........................0................I',
+      'I..........................................I',
+      'I..........................................I',
+      'I....................................T.....I',
+      'I................................C.......E.I',
+      'I..............................#############',
+      'I..............................#############',
+      'I..............................#############',
+      'I..............................#############',
+      'I..............................#############',
+      'I..............................#############',
+      'I.S........g...................#############',
+      '#############..................#############',
+      '#############..................#############',
+    ],
+  },
+  {
+    id: '11-4',
+    world: 'space',
+    name: 'Space Crystals',
+    type: 'collect',
+    hint: 'Find all 4 space crystals! Alien plants chomp: grab a moon rock with your tongue, then tap the tongue again to throw it at them.',
+    zeroG: [{ from: [1, 1], to: [12, 10] }],
+    map: [
+      '#IIIIIIIIIIII###############################',
+      'I...................P#########I............I',
+      'I............##.##############I............I',
+      'I.....P...T..##.##############I............I',
+      'I.....#......##.##############I............I',
+      'I............##p##############I.....P......I',
+      'I............##.##############I....###.....I',
+      'I............##.##############I............I',
+      'I............##.##############I............I',
+      'I............##.##D###########I............I',
+      'I............#................I.........T..I',
+      '##############...........T....I............I',
+      '##############................I............I',
+      '#...##########................I............I',
+      '#...##########................I............I',
+      '#P...........p..S.....D.......p.....D....E.I',
+      '############################################',
+      '############################################',
     ],
   },
 ];

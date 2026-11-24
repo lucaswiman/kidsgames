@@ -44,6 +44,11 @@ import { TILE } from './constants.js';
 //   @  sleeping cloud (slippery, blocks the way; a slime shot wakes it up and it flies off)
 //   f  fluffy cloud (a one-way platform you slowly sink through if you sit on it too long)
 //   k  kite (grab the bottom of its string and the wind carries you along)
+//   0  black hole (pulls you in; touching the middle hurts)
+//   p  alien plant (chomps when you get close; a thrown moon rock withers it)
+//   g  gravity switch (touch it and down becomes up, until you touch one again)
+//   D  moon rock (sticky and extra bouncy; pick it up with the tongue and throw it)
+//   +  rocket booster (blasts you off; def.boosters says which way each one points)
 //   .  empty
 
 export const TileKind = {
@@ -79,7 +84,8 @@ export const TileKind = {
   STORM: 29,
   SLEEPY: 30,
   FLUFFY: 31,
-  SKY_ISLAND: 32, // a floating island's spot in the sky (never in a map)
+  SKY_ISLAND: 32, // a floating island's (or space elevator's) spot (never in a map)
+  MOON_ROCK: 33,
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -98,9 +104,9 @@ export function isPlatformKind(kind) {
   return PLATFORMS.has(kind);
 }
 
-/** Hammocks and bouncy flowers bounce you up high when you land on them. */
+/** Hammocks, bouncy flowers and moon rocks bounce you up high when you land on them. */
 export function isBouncyKind(kind) {
-  return kind === TileKind.HAMMOCK || kind === TileKind.FLOWER;
+  return kind === TileKind.HAMMOCK || kind === TileKind.FLOWER || kind === TileKind.MOON_ROCK;
 }
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
@@ -137,6 +143,7 @@ const SOLID = new Set([
   TileKind.STORM,
   TileKind.SLEEPY,
   TileKind.SKY_ISLAND,
+  TileKind.MOON_ROCK,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -155,6 +162,7 @@ const STICKY = new Set([
   TileKind.VENT,
   TileKind.LIFT,
   TileKind.SKY_ISLAND,
+  TileKind.MOON_ROCK,
 ]);
 
 export function isSolidKind(kind) {
@@ -218,6 +226,15 @@ export function parseLevel(def) {
     vents: [],
     stormClouds: [],
     kites: [],
+    blackHoles: [],
+    plants: [],
+    switches: [],
+    moonRocks: [],
+    boosters: [],
+    // Which way is down: 1 normally, -1 while a gravity switch has flipped it.
+    gravity: 1,
+    // Zero gravity zones, as pixel rectangles (see def.zeroG).
+    zeroG: (def.zeroG || []).map(zoneRect),
   };
 
   rows.forEach((line, row) => {
@@ -400,6 +417,22 @@ export function parseLevel(def) {
         case 'k':
           level.kites.push({ ...center, col, row });
           break;
+        case '0':
+          level.blackHoles.push({ ...center, col, row });
+          break;
+        case 'p':
+          level.plants.push({ ...center, col, row });
+          break;
+        case 'g':
+          level.switches.push({ ...center, col, row });
+          break;
+        case 'D':
+          kind = TileKind.MOON_ROCK;
+          level.moonRocks.push({ ...center, col, row });
+          break;
+        case '+':
+          level.boosters.push({ ...center, col, row });
+          break;
         case '.':
           break;
         default:
@@ -415,6 +448,7 @@ export function parseLevel(def) {
   }
   placeBoxItems(level);
   findCartTracks(level);
+  aimBoosters(level);
   if (!level.exit && def.type !== 'boss') {
     throw new Error(`${def.id}: map has no exit (E)`);
   }
@@ -451,6 +485,63 @@ function placeBoxItems(level) {
   });
 }
 
+// Which way a rocket booster can point (def.boosters), as a direction to fly in.
+export const BOOSTER_DIRS = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+  'up-left': { x: -Math.SQRT1_2, y: -Math.SQRT1_2 },
+  'up-right': { x: Math.SQRT1_2, y: -Math.SQRT1_2 },
+  'down-left': { x: -Math.SQRT1_2, y: Math.SQRT1_2 },
+  'down-right': { x: Math.SQRT1_2, y: Math.SQRT1_2 },
+};
+
+/** `def.boosters[i]` says which way the i-th rocket booster (in reading order) points. */
+function aimBoosters(level) {
+  const dirs = level.def.boosters || [];
+  if (dirs.length > level.boosters.length) {
+    throw new Error(`${level.def.id}: boosters lists more directions than there are boosters`);
+  }
+  level.boosters.forEach((b, i) => {
+    const dir = dirs[i] || 'up';
+    if (!BOOSTER_DIRS[dir]) {
+      throw new Error(`${level.def.id}: unknown booster direction '${dir}'`);
+    }
+    b.dir = dir;
+    b.angle = Math.atan2(BOOSTER_DIRS[dir].y, BOOSTER_DIRS[dir].x);
+  });
+}
+
+/** A zero gravity zone { from: [col, row], to: [col, row] } as a rectangle in pixels. */
+function zoneRect(zone) {
+  const [c0, c1] = [zone.from[0], zone.to[0]].sort((a, b) => a - b);
+  const [r0, r1] = [zone.from[1], zone.to[1]].sort((a, b) => a - b);
+  return { left: c0 * TILE, top: r0 * TILE, right: (c1 + 1) * TILE, bottom: (r1 + 1) * TILE };
+}
+
+/** Which way is down right now: 1 (normal) or -1 (flipped by a gravity switch). */
+export function gravityDir(level) {
+  return level.gravity === -1 ? -1 : 1;
+}
+
+/** True if point `p` is inside a zero gravity zone. */
+export function inZeroG(level, p) {
+  const zones = level.zeroG;
+  if (!zones || zones.length === 0) {
+    return false;
+  }
+  return zones.some(z => p.x >= z.left && p.x < z.right && p.y >= z.top && p.y < z.bottom);
+}
+
+/**
+ * True if point `p` has fallen out of the world: off the bottom, or off the
+ * top while gravity is flipped.
+ */
+export function outOfWorld(level, p) {
+  return p.y > level.pixelHeight || (level.gravity === -1 && p.y < 0);
+}
+
 /** Each mine cart can roll along the run of track (=) it sits on. */
 function findCartTracks(level) {
   const onTrack = (col, row) => {
@@ -477,6 +568,11 @@ function findCartTracks(level) {
  */
 export function tileAt(level, col, row) {
   if (row < 0 || col < 0 || row >= level.height || col >= level.width) {
+    if (level.gravity === -1) {
+      // Upside down it's the other way around: the top is open, so you can
+      // fall up out of the world, and the bottom is a slippery wall.
+      return row < 0 ? TileKind.EMPTY : TileKind.ICE;
+    }
     // Off the bottom is open so the slime can fall out of the world.
     return row >= level.height ? TileKind.EMPTY : TileKind.ICE;
   }

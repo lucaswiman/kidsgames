@@ -7,7 +7,11 @@ import {
   MAX_STRETCH,
   SNAP_SPEED,
   STICK_SEARCH,
+  ZERO_G_DRIFT,
+  ZERO_G_FLING,
+  ZERO_G_MIN_STRETCH,
 } from './constants.js';
+import { gravityDir, inZeroG } from './level.js';
 import {
   circleHitsSolid,
   clampToRange,
@@ -163,7 +167,9 @@ export class Slime {
 
   /**
    * Finger lifted. Stick the held end to a nearby wall if there is one,
-   * otherwise boing it back. Returns the finger velocity (for throwing).
+   * otherwise boing it back. In a zero gravity zone there's nothing to boing
+   * back against, so instead the whole slime floats off the way you were
+   * stretching. Returns the finger velocity (for throwing).
    */
   release(level) {
     const end = this.heldEnd;
@@ -180,6 +186,13 @@ export class Slime {
       end.y = spot.y;
       end.state = 'stuck';
       this.events.push('stick');
+    } else if (inZeroG(level, end) && dist(end, anchor) >= ZERO_G_MIN_STRETCH) {
+      const d = dist(end, anchor);
+      const vx = ((end.x - anchor.x) / d) * ZERO_G_FLING;
+      const vy = ((end.y - anchor.y) / d) * ZERO_G_FLING;
+      this.lead = this.heldIndex;
+      this.launch(end.x, end.y, vx, vy);
+      this.events.push('fling');
     } else {
       end.state = 'snapping';
       this.lead = 1 - this.heldIndex;
@@ -300,12 +313,27 @@ export class Slime {
 
   updateFalling(dt, level) {
     const f = this.falling;
-    f.vy = Math.min(MAX_FALL_SPEED, f.vy + GRAVITY * dt);
+    // Which way is down (a gravity switch can flip it).
+    const down = gravityDir(level);
+    const floating = inZeroG(level, f);
+    if (floating) {
+      // No gravity: keep floating the same way. Floating very slowly, you
+      // drift gently down so you can't get stuck in mid-air.
+      if (Math.hypot(f.vx, f.vy) < ZERO_G_DRIFT) {
+        f.vy = ZERO_G_DRIFT * down;
+      }
+    } else if (down > 0) {
+      f.vy = Math.min(MAX_FALL_SPEED, f.vy + GRAVITY * dt);
+    } else {
+      f.vy = Math.max(-MAX_FALL_SPEED, f.vy - GRAVITY * dt);
+    }
     // Move in small steps so fast falls can't tunnel through floors.
     const steps = Math.max(1, Math.ceil((Math.hypot(f.vx, f.vy) * dt) / 4));
     let landed = false;
-    // Shot from a cannon: stick to the first sticky thing we bump into.
-    const stickHere = () => f.sticky && isTouchingSticky(level, f, END_RADIUS, f.grip);
+    // Shot from a cannon (or floating in zero gravity): stick to the first
+    // sticky thing we bump into.
+    const stickHere = () =>
+      (f.sticky || floating) && isTouchingSticky(level, f, END_RADIUS, f.grip);
     for (let i = 0; i < steps && !landed; i++) {
       const nx = f.x + (f.vx * dt) / steps;
       if (circleHitsSolid(level, { x: nx, y: f.y }, END_RADIUS)) {
@@ -318,12 +346,14 @@ export class Slime {
         break;
       }
       const ny = f.y + (f.vy * dt) / steps;
+      // One-way platforms only catch you from above, even upside down.
       const platformY = f.vy > 0 ? platformLanding(level, f.x, f.y, ny, END_RADIUS) : null;
       if (platformY !== null) {
         f.y = platformY;
         landed = true;
       } else if (circleHitsSolid(level, { x: f.x, y: ny }, END_RADIUS)) {
-        if (f.vy > 0 || stickHere()) {
+        // Falling the way gravity pulls, you land on anything.
+        if (f.vy * down > 0 || stickHere()) {
           landed = true;
         }
         f.vy = 0;
