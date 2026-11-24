@@ -31,6 +31,12 @@ Climb like an inchworm!
   move, then climb in the other side to get your blob back. Plus lasers, laser gates, metal boxes,
   conveyor belts, ice and lava from the earlier worlds, and the big machine boss: shoot a blob into
   its mouth to run its belt backwards, and when a bomb box goes in, climb up and press the button!
+- **Sky City:** way up in the sky, where falling off the bottom of the screen is the big danger.
+  Lightning clouds (they rumble and flicker, then zap straight down), strong wind gusts, sleeping
+  clouds that block the way (hit one with a slime shot and it wakes up and floats off, and your
+  blob comes right back), fluffy clouds you slowly sink through if you sit on them too long, hot
+  air balloons, rainbow slides, floating islands that carry you along, kites the wind pulls you
+  around with (tap to let go), and stars to collect
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -113,6 +119,10 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `v`    | steam vent                                        |
 | `N`    | slime machine (slippery)                          |
 | `n`    | a slime machine's platform                        |
+| `!`    | lightning cloud (zaps straight down now and then) |
+| `@`    | sleeping cloud (a slime shot wakes it up)         |
+| `f`    | fluffy cloud (you sink through after 2 s)         |
+| `k`    | kite (the wind pulls it along)                    |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -138,6 +148,14 @@ Factory levels can have slime machines with
 (the machine `N` at column 11, row 8 takes slime shots on its left side; its platform of `n`
 blocks moves from `from` to `to`). The big machine boss is `boss: 'machine'`, with `R` at its
 mouth, `button: [col, row]` and the columns of its crushers in `crushers: [10, 15]`.
+
+Sky City levels can have hot air balloons with
+`balloons: [{ path: [[17, 11], [17, 3], [30, 3], [30, 5]] }]` (the basket waits at the first
+point, carries you along the path and drops you off at the last one), rainbow slides with
+`rainbows: [{ from: [39, 8], to: [50, 8] }]` (touch the `from` end to zoom over to `to`) and
+floating islands with `islands: [{ from: [26, 9], to: [31, 9], width: 3 }]` (the island's left
+tile floats back and forth between `from` and `to`, sideways or up and down; add `speed` to change
+how fast). Kites (`k`) need `wind`: it pulls them along, and they sink slowly while it's calm.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

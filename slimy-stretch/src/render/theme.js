@@ -90,6 +90,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  sky: {
+    skyTop: 0x3a8ff0,
+    skyBottom: 0xd2ecff,
+    grid: null,
+    wall: 0xeef0f6,
+    wallDark: 0xb8bed0,
+    wallLight: 0xffffff,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -227,6 +238,8 @@ export function drawBackdrop(scene, level, theme, themeName) {
     }
     g.fillStyle(0xff7a20, 0.12);
     g.fillRect(0, level.pixelHeight - 160, level.pixelWidth, 160);
+  } else if (themeName === 'sky') {
+    drawSkyBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -301,6 +314,63 @@ function drawJungleBackdrop(g, level) {
   g.fillStyle(0xfffbd0, 0.12);
   for (let x = 200; x < w; x += 640) {
     g.fillTriangle(x, 0, x + 70, 0, x + 260, h);
+  }
+}
+
+/** Way up high: a sun, layers of far-away clouds and a city of floating towers. */
+function drawSkyBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  g.fillStyle(0xfff6c0, 0.9);
+  g.fillCircle(w * 0.15, 120, 50);
+  g.fillStyle(0xffffff, 0.25);
+  g.fillCircle(w * 0.15, 120, 72);
+  // Far-away cloud banks, paler the farther they are.
+  const banks = [
+    { y: 0.3, alpha: 0.25, step: 170, size: 46 },
+    { y: 0.75, alpha: 0.35, step: 210, size: 60 },
+  ];
+  for (const bank of banks) {
+    const y0 = h * bank.y;
+    g.fillStyle(0xffffff, bank.alpha);
+    for (let x = -80; x < w + 200; x += bank.step) {
+      const r = bank.size * (0.7 + hash(x, bank.step) * 0.6);
+      const y = y0 + hash(x, 5) * 50;
+      g.fillCircle(x, y, r);
+      g.fillCircle(x + r * 0.9, y + r * 0.2, r * 0.75);
+      g.fillCircle(x - r * 0.8, y + r * 0.3, r * 0.6);
+      g.fillRect(x - r * 1.2, y + r * 0.3, r * 2.8, r * 0.6);
+    }
+  }
+  // Sky City: towers with golden domes, floating on little clouds of their own.
+  for (let x = 120; x < w; x += 420) {
+    const baseY = h * 0.45 + hash(x, 9) * h * 0.25;
+    for (let i = 0; i < 3; i++) {
+      const tw = 26 + hash(x + i, 2) * 18;
+      const th = 90 + hash(x + i, 3) * 110;
+      const tx = x + i * 46 - tw / 2;
+      const ty = baseY - th;
+      g.fillStyle(0xe6ebf6, 0.55);
+      g.fillRect(tx, ty, tw, th);
+      g.fillStyle(0xf2c84a, 0.6);
+      g.fillCircle(tx + tw / 2, ty, tw / 2);
+      g.fillTriangle(
+        tx + tw / 2 - 3,
+        ty - tw / 2,
+        tx + tw / 2 + 3,
+        ty - tw / 2,
+        tx + tw / 2,
+        ty - tw
+      );
+      g.fillStyle(0x9ab8e0, 0.5);
+      for (let wy = ty + 14; wy < baseY - 10; wy += 22) {
+        g.fillRect(tx + tw / 2 - 4, wy, 8, 10);
+      }
+    }
+    g.fillStyle(0xffffff, 0.6);
+    g.fillEllipse(x + 46, baseY + 6, 190, 40);
+    g.fillCircle(x - 20, baseY, 22);
+    g.fillCircle(x + 112, baseY, 24);
   }
 }
 
@@ -455,6 +525,20 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
         const dx = x + 6 + i * 16 + hash(col + i, row) * 6;
         g.fillRoundedRect(dx, y + 6, 6, 6 + hash(row + i, col) * 10, 3);
       }
+    }
+  } else if (themeName === 'sky') {
+    // White cloud-marble with golden trim on top.
+    g.lineStyle(2, 0xc8d0e4, 0.7);
+    const vx = x + 8 + hash(col, row) * 24;
+    g.lineBetween(vx, y + 6, vx + 10, y + 20);
+    g.lineBetween(vx + 10, y + 20, vx + 4, y + 36);
+    if (openUp) {
+      g.fillStyle(0xf2c84a, 1);
+      g.fillRect(x, y, TILE, 7);
+      g.fillStyle(0xfff0a8, 1);
+      g.fillRect(x, y, TILE, 2);
+      g.fillStyle(0xd8a830, 1);
+      g.fillCircle(x + TILE / 2, y + 4, 2);
     }
   } else if (themeName === 'canyon') {
     if (openUp) {
