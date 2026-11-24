@@ -79,6 +79,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  factory: {
+    skyTop: 0x1b1a20,
+    skyBottom: 0x4a2e1e,
+    grid: null,
+    wall: 0x5d6470,
+    wallDark: 0x363b44,
+    wallLight: 0x8a93a1,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -192,6 +203,30 @@ export function drawBackdrop(scene, level, theme, themeName) {
     }
   } else if (themeName === 'jungle') {
     drawJungleBackdrop(g, level);
+  } else if (themeName === 'factory') {
+    // Big pipes and turning gears on the far wall, lit by orange furnace glow.
+    for (let y = 120; y < level.pixelHeight; y += 260) {
+      g.fillStyle(0x2c2a30, 0.9);
+      g.fillRect(0, y, level.pixelWidth, 22);
+      g.fillStyle(0x45424c, 0.9);
+      g.fillRect(0, y + 3, level.pixelWidth, 5);
+    }
+    for (let x = 90; x < level.pixelWidth; x += 380) {
+      const y = 80 + hash(x, 2) * (level.pixelHeight - 160);
+      const r = 40 + hash(x, 3) * 40;
+      g.fillStyle(0x2c2a30, 0.8);
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.fillCircle(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.25);
+      }
+      g.fillCircle(x, y, r);
+      g.fillStyle(0x4a2e1e, 0.9);
+      g.fillCircle(x, y, r * 0.35);
+      g.fillStyle(0x2c2a30, 0.8);
+      g.fillRect(x + 160, 0, 26, level.pixelHeight);
+    }
+    g.fillStyle(0xff7a20, 0.12);
+    g.fillRect(0, level.pixelHeight - 160, level.pixelWidth, 160);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -300,6 +335,10 @@ export function drawTiles(scene, level, theme, themeName) {
         drawQuicksand(g, level, col, row, x, y);
       } else if (kind === TileKind.SNAKE_PIT) {
         drawSnakePit(g, level, col, row, x, y);
+      } else if (kind === TileKind.VENT) {
+        drawVent(g, x, y);
+      } else if (kind === TileKind.SLIME_MACHINE) {
+        drawSlimeMachine(g, level, col, row, x, y);
       } else if (kind === TileKind.EMITTER) {
         g.fillStyle(0x333344, 1);
         g.fillRect(x + 4, y + 4, TILE - 8, TILE - 8);
@@ -382,6 +421,21 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
       for (let i = 4; i < TILE; i += 10) {
         g.fillTriangle(x + i - 3, y + 2, x + i + 3, y + 2, x + i, y - 5);
       }
+    }
+  } else if (themeName === 'factory') {
+    // Riveted steel plates with orange-and-black stripes on top.
+    g.fillStyle(theme.wallDark, 1);
+    g.fillCircle(x + 7, y + 7, 2.5);
+    g.fillCircle(x + TILE - 7, y + 7, 2.5);
+    g.fillCircle(x + 7, y + TILE - 7, 2.5);
+    g.fillCircle(x + TILE - 7, y + TILE - 7, 2.5);
+    if (openUp) {
+      for (let i = 0; i < 4; i++) {
+        g.fillStyle(i % 2 ? 0x1e1e22 : 0xff8a1a, 1);
+        g.fillTriangle(x + i * 12, y + 7, x + i * 12 + 7, y, x + i * 12 + 12, y + 7);
+      }
+      g.fillStyle(0xff8a1a, 1);
+      g.fillRect(x, y + 6, TILE, 2);
     }
   } else if (themeName === 'jungle') {
     // Old mossy stone, with moss dripping over the top.
@@ -657,6 +711,56 @@ export function drawHammock(g, x, y, dip) {
   g.lineStyle(2, 0xffe08a, 1);
   for (let i = 0; i < pts.length - 1; i++) {
     g.lineBetween(pts[i].x, pts[i].y + 2, pts[i + 1].x, pts[i + 1].y + 2);
+  }
+}
+
+/** A steam vent: a grate in the floor (sticky, like a wall). */
+function drawVent(g, x, y) {
+  g.fillStyle(0x4a4f58, 1);
+  g.fillRect(x, y, TILE, TILE);
+  g.fillStyle(0x2a2d33, 1);
+  g.fillRect(x + 4, y, TILE - 8, 14);
+  g.fillStyle(0x8a93a1, 1);
+  for (let i = 8; i < TILE - 6; i += 8) {
+    g.fillRect(x + i, y + 2, 3, 10);
+  }
+  g.lineStyle(2, 0xd0d6de, 0.6);
+  g.strokeRect(x + 4, y, TILE - 8, 14);
+}
+
+/**
+ * A slime machine. It's slippery (you can't stick to it). The side with the
+ * funnel takes slime shots; the open hatch on the other side lets you climb in.
+ */
+function drawSlimeMachine(g, level, col, row, x, y) {
+  const shot = (level.def.slimeMachines || []).find(m => m.at[0] === col && m.at[1] === row);
+  const dir = shot && shot.shot === 'left' ? -1 : 1;
+  g.fillStyle(0xbfd4e6, 1);
+  g.fillRoundedRect(x + 2, y + 2, TILE - 4, TILE - 4, 8);
+  g.lineStyle(3, 0x6e8aa3, 1);
+  g.strokeRoundedRect(x + 2, y + 2, TILE - 4, TILE - 4, 8);
+  // Shine shows it's slippery.
+  g.fillStyle(0xffffff, 0.7);
+  g.fillRect(x + 10, y + 8, 4, 18);
+  // Funnel for slime shots.
+  const fx = dir > 0 ? x + TILE - 4 : x + 4;
+  g.fillStyle(0x55e05a, 1);
+  g.fillTriangle(fx, y + 12, fx, y + TILE - 12, fx - dir * 14, y + TILE / 2);
+  // Open hatch to climb in.
+  const hx = dir > 0 ? x + 4 : x + TILE - 14;
+  g.fillStyle(0x1e2430, 1);
+  g.fillRect(hx, y + 14, 10, TILE - 28);
+}
+
+/** A slime machine's platform block (drawn where it is right now). */
+export function drawLift(g, x, y, width) {
+  g.fillStyle(0x7a8696, 1);
+  g.fillRect(x, y, width, TILE);
+  g.lineStyle(3, 0x55e05a, 1);
+  g.strokeRect(x + 2, y + 2, width - 4, TILE - 4);
+  g.fillStyle(0x3a414d, 1);
+  for (let i = 10; i < width; i += 20) {
+    g.fillCircle(x + i, y + TILE / 2, 3);
   }
 }
 

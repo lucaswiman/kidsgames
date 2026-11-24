@@ -26,6 +26,11 @@ Climb like an inchworm!
   to pull back up, then sneak past), leafy traps over snake pits, piranha rivers with floating logs
   to ride, vines to swing on, ziplines, bouncy flowers, big leaves that tip over if you sit on them
   too long, and golden idols to collect
+- **The Factory:** stamping presses, saw blades that roll along floors and walls, steam vents that
+  blast you up into the air, and slime machines: shoot a blob of slime into one to make a platform
+  move, then climb in the other side to get your blob back. Plus lasers, laser gates, metal boxes,
+  conveyor belts, ice and lava from the earlier worlds, and the big machine boss: shoot a blob into
+  its mouth to run its belt backwards, and when a bomb box goes in, climb up and press the button!
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -34,6 +39,9 @@ abilities:
 - The crystal robot gives you **glow** (dark levels aren't dark anymore) and **slime shot**: tap
   💧, then tap where to shoot a blob of slime. Each blob out costs 25% of your reach (3 at most);
   touch a blob to soak it back up. Blobs knock down stalactites.
+- The big machine gives you **split**: getting hurt splits you into two half-size slimes (half the
+  reach each) instead of killing you. The exit door won't open until you bring the halves back
+  together. If a half gets hurt it's gone; get hurt as a half-size slime and you really die.
 
 ## Running it
 
@@ -100,6 +108,11 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `x`    | snake pit (ouch!)                                 |
 | `*`    | bouncy flower (bounces you up high)               |
 | `_`    | big leaf (tips over if you sit on it too long)    |
+| `A`    | stamping press (hangs from the ceiling)           |
+| `o`    | saw blade                                         |
+| `v`    | steam vent                                        |
+| `N`    | slime machine (slippery)                          |
+| `n`    | a slime machine's platform                        |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -119,6 +132,12 @@ top of the empty cell at column 27, row 6, and is 5 tiles long), ziplines with
 `ziplines: [{ from: [10, 5], to: [25, 10] }]` (the handle starts at `from` and zooms you to `to`)
 and floating logs with `logs: [{ row: 13, from: 8, to: 19 }]` (a log floats back and forth on the
 river in `row` between columns `from` and `to`; add `speed` to change how fast).
+
+Factory levels can have slime machines with
+`slimeMachines: [{ at: [11, 8], shot: 'left', platform: { from: [13, 2], to: [10, 11], width: 4 } }]`
+(the machine `N` at column 11, row 8 takes slime shots on its left side; its platform of `n`
+blocks moves from `from` to `to`). The big machine boss is `boss: 'machine'`, with `R` at its
+mouth, `button: [col, row]` and the columns of its crushers in `crushers: [10, 15]`.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

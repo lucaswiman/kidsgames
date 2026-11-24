@@ -10,8 +10,6 @@ function slimeAt(x, y) {
   return slime;
 }
 
-const center = (col, row) => ({ col, row, x: (col + 0.5) * TILE, y: (row + 0.5) * TILE });
-
 function run(factory, slime, level, seconds, blobs = []) {
   const hurts = [];
   for (let t = 0; t < seconds; t += 1 / 60) {
@@ -25,18 +23,16 @@ function run(factory, slime, level, seconds, blobs = []) {
 }
 
 describe('stamping presses', () => {
-  const map = ['########', '#......#', '#......#', '#......#', '#S....E#', '########'];
+  const map = ['###A####', '#......#', '#......#', '#......#', '#S....E#', '########'];
 
   it('squish a slime underneath them', () => {
     const level = parseLevel({ id: 'p', type: 'normal', map });
-    level.presses = [center(3, 0)];
     const factory = new FactoryStuff(level);
     expect(run(factory, slimeAt(3.5 * TILE, 5 * TILE - 15), level, 4)).toContain('press');
   });
 
   it('leave a slime next to them alone', () => {
     const level = parseLevel({ id: 'p2', type: 'normal', map });
-    level.presses = [center(3, 0)];
     const factory = new FactoryStuff(level);
     expect(run(factory, slimeAt(5.5 * TILE, 5 * TILE - 15), level, 6)).toEqual([]);
     expect(factory.presses[0].floor).toBe(5 * TILE);
@@ -48,9 +44,8 @@ describe('saw blades', () => {
     const level = parseLevel({
       id: 's',
       type: 'normal',
-      map: ['########', '#......#', '#S....E#', '########'],
+      map: ['########', '#......#', '#S.o..E#', '########'],
     });
-    level.saws = [center(3, 2)];
     const factory = new FactoryStuff(level);
     const saw = factory.saws[0];
     expect(saw.axis).toBe('x');
@@ -69,16 +64,15 @@ describe('saw blades', () => {
     const level = parseLevel({
       id: 's2',
       type: 'normal',
-      map: ['#####', '#...#', '#...#', '#...#', '#S.E#', '#####'],
+      map: ['#####', '#...#', '#o..#', '#...#', '#S.E#', '#####'],
     });
-    level.saws = [center(1, 2)];
     const factory = new FactoryStuff(level);
     expect(factory.saws[0].axis).toBe('y');
   });
 });
 
 describe('steam vents', () => {
-  const map = ['######', '#....#', '#.##.#', '#....#', '#....#', '#....#', '#S..E#', '######'];
+  const map = ['######', '#....#', '#.##.#', '#....#', '#....#', '#....#', '#S..E#', '##v###'];
 
   it('puff on and off', () => {
     expect(ventState({}, 0.5)).toBe('on');
@@ -88,7 +82,6 @@ describe('steam vents', () => {
 
   it('blast a slime up into the air to stick on whatever is above', () => {
     const level = parseLevel({ id: 'v', type: 'normal', map });
-    level.vents = [center(2, 7)];
     const factory = new FactoryStuff(level);
     const slime = slimeAt(2.5 * TILE, 7 * TILE - 15);
     factory.update(1 / 60, slime);
@@ -126,7 +119,7 @@ describe('slime machines', () => {
     expect(blob.state).toBe('inMachine');
     expect(m.platform.at).toBe('to');
     expect(level.tiles[5][2]).toBe(TileKind.EMPTY);
-    expect(level.tiles[2][2]).toBe(TileKind.WALL);
+    expect(level.tiles[2][2]).toBe(TileKind.LIFT);
   });
 
   it('climbing in the open side gets your blob back', () => {

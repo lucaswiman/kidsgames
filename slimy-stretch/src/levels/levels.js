@@ -3,7 +3,9 @@
 // type:   'normal'  - reach the exit
 //         'collect' - the exit stays locked until every power core (P) is taken
 //         'escape'  - something is chasing you; reach the exit before it gets you
-//         'boss'    - beat the boss (boss: 'crystal' for the crystal robot)
+//         'boss'    - beat the boss (boss: 'crystal' for the crystal robot, 'machine'
+//                     for the factory's big machine: R marks its mouth, plus
+//                     button: [col, row] and crushers: [col, ...])
 // dark:   only the area around the slime and glowing crystals can be seen
 // hint:   text shown at the start of the level
 // chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball
@@ -26,6 +28,10 @@
 // logs:   floating logs { row, from, to, speed } on the river (W) in row `row`,
 //         floating back and forth between columns `from` and `to` (2 tiles
 //         wide; speed in pixels per second, default 60). Land on one to ride it.
+// slimeMachines: { at: [col, row], shot: 'left' | 'right', platform: { from, to, width } }
+//         a slime machine (N): a blob shot into its `shot` side moves its
+//         platform (n blocks) from `from` to `to`. Climb in the other side to
+//         get the blob back.
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
@@ -36,6 +42,7 @@ export const WORLDS = [
   { id: 'cave', name: 'The Cave', theme: 'cave' },
   { id: 'island', name: 'The Island', theme: 'island' },
   { id: 'jungle', name: 'The Jungle', theme: 'jungle' },
+  { id: 'factory', name: 'The Factory', theme: 'factory' },
 ];
 
 export const LEVELS = [
@@ -924,6 +931,109 @@ export const LEVELS = [
       '############%%%%%%%%%%############qqqqq###WWWWWWWWW###',
       '############..........############qqqqq###WWWWWWWWW###',
       '############xxxxxxxxxx####################WWWWWWWWW###',
+    ],
+  },
+  // ---------------------------------------------------------------- THE FACTORY
+  {
+    id: '9-1',
+    world: 'factory',
+    name: 'Assembly Line',
+    type: 'normal',
+    hint: 'Watch out for the stamping presses and the saw blades! Time it right.',
+    map: [
+      '##################################',
+      '######A####A####A####A############',
+      '#................................#',
+      '#..T.......................T.....#',
+      '#S...............................#',
+      '###>>>>>>>>>>>>>>>>>>>>>>>>>>....#',
+      '#############################....#',
+      '#.........o..............o.......#',
+      '#................................#',
+      '#.....T..........................#',
+      '#.E....o....##.......o..##.......#',
+      '##################################',
+    ],
+  },
+  {
+    id: '9-2',
+    world: 'factory',
+    name: 'Steam Works',
+    type: 'normal',
+    hint: 'Shoot a slime blob into the machine to move its platform, then climb in to get it back!',
+    slimeMachines: [
+      { at: [11, 8], shot: 'left', platform: { from: [13, 2], to: [10, 11], width: 4 } },
+    ],
+    laserTimings: [{ on: 1.5, off: 2.5 }],
+    map: [
+      '#####################d########',
+      '#..........I.................#',
+      '#..........I.nnnn............#',
+      '#..T.......I.................#',
+      '#.####.....I.................#',
+      '#..........I.......T.........#',
+      '#..........I.................#',
+      '#..........I.................#',
+      '#..........N.................#',
+      '#............................#',
+      '#............................#',
+      '#S......................E....#',
+      '###v####LLLLLLLL##############',
+      '##############################',
+    ],
+  },
+  {
+    id: '9-3',
+    world: 'factory',
+    name: 'Meltdown',
+    type: 'escape',
+    hint: 'The lava is rising! Get the red key, open the laser gate and climb out!',
+    chaser: { kind: 'rise', fluid: 'lava', delay: 6, speed: 13 },
+    boxItems: ['token'],
+    map: [
+      '##################',
+      '#................#',
+      '#..E.............#',
+      '#.####......T....#',
+      '#................#',
+      '#................#',
+      '################a#',
+      '#................#',
+      '#..1.............#',
+      '#IIII......#######',
+      '#................#',
+      '#................#',
+      '#....#############',
+      '#................#',
+      '#........M.......#',
+      '#######>>>>>.....#',
+      '#................#',
+      '#S...............#',
+      '##################',
+    ],
+  },
+  {
+    id: '9-4',
+    world: 'factory',
+    name: 'The Big Machine',
+    type: 'boss',
+    boss: 'machine',
+    hint: 'Shoot a slime blob into its mouth to run the belt backwards!',
+    button: [22, 3],
+    crushers: [10, 15],
+    map: [
+      '##########################',
+      '#........................#',
+      '#........................#',
+      '#........................#',
+      '#...................######',
+      '#...................######',
+      '#...................######',
+      '#...................######',
+      '#S..................R#####',
+      '##...<<<<<<<<<<<<<<<<#####',
+      '##...#####################',
+      '##########################',
     ],
   },
 ];

@@ -235,6 +235,30 @@ export const sfx = {
       tone({ freq: f, dur: 0.14, vol: 0.18, type: 'triangle', delay: i * 0.07 });
     }
   },
+  steam: () => noise({ dur: 0.7, vol: 0.2, filter: 5000, to: 1500 }),
+  power: () => {
+    tone({ freq: 200, to: 900, dur: 0.4, vol: 0.2, type: 'square' });
+    tone({ freq: 900, dur: 0.15, vol: 0.15, type: 'triangle', delay: 0.4 });
+  },
+  liftMove: () => tone({ freq: 120, to: 160, dur: 0.6, vol: 0.18, type: 'sawtooth' }),
+  roar: () => {
+    tone({ freq: 90, to: 50, dur: 0.9, vol: 0.35, type: 'sawtooth' });
+    noise({ dur: 0.9, vol: 0.25, filter: 600, to: 100 });
+  },
+  fireball: () => noise({ dur: 0.3, vol: 0.2, filter: 2500, to: 600 }),
+  gulp: () => tone({ freq: 300, to: 80, dur: 0.35, vol: 0.3, type: 'triangle' }),
+  button: () => {
+    tone({ freq: 880, dur: 0.1, vol: 0.25, type: 'square' });
+    tone({ freq: 660, dur: 0.15, vol: 0.25, type: 'square', delay: 0.1 });
+  },
+  split: () => {
+    tone({ freq: 500, to: 250, dur: 0.25, vol: 0.25, type: 'triangle' });
+    tone({ freq: 500, to: 750, dur: 0.25, vol: 0.2, type: 'triangle', delay: 0.05 });
+  },
+  merge: () => {
+    tone({ freq: 300, to: 600, dur: 0.2, vol: 0.25, type: 'sine' });
+    tone({ freq: 600, dur: 0.15, vol: 0.2, type: 'sine', delay: 0.2 });
+  },
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -332,6 +356,13 @@ const SONGS = {
     // Bongo-ish bass with a marimba melody, deep in the jungle.
     lead: [12, null, 7, 9, null, 12, 14, null, 12, 9, null, 7, 9, null, 4, null],
     bass: [-12, -12, null, -5, -12, null, -5, null, -10, -10, null, -3, -10, null, -5, -7],
+  },
+  factory: {
+    bpm: 132,
+    root: 50,
+    // A clunky, chugging machine beat.
+    lead: [0, null, 0, 7, null, 6, 7, null, 0, null, 0, 10, null, 9, 7, 5],
+    bass: [-12, -12, -12, null, -12, -12, -12, null, -14, -14, -14, null, -10, -10, -9, null],
   },
   boss: {
     bpm: 156,

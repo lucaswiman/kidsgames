@@ -35,6 +35,11 @@ import { TILE } from './constants.js';
 //   x  snake pit (deadly)
 //   *  bouncy flower (bounces you up high, like a hammock)
 //   _  tipping leaf (a one-way platform that tips over if you sit on it too long)
+//   A  stamping press (hangs from the ceiling and slams down)
+//   o  saw blade (rolls along the floor or wall it's next to)
+//   v  steam vent (sticky floor that blasts you up into the air)
+//   N  slime machine (slippery; shoot a blob in to move its platform, see def.slimeMachines)
+//   n  a slime machine's platform (sticky; it moves when its machine gets a blob)
 //   .  empty
 
 export const TileKind = {
@@ -64,6 +69,9 @@ export const TileKind = {
   FLOWER: 23,
   LEAF: 24,
   LOG: 25, // a floating log's spot on the river (never in a map)
+  VENT: 26,
+  SLIME_MACHINE: 27,
+  LIFT: 28,
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -114,6 +122,9 @@ const SOLID = new Set([
   TileKind.QUICKSAND,
   TileKind.LEAFY,
   TileKind.LOG,
+  TileKind.VENT,
+  TileKind.SLIME_MACHINE,
+  TileKind.LIFT,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -129,6 +140,8 @@ const STICKY = new Set([
   TileKind.QUICKSAND,
   TileKind.LEAFY,
   TileKind.LOG,
+  TileKind.VENT,
+  TileKind.LIFT,
 ]);
 
 export function isSolidKind(kind) {
@@ -187,6 +200,9 @@ export function parseLevel(def) {
     monkeys: [],
     snakes: [],
     leafyTraps: [],
+    presses: [],
+    saws: [],
+    vents: [],
   };
 
   rows.forEach((line, row) => {
@@ -338,6 +354,23 @@ export function parseLevel(def) {
           break;
         case '_':
           kind = TileKind.LEAF;
+          break;
+        case 'A':
+          kind = TileKind.WALL;
+          level.presses.push({ col, row });
+          break;
+        case 'o':
+          level.saws.push({ ...center, col, row });
+          break;
+        case 'v':
+          kind = TileKind.VENT;
+          level.vents.push({ ...center, col, row });
+          break;
+        case 'N':
+          kind = TileKind.SLIME_MACHINE;
+          break;
+        case 'n':
+          kind = TileKind.LIFT;
           break;
         case '.':
           break;

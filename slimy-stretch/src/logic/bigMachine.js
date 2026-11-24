@@ -117,7 +117,7 @@ export class BigMachine {
     for (const b of blobs) {
       const inMouth =
         Math.abs(b.x - this.mouth.x) < TILE * 0.6 && Math.abs(b.y - this.mouth.y) < TILE * 0.6;
-      if (b.state === 'flying' && inMouth && this.mouthOpen) {
+      if ((b.state === 'flying' || b.state === 'falling') && inMouth && this.mouthOpen) {
         b.gone = true;
         caught = true;
       }

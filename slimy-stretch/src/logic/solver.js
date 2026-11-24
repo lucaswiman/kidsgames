@@ -12,6 +12,8 @@ import { isBouncyKind, TileKind } from './level.js';
 import { canReach } from './slime.js';
 import { TONGUE_RADIUS, touchesBox } from './tongue.js';
 import { PICK_RADIUS, pickaxe } from './cave.js';
+import { simulateVent } from './factory.js';
+import { BLOB_RADIUS } from './slimeShot.js';
 import { simulateBounce } from './island.js';
 import { CANNON_ENTER, CLAW_HANG, CLAW_RADIUS, simulateDrop, simulateShot } from './warehouse.js';
 import {
@@ -109,6 +111,11 @@ function explore(level) {
       }
     })
   );
+  // Steam vents blast you up the same way.
+  for (const v of level.vents) {
+    const top = { x: v.x, y: v.row * TILE - END_RADIUS - 1 };
+    hammocks.push({ ...top, landing: simulateVent(level, top) });
+  }
   // Only nice claws count: mean ones drop you somewhere bad.
   const niceClaws = (level.def.claws || [])
     .filter(c => c.nice)
@@ -265,8 +272,20 @@ function explore(level) {
  * A copy of the level with eaten boxes removed and gates open or (deadly)
  * closed. Leafy traps are just holes: they break as soon as you touch them.
  */
-function levelView(level, eaten, openColors) {
+function levelView(level, eaten, openColors, powered = new Set()) {
   const tiles = level.tiles.map(row => row.map(k => (k === TileKind.LEAFY ? TileKind.EMPTY : k)));
+  // A powered slime machine has moved its platform.
+  (level.def.slimeMachines || []).forEach((m, i) => {
+    if (powered.has(i)) {
+      const width = m.platform.width || 2;
+      for (let k = 0; k < width; k++) {
+        tiles[m.platform.from[1]][m.platform.from[0] + k] = TileKind.EMPTY;
+      }
+      for (let k = 0; k < width; k++) {
+        tiles[m.platform.to[1]][m.platform.to[0] + k] = TileKind.LIFT;
+      }
+    }
+  });
   level.boxes.forEach((b, i) => {
     if (eaten.has(i)) {
       tiles[b.row][b.col] = TileKind.EMPTY;
@@ -301,6 +320,8 @@ export function solveLevel(level) {
   const smashed = level.machines.length ? smashedBoxes(level) : new Set();
   const eaten = new Set(smashed);
   const openColors = new Set();
+  const powered = new Set();
+  const machines = (level.def.slimeMachines || []).map(machineFaces);
   let view;
   let result;
   // Things in eaten boxes come straight to you; things in smashed boxes drop
@@ -310,7 +331,7 @@ export function solveLevel(level) {
       ? result.canTouch(it, radius)
       : eaten.has(it.inBox);
   for (;;) {
-    view = levelView(level, eaten, openColors);
+    view = levelView(level, eaten, openColors, powered);
     result = explore(view);
     let changed = false;
     level.boxes.forEach((box, i) => {
@@ -326,6 +347,12 @@ export function solveLevel(level) {
         changed = true;
       }
     }
+    machines.forEach((m, i) => {
+      if (!powered.has(i) && canShootInto(view, result.reached, m.shotFace)) {
+        powered.add(i);
+        changed = true;
+      }
+    });
     if (!changed) {
       break;
     }
@@ -344,7 +371,31 @@ export function solveLevel(level) {
       result.canTouch({ x: (col + 0.5) * TILE, y: (row + 0.5) * TILE }, 18)
     ),
     boxes: level.boxes.map((_b, i) => eaten.has(i)),
+    // Each slime machine can be powered, and you can climb in to get your blob back.
+    slimeMachines: machines.map((m, i) => powered.has(i) && result.canTouch(m.openFace, 12)),
   };
+}
+
+function machineFaces(m) {
+  const [col, row] = m.at;
+  const dir = m.shot === 'left' ? -1 : 1;
+  return {
+    shotFace: { x: (col + 0.5 + dir * 0.5) * TILE, y: (row + 0.5) * TILE },
+    openFace: { x: (col + 0.5 - dir * 0.5) * TILE, y: (row + 0.5) * TILE },
+  };
+}
+
+const SHOT_RANGE = 6 * TILE;
+
+/** Can a slime shot from any spot the slime can get to fly into `face`? */
+function canShootInto(level, reached, face) {
+  return reached.some(a => {
+    if (dist(a, face) > SHOT_RANGE) {
+      return false;
+    }
+    const end = castCircle(level, a, face, BLOB_RADIUS, 3);
+    return dist(end, face) < TILE * 0.5;
+  });
 }
 
 /** Can the tongue reach `box` from any spot the slime can get to? */

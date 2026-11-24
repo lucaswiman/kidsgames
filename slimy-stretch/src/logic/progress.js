@@ -55,3 +55,8 @@ export function hasTongue(progress) {
 export function hasCaveRewards(progress) {
   return !!progress.caveRewards || !!progress.best['6-4'];
 }
+
+/** Split is the reward for beating the factory's big machine. */
+export function hasSplit(progress) {
+  return !!progress.split || !!progress.best['9-4'];
+}

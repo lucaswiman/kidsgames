@@ -83,6 +83,7 @@ describe('levels', () => {
         expect(result.checkpoints.every(Boolean)).toBe(true);
         expect(result.keys.every(Boolean)).toBe(true);
         expect(result.chests.every(Boolean)).toBe(true);
+        expect(result.slimeMachines.every(Boolean)).toBe(true);
         // Spare blobs a seagull barfs up must turn up somewhere you can get to.
         expect(result.blobSpots.every(Boolean)).toBe(true);
         for (const gull of def.gulls || []) {

@@ -68,7 +68,7 @@ function pressFloor(level, col, row) {
 export class FactoryStuff {
   constructor(level) {
     this.level = level;
-    this.presses = (level.presses || []).map((p, i) => ({
+    this.presses = level.presses.map((p, i) => ({
       ...p,
       top: (p.row + 1) * TILE,
       floor: pressFloor(level, p.col, p.row),
@@ -76,8 +76,8 @@ export class FactoryStuff {
       state: 'up',
       timer: PRESS_UP * 0.5 + i * 0.7,
     }));
-    this.saws = (level.saws || []).map(s => this.startSaw(s));
-    this.vents = (level.vents || []).map((v, i) => ({ ...v, offset: i * 1.1 }));
+    this.saws = level.saws.map(s => this.startSaw(s));
+    this.vents = level.vents.map((v, i) => ({ ...v, offset: i * 1.1 }));
     this.slimeMachines = (level.def.slimeMachines || []).map(m => this.buildMachine(m));
     this.time = 0;
     this.events = [];
@@ -247,9 +247,9 @@ export class FactoryStuff {
   updateMachines(dt, slime, blobs) {
     for (const m of this.slimeMachines) {
       if (!m.powered) {
-        // A flying blob of slime that goes in the shot side powers it up.
+        // A blob of slime that flies (or slides) into the shot side powers it up.
         const blob = blobs.find(
-          b => b.state === 'flying' && dist(b, m.shotFace) < TILE * 0.5 && !b.inMachine
+          b => (b.state === 'flying' || b.state === 'falling') && dist(b, m.shotFace) < TILE * 0.6
         );
         if (blob) {
           blob.inMachine = true;
@@ -293,7 +293,7 @@ export class FactoryStuff {
       p.x = tx;
       p.y = ty;
       p.at = 'to';
-      this.setPlatformTiles(p, p.to, TileKind.WALL);
+      this.setPlatformTiles(p, p.to, TileKind.LIFT);
     } else {
       p.x += ((tx - p.x) / d) * step;
       p.y += ((ty - p.y) / d) * step;

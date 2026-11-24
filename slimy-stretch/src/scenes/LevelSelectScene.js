@@ -57,7 +57,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         const x = left + 24 + slot * (k + 0.5);
         const unlocked = UNLOCK_ALL || level.index < progress.unlocked;
         const best = progress.best[level.id];
-        const bossIcon = level.boss === 'crystal' ? '💎' : '🤖';
+        const bossIcon = { crystal: '💎', machine: '🏭' }[level.boss] || '🤖';
         const label = unlocked ? (level.type === 'boss' ? bossIcon : level.id) : '🔒';
         makeButton(
           this,

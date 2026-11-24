@@ -42,8 +42,12 @@ import {
   vineTip,
   ZIP_GRIP,
 } from '../logic/jungle.js';
+import { FactoryStuff } from '../logic/factory.js';
+import { BigMachine } from '../logic/bigMachine.js';
+import { SAFE_TIME, SafeTrail, SPLIT_REACH, touching } from '../logic/split.js';
 import {
   hasCaveRewards,
+  hasSplit,
   hasTongue,
   loadProgress,
   recordFinish,
@@ -67,6 +71,7 @@ import {
   THEMES,
 } from '../render/theme.js';
 import { SlimeView } from '../render/slimeView.js';
+import { drawBigMachine, drawFactory } from '../render/factoryView.js';
 import { makeButton, makeIconButton, makeMuteButton, textStyle } from '../render/ui.js';
 
 // Add ?all to the address to unlock every level (and the tongue) for testing.
@@ -104,6 +109,7 @@ export default class GameScene extends Phaser.Scene {
     this.lockedMessageTimer = 0;
 
     playMusic(this.def.type === 'boss' ? 'boss' : this.themeName);
+    this.factory = new FactoryStuff(this.level);
     this.isBoss = this.def.type === 'boss';
 
     drawBackground(this, this.theme);
@@ -155,7 +161,17 @@ export default class GameScene extends Phaser.Scene {
     this.slimeView = new SlimeView(this);
     this.cave = new CaveStuff(this.level, this.canyon);
     this.crystal = this.isBoss && this.def.boss === 'crystal' ? new CrystalBoss(this.level) : null;
-    this.boss = this.isBoss && !this.crystal ? new Boss(this.level) : null;
+    this.bigMachine =
+      this.isBoss && this.def.boss === 'machine' ? new BigMachine(this.level) : null;
+    this.boss = this.isBoss && !this.crystal && !this.bigMachine ? new Boss(this.level) : null;
+    // Split (the reward for beating the big machine): getting hurt splits the
+    // slime in two instead of killing it.
+    this.hasSplit = UNLOCK_ALL || hasSplit(loadProgress());
+    this.splitState = 'whole'; // 'whole', 'split' (two halves) or 'half' (one half left)
+    this.otherSlime = null;
+    this.otherView = new SlimeView(this);
+    this.safeTime = 0;
+    this.safeTrail = new SafeTrail();
     this.blasts = [];
     this.createDarkness();
     this.bombSprites = new Map();
@@ -260,7 +276,7 @@ export default class GameScene extends Phaser.Scene {
         .text(
           GAME_WIDTH / 2,
           100,
-          this.crystal ? 'CRYSTAL ROBOT' : 'ROBOT',
+          this.crystal ? 'CRYSTAL ROBOT' : this.bigMachine ? 'BIG MACHINE' : 'ROBOT',
           textStyle(22, '#ff8080')
         )
         .setOrigin(0.5)
@@ -360,6 +376,7 @@ export default class GameScene extends Phaser.Scene {
         this.pumping = true;
         return;
       }
+      this.pickHalf(this.worldPoint(pointer));
       this.slime.grab(this.worldPoint(pointer), this.clock);
     });
     const release = pointer => {
@@ -398,6 +415,20 @@ export default class GameScene extends Phaser.Scene {
     this.input.on('pointerupoutside', release);
   }
 
+  /** When split, you move whichever half is nearer your finger. */
+  pickHalf(point) {
+    const other = this.otherSlime;
+    if (!other || other.isFalling || this.slime.heldEnd) {
+      return;
+    }
+    const near = slime =>
+      Math.min(...slime.ends.map(e => Math.hypot(e.x - point.x, e.y - point.y)));
+    if (near(other) < near(this.slime)) {
+      [this.slime, this.otherSlime] = [other, this.slime];
+      [this.slimeView, this.otherView] = [this.otherView, this.slimeView];
+    }
+  }
+
   worldPoint(pointer) {
     return this.cameras.main.getWorldPoint(pointer.x, pointer.y);
   }
@@ -428,7 +459,14 @@ export default class GameScene extends Phaser.Scene {
       const finger =
         this.pumping && this.activePointer ? this.worldPoint(this.activePointer) : null;
       const jungleHit = this.jungle.update(dt, this.slime, finger);
+      if (this.bigMachine && this.bigMachine.catchBlobs(this.shots.blobs)) {
+        sfx.power();
+        this.showBanner('The belt is going backwards! Wait for a bomb box to go in...', 2200);
+      }
+      const factoryHit = this.factory.update(dt, this.slime, this.shots.blobs);
       this.updateShots(dt);
+      this.playFactorySounds();
+      this.updateBigMachine(dt);
       this.playIslandSounds();
       this.playJungleSounds();
       this.playSlimeSounds();
@@ -440,11 +478,20 @@ export default class GameScene extends Phaser.Scene {
       this.checkPickups();
       this.checkExit(dt);
       const hazard = findHazard(this.level, this.slime, this.lasers, this.time_, this.chaser);
+      const hurt =
+        hazard ||
+        canyonHit ||
+        caveHit ||
+        islandHit ||
+        jungleHit ||
+        factoryHit ||
+        this.bossHurtSlime;
+      this.updateSplit(dt, !hurt);
       if (canyonHit === 'boulder') {
         this.startCrush();
-      } else if (hazard || canyonHit || caveHit || islandHit || jungleHit || this.bossHurtSlime) {
-        this.die();
-        if (jungleHit === 'quicksand') {
+      } else if (hurt && this.status === 'playing') {
+        this.hurtSlime();
+        if (jungleHit === 'quicksand' && this.status === 'dying') {
           this.showBanner('Glug glug! The quicksand swallowed you.', 1800);
         }
       }
@@ -596,8 +643,9 @@ export default class GameScene extends Phaser.Scene {
         }
       }
     });
-    // Missing blobs and quicksand both cut how far you can stretch.
-    this.slime.reach = this.shots.reach(this.island.lost) * this.jungle.reachScale;
+    // Missing blobs, quicksand and being split all cut how far you can stretch.
+    const half = this.splitState === 'whole' ? 1 : SPLIT_REACH;
+    this.slime.reach = this.shots.reach(this.island.lost) * this.jungle.reachScale * half;
     for (const e of this.shots.takeEvents()) {
       if (e === 'shoot') {
         sfx.throwBomb();
@@ -974,6 +1022,14 @@ export default class GameScene extends Phaser.Scene {
     if (!this.level.exit || !touchingExit(this.slime, this.level.exit)) {
       return;
     }
+    if (this.splitState === 'split') {
+      if (this.lockedMessageTimer <= 0) {
+        sfx.locked();
+        this.showBanner('Bring your two halves together first!', 1800);
+        this.lockedMessageTimer = 2.5;
+      }
+      return;
+    }
     const missing = this.cores.filter(c => !c.taken).length;
     if (missing > 0) {
       if (this.lockedMessageTimer <= 0) {
@@ -989,7 +1045,163 @@ export default class GameScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ dying/winning
 
+  /**
+   * Something hurt the slime. Without Split that's the end of it. With Split,
+   * a whole slime splits in two, a half that's hurt is gone, and only the last
+   * half-size slime really dies.
+   */
+  hurtSlime() {
+    if (!this.hasSplit || this.splitState === 'half') {
+      this.die();
+      return;
+    }
+    if (this.safeTime > 0) {
+      return;
+    }
+    this.activePointer = null;
+    this.pumping = false;
+    this.cameras.main.shake(150, 0.008);
+    if (this.splitState === 'whole') {
+      const [a, b] = this.safeTrail.splitSpots(this.checkpoint || this.level.start);
+      this.slime.spawn(a);
+      this.otherSlime = new Slime(b);
+      this.splitState = 'split';
+      this.safeTime = SAFE_TIME;
+      sfx.split();
+      this.hintOnce('split', 'SPLIT! Bring your two halves back together.', 2200);
+    } else {
+      // This half is gone; carry on with the other one.
+      [this.slime, this.slimeView, this.otherView] = [
+        this.otherSlime,
+        this.otherView,
+        this.slimeView,
+      ];
+      this.otherSlime = null;
+      this.splitState = 'half';
+      this.safeTime = SAFE_TIME;
+      sfx.death();
+      this.showBanner('One half is gone! Be careful now.', 2000);
+    }
+  }
+
+  /** Split bookkeeping every frame: the other half, merging and safe spots. */
+  updateSplit(dt, safe) {
+    this.safeTime = Math.max(0, this.safeTime - dt);
+    if (this.splitState === 'whole' && this.hasSplit) {
+      this.safeTrail.record(dt, this.slime, safe);
+    }
+    const other = this.otherSlime;
+    if (!other) {
+      return;
+    }
+    other.reach = this.slime.reach;
+    other.update(dt, this.level);
+    if (this.safeTime <= 0 && findHazard(this.level, other, this.lasers, this.time_, this.chaser)) {
+      // The half you weren't moving got hurt, so it's gone.
+      this.otherSlime = null;
+      this.splitState = 'half';
+      this.safeTime = SAFE_TIME;
+      sfx.death();
+      this.showBanner('One half is gone! Be careful now.', 2000);
+      return;
+    }
+    const settled = s => !s.isFalling && !s.frozen;
+    if (
+      this.safeTime <= 0 &&
+      settled(this.slime) &&
+      settled(other) &&
+      touching(this.slime, other)
+    ) {
+      this.otherSlime = null;
+      this.splitState = 'whole';
+      sfx.merge();
+      this.showBanner('Back together!', 1400);
+    }
+  }
+
+  endSplit() {
+    this.otherSlime = null;
+    this.otherView.clear();
+    this.splitState = 'whole';
+    this.safeTime = 0;
+    this.safeTrail.clear();
+  }
+
+  updateBigMachine(dt) {
+    const boss = this.bigMachine;
+    if (!boss) {
+      return;
+    }
+    if (boss.update(dt, this.slime)) {
+      this.bossHurtSlime = true;
+    }
+    for (const e of boss.takeEvents()) {
+      if (e === 'crate') {
+        sfx.cannonIn();
+      } else if (e === 'reverse' || e === 'forward') {
+        sfx.clawDrop();
+      } else if (e === 'gulp') {
+        sfx.gulp();
+        sfx.explode();
+        this.cameras.main.shake(300, 0.01);
+        this.showBanner('GULP! Its mouth is shut. Quick, press the big button on top!', 2400);
+      } else if (e === 'reopen') {
+        sfx.locked();
+        this.showBanner('Too slow! Its mouth opened again.', 1600);
+      } else if (e === 'stomp') {
+        sfx.stomp();
+        this.cameras.main.shake(120, 0.005);
+      } else if (e === 'explode') {
+        sfx.explode();
+        this.cameras.main.shake(150, 0.006);
+      } else if (e === 'fire') {
+        sfx.fireball();
+      } else if (e === 'slip') {
+        sfx.boing();
+      } else if (e === 'hit') {
+        sfx.button();
+        sfx.roar();
+        this.cameras.main.shake(500, 0.015);
+        this.showBanner(
+          boss.phase === 2 ? 'ROAR! Now it shoots fireballs!' : 'ROAR! Another crusher, and ice!',
+          2400
+        );
+      } else if (e === 'defeated') {
+        sfx.button();
+        sfx.robotHurt();
+        this.status = 'won-wait';
+        this.time.delayedCall(1400, () => this.win());
+      }
+    }
+    if (boss.sendBack) {
+      // It sends you right back to the beginning.
+      boss.sendBack = false;
+      this.endSplit();
+      this.slime.spawn(this.level.start);
+      this.cameras.main.centerOn(this.level.start.x, this.level.start.y);
+    }
+  }
+
+  playFactorySounds() {
+    for (const e of this.factory.takeEvents()) {
+      if (e.type === 'stomp') {
+        sfx.stomp();
+        this.cameras.main.shake(100, 0.004);
+      } else if (e.type === 'steam') {
+        sfx.steam();
+      } else if (e.type === 'power') {
+        sfx.power();
+        this.hintOnce('machine', 'The machine is running! Its platform is moving.', 2000);
+      } else if (e.type === 'platform') {
+        sfx.liftMove();
+      } else if (e.type === 'unpower') {
+        sfx.grab();
+      }
+    }
+  }
+
   die() {
+    this.endSplit();
     this.status = 'dying';
     this.deaths += 1;
     this.heldBomb = null;
@@ -1017,7 +1229,7 @@ export default class GameScene extends Phaser.Scene {
     });
     this.time.delayedCall(1100, () => {
       drops.destroy();
-      const boss = this.boss || this.crystal;
+      const boss = this.boss || this.crystal || this.bigMachine;
       if (boss) {
         // Each hit on a boss is a checkpoint: it keeps its damage.
         boss.resetAfterSlimeDeath();
@@ -1034,6 +1246,10 @@ export default class GameScene extends Phaser.Scene {
     this.canyon.resetAfterDeath();
     this.island.resetAfterDeath();
     this.jungle.resetAfterDeath();
+    this.factory.resetAfterDeath();
+    // Blobs stuck in slime machines come back to you.
+    this.shots.blobs = this.shots.blobs.filter(b => b.state !== 'inMachine');
+    this.endSplit();
     this.shotArmed = false;
     this.warehouse.resetAfterDeath();
     this.aiming = false;
@@ -1070,6 +1286,9 @@ export default class GameScene extends Phaser.Scene {
     if (this.crystal) {
       progress.caveRewards = true;
     }
+    if (this.bigMachine) {
+      progress.split = true;
+    }
     saveProgress(progress);
     this.showWinPanel({ tokens, score, isBest, best: progress.best[this.def.id].score });
   }
@@ -1088,9 +1307,11 @@ export default class GameScene extends Phaser.Scene {
 
     const title = this.crystal
       ? 'You beat the crystal robot!'
-      : this.boss
-        ? 'You beat the robot!'
-        : 'Level Complete!';
+      : this.bigMachine
+        ? 'You beat the big machine!'
+        : this.boss
+          ? 'You beat the robot!'
+          : 'Level Complete!';
     const lines = [];
     if (this.tokenTotal()) {
       lines.push(`Tokens: ${tokens} / ${this.tokenTotal()}`);
@@ -1112,6 +1333,17 @@ export default class GameScene extends Phaser.Scene {
       fixed(
         this.add
           .text(cx, cy + 70, 'You got GLOW and SLIME SHOT! 💧', textStyle(30, '#9affc0'))
+          .setOrigin(0.5)
+      );
+    } else if (this.bigMachine) {
+      fixed(
+        this.add
+          .text(
+            cx,
+            cy + 70,
+            'You got SPLIT! Getting hurt splits you in two.',
+            textStyle(26, '#ffb070')
+          )
           .setOrigin(0.5)
       );
     } else if (isLast) {
@@ -1198,6 +1430,10 @@ export default class GameScene extends Phaser.Scene {
     this.drawCave(over);
     this.drawIsland(over);
     this.drawJungle(over);
+    drawFactory(over, this.factory, this.clock);
+    if (this.bigMachine) {
+      drawBigMachine(over, this.bigMachine, this.clock, this.bossBar);
+    }
     this.drawBlobs(over);
     if (this.crystal) {
       this.drawCrystal(over);
@@ -1214,8 +1450,21 @@ export default class GameScene extends Phaser.Scene {
     const hidden = this.warehouse.inCannon !== null || this.island.eaten;
     if (visible.includes(this.status) && !hidden) {
       const look = this.slime.heldEnd ? this.slime.finger : this.slime.ends[1 - this.slime.lead];
-      const size = this.shots.size(this.island.lost);
-      this.slimeView.draw(this.slime, dt, look, size, this.hasCaveRewards);
+      const half = this.splitState === 'whole' ? 1 : 0.72;
+      const size = this.shots.size(this.island.lost) * half;
+      // A fresh half blinks while nothing can hurt it.
+      const blink = this.safeTime > 0 && Math.floor(this.clock * 12) % 2 === 0;
+      if (blink) {
+        this.slimeView.clear();
+      } else {
+        this.slimeView.draw(this.slime, dt, look, size, this.hasCaveRewards);
+      }
+      if (this.otherSlime) {
+        const o = this.otherSlime;
+        this.otherView.draw(o, dt, o.ends[1 - o.lead], size, this.hasCaveRewards);
+      } else {
+        this.otherView.clear();
+      }
     } else if (hidden) {
       this.slimeView.clear();
     }
@@ -1878,7 +2127,8 @@ export default class GameScene extends Phaser.Scene {
     const g = this.dynGfx;
     g.clear();
     for (const b of this.belts) {
-      drawBelt(g, b.col * TILE, b.row * TILE, b.dir, this.clock * 40);
+      const dir = this.level.tiles[b.row][b.col] === TileKind.BELT_RIGHT ? 1 : -1;
+      drawBelt(g, b.col * TILE, b.row * TILE, dir, this.clock * 40);
     }
     this.drawSwingTiles(g);
     this.drawJungleTiles(g);
