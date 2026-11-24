@@ -17,9 +17,9 @@ import { Slime } from './slime.js';
 export const QUICKSAND_REACH = 0.45; // stuck in quicksand, you can only stretch this much
 export const QUICKSAND_SINK_TIME = 3; // seconds in quicksand before it swallows you
 
-export const MONKEY_EVERY = 3; // seconds between bananas
-export const MONKEY_WINDUP = 0.6; // the monkey holds up its banana first, as a warning
-export const MONKEY_RANGE = 7 * TILE; // how close you have to be before it throws
+export const MONKEY_EVERY = 4.5; // seconds between bananas
+export const MONKEY_WINDUP = 1; // the monkey holds up its banana first, as a warning
+export const MONKEY_RANGE = 6 * TILE; // how close you have to be before it throws
 export const MONKEY_SCARED_TIME = 6; // hides this long after a slime shot
 export const MONKEY_RADIUS = 18;
 export const BANANA_RADIUS = 10;
@@ -279,6 +279,8 @@ export class JungleStuff {
         if (m.cooldown <= 0 && target && dist(c, m) < MONKEY_RANGE) {
           m.state = 'windup';
           m.timer = MONKEY_WINDUP;
+          // It aims where you are now, so moving while it winds up dodges the banana.
+          m.aim = { x: c.x, y: c.y };
           this.events.push({ type: 'chatter', x: m.x, y: m.y });
         }
       } else if (m.state === 'windup') {
@@ -286,7 +288,7 @@ export class JungleStuff {
         if (m.timer <= 0) {
           m.state = 'sit';
           m.cooldown = MONKEY_EVERY;
-          this.throwBanana(m, slime.center);
+          this.throwBanana(m, m.aim);
         }
       } else if (m.state === 'hiding') {
         m.timer -= dt;
@@ -299,7 +301,7 @@ export class JungleStuff {
     return this.updateBananas(dt, slime);
   }
 
-  /** Throw a banana in an arc that lands where the slime is right now. */
+  /** Throw a banana in an arc that lands at `target`. */
   throwBanana(m, target) {
     const from = { x: m.x, y: m.y - 8 };
     const time = Math.max(0.5, Math.min(1.3, dist(from, target) / 420));

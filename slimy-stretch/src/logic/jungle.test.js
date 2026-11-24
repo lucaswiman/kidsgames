@@ -148,6 +148,20 @@ describe('monkeys and bananas', () => {
     expect(jungle.monkeys[0].state).not.toBe('hiding');
   });
 
+  it('aim where you were when they wound up, so moving away dodges the banana', () => {
+    const level = parseLevel({ id: 'm6', type: 'normal', map });
+    const jungle = new JungleStuff(level);
+    const slime = slimeAt(6.5 * TILE, 6 * TILE - END_RADIUS);
+    // Wait for the monkey to start winding up...
+    for (let t = 0; t < 3 && jungle.monkeys[0].state !== 'windup'; t += 1 / 60) {
+      jungle.update(1 / 60, slime);
+    }
+    expect(jungle.monkeys[0].state).toBe('windup');
+    // ...then scoot over before it throws.
+    slime.ends.forEach(e => (e.x -= 2.5 * TILE));
+    expect(run(jungle, slime, level, 3)).toEqual([]);
+  });
+
   it('throw again every few seconds', () => {
     const level = parseLevel({ id: 'm4', type: 'normal', map });
     const jungle = new JungleStuff(level);
