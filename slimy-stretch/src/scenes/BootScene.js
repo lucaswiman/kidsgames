@@ -45,6 +45,48 @@ export default class BootScene extends Phaser.Scene {
       g.fillCircle(17, 17, 4);
     });
 
+    // Pearls are what you collect on the island.
+    make('pearl', 40, 40, g => {
+      g.fillStyle(0xffd6f0, 0.35);
+      g.fillCircle(20, 20, 19);
+      g.fillStyle(0xe8e4f0, 1);
+      g.fillCircle(20, 20, 12);
+      g.fillStyle(0xfff6ff, 1);
+      g.fillCircle(17, 16, 5);
+      g.fillStyle(0xc9b8d8, 1);
+      g.fillCircle(24, 25, 3);
+    });
+
+    // Golden idols are what you collect in the jungle.
+    make('idol', 40, 44, g => {
+      g.fillStyle(0xffe066, 0.3);
+      g.fillCircle(20, 22, 20);
+      g.fillStyle(0xb8860b, 1);
+      g.fillRect(9, 36, 22, 6);
+      g.fillStyle(0xe8b820, 1);
+      g.fillRoundedRect(12, 18, 16, 19, 4);
+      g.fillCircle(20, 13, 9);
+      g.fillStyle(0xfff1a0, 1);
+      g.fillCircle(17, 10, 3);
+      g.fillStyle(0x7a5208, 1);
+      g.fillRect(15, 12, 3, 3);
+      g.fillRect(22, 12, 3, 3);
+      g.fillRect(17, 17, 6, 2);
+      g.fillRect(13, 24, 14, 2);
+    });
+
+    make('chest', 44, 36, g => {
+      g.fillStyle(0x6b3e1c, 1);
+      g.fillRoundedRect(2, 4, 40, 30, 6);
+      g.fillStyle(0x8f5a2c, 1);
+      g.fillRect(4, 16, 36, 16);
+      g.fillStyle(0xe0b030, 1);
+      g.fillRect(2, 14, 40, 4);
+      g.fillRect(19, 10, 6, 12);
+      g.fillStyle(0x3a2410, 1);
+      g.fillRect(21, 16, 2, 4);
+    });
+
     make('bomb', 36, 40, g => {
       g.fillStyle(0x222222, 1);
       g.fillCircle(18, 24, 14);

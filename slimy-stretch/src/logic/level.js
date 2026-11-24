@@ -21,6 +21,25 @@ import { TILE } from './constants.js';
 //   K  mining machine (swings a pickaxe that hurts, and smashes metal boxes)
 //   =  mine cart track          H  mine cart (on its track)
 //   G  glowing crystal (lights up dark levels)
+//   z  sand (sticky, but waves wash over it)
+//   Y  palm tree trunk (sticky)  F  palm fronds (a one-way platform)
+//   Q  coconut (hangs under palm fronds, falls when you go under it)
+//   ~  rope bridge (a one-way platform that sags)
+//   J  hammock (bounces you up high)
+//   Z  crab (walks back and forth and pinches)
+//   $  treasure chest (worth 10 tokens)
+//   q  quicksand (sticky, but you can't stretch far and you sink if you stay)
+//   m  monkey (sits in a tree and throws bananas)
+//   s  snake (hangs from the branch above and snaps down at you)
+//   %  leafy trap (looks like ground, but breaks as soon as you touch it)
+//   x  snake pit (deadly)
+//   *  bouncy flower (bounces you up high, like a hammock)
+//   _  tipping leaf (a one-way platform that tips over if you sit on it too long)
+//   A  stamping press (hangs from the ceiling and slams down)
+//   o  saw blade (rolls along the floor or wall it's next to)
+//   v  steam vent (sticky floor that blasts you up into the air)
+//   N  slime machine (slippery; shoot a blob in to move its platform, see def.slimeMachines)
+//   n  a slime machine's platform (sticky; it moves when its machine gets a blob)
 //   .  empty
 
 export const TileKind = {
@@ -39,7 +58,41 @@ export const TileKind = {
   MACHINE: 12,
   CART: 13,
   RAIL: 14,
+  SAND: 15,
+  PALM: 16,
+  FROND: 17,
+  BRIDGE: 18,
+  HAMMOCK: 19,
+  QUICKSAND: 20,
+  LEAFY: 21,
+  SNAKE_PIT: 22,
+  FLOWER: 23,
+  LEAF: 24,
+  LOG: 25, // a floating log's spot on the river (never in a map)
+  VENT: 26,
+  SLIME_MACHINE: 27,
+  LIFT: 28,
 };
+
+// Tiles that work like one-way platforms: stretch up through them from
+// below, stick to their tops.
+const PLATFORMS = new Set([
+  TileKind.PLATFORM,
+  TileKind.FROND,
+  TileKind.BRIDGE,
+  TileKind.HAMMOCK,
+  TileKind.FLOWER,
+  TileKind.LEAF,
+]);
+
+export function isPlatformKind(kind) {
+  return PLATFORMS.has(kind);
+}
+
+/** Hammocks and bouncy flowers bounce you up high when you land on them. */
+export function isBouncyKind(kind) {
+  return kind === TileKind.HAMMOCK || kind === TileKind.FLOWER;
+}
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
 const KEY_CHARS = { 1: 'red', 2: 'blue', 3: 'yellow' };
@@ -64,6 +117,14 @@ const SOLID = new Set([
   TileKind.BELT_LEFT,
   TileKind.MACHINE,
   TileKind.CART,
+  TileKind.SAND,
+  TileKind.PALM,
+  TileKind.QUICKSAND,
+  TileKind.LEAFY,
+  TileKind.LOG,
+  TileKind.VENT,
+  TileKind.SLIME_MACHINE,
+  TileKind.LIFT,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -74,6 +135,13 @@ const STICKY = new Set([
   TileKind.BELT_LEFT,
   TileKind.MACHINE,
   TileKind.CART,
+  TileKind.SAND,
+  TileKind.PALM,
+  TileKind.QUICKSAND,
+  TileKind.LEAFY,
+  TileKind.LOG,
+  TileKind.VENT,
+  TileKind.LIFT,
 ]);
 
 export function isSolidKind(kind) {
@@ -85,7 +153,7 @@ export function isStickyKind(kind) {
 }
 
 export function isDeadlyKind(kind) {
-  return kind === TileKind.LAVA || kind === TileKind.WATER;
+  return kind === TileKind.LAVA || kind === TileKind.WATER || kind === TileKind.SNAKE_PIT;
 }
 
 function tileCenter(col, row) {
@@ -126,6 +194,15 @@ export function parseLevel(def) {
     machines: [],
     carts: [],
     crystals: [],
+    coconuts: [],
+    crabs: [],
+    chests: [],
+    monkeys: [],
+    snakes: [],
+    leafyTraps: [],
+    presses: [],
+    saws: [],
+    vents: [],
   };
 
   rows.forEach((line, row) => {
@@ -232,6 +309,69 @@ export function parseLevel(def) {
         case 'G':
           level.crystals.push(center);
           break;
+        case 'z':
+          kind = TileKind.SAND;
+          break;
+        case 'Y':
+          kind = TileKind.PALM;
+          break;
+        case 'F':
+          kind = TileKind.FROND;
+          break;
+        case '~':
+          kind = TileKind.BRIDGE;
+          break;
+        case 'J':
+          kind = TileKind.HAMMOCK;
+          break;
+        case 'Q':
+          level.coconuts.push({ ...center, col, row });
+          break;
+        case 'Z':
+          level.crabs.push({ ...center, col, row });
+          break;
+        case '$':
+          level.chests.push(center);
+          break;
+        case 'q':
+          kind = TileKind.QUICKSAND;
+          break;
+        case 'm':
+          level.monkeys.push({ ...center, col, row });
+          break;
+        case 's':
+          level.snakes.push({ ...center, col, row });
+          break;
+        case '%':
+          kind = TileKind.LEAFY;
+          level.leafyTraps.push({ col, row });
+          break;
+        case 'x':
+          kind = TileKind.SNAKE_PIT;
+          break;
+        case '*':
+          kind = TileKind.FLOWER;
+          break;
+        case '_':
+          kind = TileKind.LEAF;
+          break;
+        case 'A':
+          kind = TileKind.WALL;
+          level.presses.push({ col, row });
+          break;
+        case 'o':
+          level.saws.push({ ...center, col, row });
+          break;
+        case 'v':
+          kind = TileKind.VENT;
+          level.vents.push({ ...center, col, row });
+          break;
+        case 'N':
+          kind = TileKind.SLIME_MACHINE;
+          break;
+        case 'n':
+          kind = TileKind.LIFT;
+          break;
         case '.':
           break;
         default:
@@ -303,11 +443,14 @@ function findCartTracks(level) {
   }
 }
 
-/** Tile kind at a tile coordinate. Outside the map counts as wall. */
+/**
+ * Tile kind at a tile coordinate. The sides and top of the map are a
+ * slippery wall you can't stick to (outdoor levels have open sky).
+ */
 export function tileAt(level, col, row) {
   if (row < 0 || col < 0 || row >= level.height || col >= level.width) {
     // Off the bottom is open so the slime can fall out of the world.
-    return row >= level.height ? TileKind.EMPTY : TileKind.WALL;
+    return row >= level.height ? TileKind.EMPTY : TileKind.ICE;
   }
   return level.tiles[row][col];
 }

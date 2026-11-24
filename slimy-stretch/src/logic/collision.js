@@ -1,5 +1,12 @@
 import { TILE } from './constants.js';
-import { isDeadlyKind, isSolidKind, isStickyKind, TileKind, tileAt, tileAtPoint } from './level.js';
+import {
+  isDeadlyKind,
+  isPlatformKind,
+  isSolidKind,
+  isStickyKind,
+  tileAt,
+  tileAtPoint,
+} from './level.js';
 
 export function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -78,7 +85,7 @@ export function platformTopBelow(level, p, r, margin = 4) {
   const minCol = Math.floor((p.x - r * 0.7) / TILE);
   const maxCol = Math.floor((p.x + r * 0.7) / TILE);
   for (let col = minCol; col <= maxCol; col++) {
-    if (tileAt(level, col, row) === TileKind.PLATFORM) {
+    if (isPlatformKind(tileAt(level, col, row))) {
       return top;
     }
   }
@@ -107,7 +114,7 @@ function platformSpots(level, p, r, searchDist) {
   const maxRow = Math.floor((p.y + searchDist + r) / TILE);
   for (let row = minRow; row <= maxRow; row++) {
     for (let col = minCol; col <= maxCol; col++) {
-      if (tileAt(level, col, row) !== TileKind.PLATFORM) {
+      if (!isPlatformKind(tileAt(level, col, row))) {
         continue;
       }
       const top = row * TILE;
@@ -140,7 +147,7 @@ export function platformLanding(level, x, y0, y1, r) {
       const minCol = Math.floor((x - r * 0.7) / TILE);
       const maxCol = Math.floor((x + r * 0.7) / TILE);
       for (let col = minCol; col <= maxCol; col++) {
-        if (tileAt(level, col, row) === TileKind.PLATFORM) {
+        if (isPlatformKind(tileAt(level, col, row))) {
           return top - r - 0.5;
         }
       }

@@ -27,7 +27,27 @@ import { batPosition, CaveStuff, PICK_RADIUS, pickaxe } from '../logic/cave.js';
 import { BLOB_RADIUS, SlimeShots } from '../logic/slimeShot.js';
 import { CRYSTAL_WIDTH, CrystalBoss, SHARD_RADIUS } from '../logic/crystalBoss.js';
 import {
+  CHEST_TOKENS,
+  CRAB_RADIUS,
+  GULL_GRAB_RADIUS,
+  IslandStuff,
+  WAVE_DEPTH,
+  waveState,
+} from '../logic/island.js';
+import {
+  JungleStuff,
+  LOG_WIDTH,
+  MONKEY_RADIUS,
+  SNAKE_RADIUS,
+  vineTip,
+  ZIP_GRIP,
+} from '../logic/jungle.js';
+import { FactoryStuff } from '../logic/factory.js';
+import { BigMachine } from '../logic/bigMachine.js';
+import { SAFE_TIME, SafeTrail, SPLIT_REACH, touching } from '../logic/split.js';
+import {
   hasCaveRewards,
+  hasSplit,
   hasTongue,
   loadProgress,
   recordFinish,
@@ -40,18 +60,31 @@ import {
   drawBackground,
   drawBelt,
   drawBox,
+  drawBridge,
   drawCrumble,
+  drawFlower,
+  drawHammock,
   drawFluids,
+  drawLeafyTrap,
+  drawTippingLeaf,
   drawTiles,
   THEMES,
 } from '../render/theme.js';
 import { SlimeView } from '../render/slimeView.js';
+import { drawBigMachine, drawFactory } from '../render/factoryView.js';
 import { makeButton, makeIconButton, makeMuteButton, textStyle } from '../render/ui.js';
 
 // Add ?all to the address to unlock every level (and the tongue) for testing.
 const UNLOCK_ALL = typeof location !== 'undefined' && /[?&]all\b/.test(location.search);
 
 export const KEY_TINTS = { red: 0xff3b3b, blue: 0x3a8bff, yellow: 0xffd020 };
+
+// What collect levels have you collect in each world.
+const PRIZES = {
+  lab: { texture: 'core', name: 'power core', label: 'Cores' },
+  island: { texture: 'pearl', name: 'pearl', label: 'Pearls' },
+  jungle: { texture: 'idol', name: 'golden idol', label: 'Idols' },
+};
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -76,6 +109,7 @@ export default class GameScene extends Phaser.Scene {
     this.lockedMessageTimer = 0;
 
     playMusic(this.def.type === 'boss' ? 'boss' : this.themeName);
+    this.factory = new FactoryStuff(this.level);
     this.isBoss = this.def.type === 'boss';
 
     drawBackground(this, this.theme);
@@ -94,10 +128,14 @@ export default class GameScene extends Phaser.Scene {
     this.aimPath = null;
     this.bombBlasts = [];
     this.belts = [];
+    this.swingTiles = []; // rope bridges, hammocks and flowers, which sag under the slime
     this.level.tiles.forEach((row, r) =>
       row.forEach((kind, c) => {
         if (kind === TileKind.BELT_RIGHT || kind === TileKind.BELT_LEFT) {
           this.belts.push({ col: c, row: r, dir: kind === TileKind.BELT_RIGHT ? 1 : -1 });
+        }
+        if (kind === TileKind.BRIDGE || kind === TileKind.HAMMOCK || kind === TileKind.FLOWER) {
+          this.swingTiles.push({ col: c, row: r, kind });
         }
       })
     );
@@ -111,13 +149,29 @@ export default class GameScene extends Phaser.Scene {
     this.windWasBlowing = false;
     this.windStreaks = [];
     this.windGfx = this.add.graphics().setScrollFactor(0).setDepth(150);
+    this.island = new IslandStuff(this.level);
+    this.waveWasWarning = false;
+    this.jungle = new JungleStuff(this.level);
+    this.pumping = false; // dragging to pump a vine
+    this.tongueBanana = false; // a banana on the end of the tongue
+    this.hintsShown = new Set();
     this.createItems();
 
     this.slime = new Slime(this.level.start);
     this.slimeView = new SlimeView(this);
     this.cave = new CaveStuff(this.level, this.canyon);
     this.crystal = this.isBoss && this.def.boss === 'crystal' ? new CrystalBoss(this.level) : null;
-    this.boss = this.isBoss && !this.crystal ? new Boss(this.level) : null;
+    this.bigMachine =
+      this.isBoss && this.def.boss === 'machine' ? new BigMachine(this.level) : null;
+    this.boss = this.isBoss && !this.crystal && !this.bigMachine ? new Boss(this.level) : null;
+    // Split (the reward for beating the big machine): getting hurt splits the
+    // slime in two instead of killing it.
+    this.hasSplit = UNLOCK_ALL || hasSplit(loadProgress());
+    this.splitState = 'whole'; // 'whole', 'split' (two halves) or 'half' (one half left)
+    this.otherSlime = null;
+    this.otherView = new SlimeView(this);
+    this.safeTime = 0;
+    this.safeTrail = new SafeTrail();
     this.blasts = [];
     this.createDarkness();
     this.bombSprites = new Map();
@@ -142,10 +196,20 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: sprite, scaleX: 0.2, yoyo: true, repeat: -1, duration: 600 });
       return { ...t, sprite, taken: false };
     });
+    // On the island you collect pearls instead of power cores, and in the
+    // jungle golden idols.
+    const prize = PRIZES[this.themeName] || PRIZES.lab;
+    this.coreName = prize.name;
+    this.coreLabel = prize.label;
     this.cores = level.cores.map(c => {
-      const sprite = this.add.image(c.x, c.y, 'core').setDepth(6).setVisible(!hidden(c));
+      const sprite = this.add.image(c.x, c.y, prize.texture).setDepth(6).setVisible(!hidden(c));
       this.tweens.add({ targets: sprite, y: c.y - 6, yoyo: true, repeat: -1, duration: 800 });
       return { ...c, sprite, taken: false };
+    });
+    this.chestSprites = this.island.chests.map(c => {
+      const sprite = this.add.image(c.x, c.y + 6, 'chest').setDepth(6);
+      this.tweens.add({ targets: sprite, angle: 4, yoyo: true, repeat: -1, duration: 900 });
+      return sprite;
     });
     this.keySprites = this.canyon.keys.map(k => {
       const sprite = this.add
@@ -212,7 +276,7 @@ export default class GameScene extends Phaser.Scene {
         .text(
           GAME_WIDTH / 2,
           100,
-          this.crystal ? 'CRYSTAL ROBOT' : 'ROBOT',
+          this.crystal ? 'CRYSTAL ROBOT' : this.bigMachine ? 'BIG MACHINE' : 'ROBOT',
           textStyle(22, '#ff8080')
         )
         .setOrigin(0.5)
@@ -223,9 +287,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   armShot(armed) {
-    if (armed && this.shots.count >= 3) {
+    if (armed && !this.shots.canFire(this.island.lost)) {
       sfx.locked();
-      this.showBanner('All 3 slime blobs are out. Touch one to get it back!', 1800);
+      this.showBanner(
+        this.island.lost
+          ? "You're too small to shoot! Find your missing slime blobs."
+          : 'All 3 slime blobs are out. Touch one to get it back!',
+        1800
+      );
       return;
     }
     this.shotArmed = armed;
@@ -247,13 +316,24 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Tokens collected so far (a treasure chest counts as 10). */
+  tokenCount() {
+    const chests = this.island.chests.filter(c => c.taken).length;
+    return this.tokens.filter(t => t.taken).length + chests * CHEST_TOKENS;
+  }
+
+  tokenTotal() {
+    return this.tokens.length + this.island.chests.length * CHEST_TOKENS;
+  }
+
   updateHud() {
     const parts = [];
-    if (this.tokens.length) {
-      parts.push(`Tokens ${this.tokens.filter(t => t.taken).length}/${this.tokens.length}`);
+    if (this.tokenTotal()) {
+      parts.push(`Tokens ${this.tokenCount()}/${this.tokenTotal()}`);
     }
     if (this.cores.length) {
-      parts.push(`Cores ${this.cores.filter(c => c.taken).length}/${this.cores.length}`);
+      const got = this.cores.filter(c => c.taken).length;
+      parts.push(`${this.coreLabel} ${got}/${this.cores.length}`);
     }
     this.hudItems.setText(parts.join('    '));
   }
@@ -271,19 +351,32 @@ export default class GameScene extends Phaser.Scene {
         this.warehouse.aim(this.worldPoint(pointer));
         return;
       }
-      if (this.shotArmed && !this.slime.frozen) {
+      // On a vine you can still shoot and use your tongue.
+      const onVine = this.jungle.onVine !== null;
+      if (this.shotArmed && (!this.slime.frozen || onVine)) {
         // Fire a blob of slime toward where you tapped.
-        this.shots.fire(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
+        this.shots.fire(
+          this.slime.ends[this.slime.lead],
+          this.worldPoint(pointer),
+          this.island.lost
+        );
         this.armShot(false);
         this.activePointer = null;
         return;
       }
-      if (this.tongueArmed && !this.slime.isFalling && !this.slime.heldEnd && !this.slime.frozen) {
+      const free = !this.slime.isFalling && !this.slime.heldEnd && !this.slime.frozen;
+      if (this.tongueArmed && (free || onVine)) {
         // Shoot the tongue out of the slime's head instead of stretching.
         this.tongue.start(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
         this.armTongue(false);
         return;
       }
+      if (onVine) {
+        // Swinging on a vine: drag to pump the swing, let go to fly off.
+        this.pumping = true;
+        return;
+      }
+      this.pickHalf(this.worldPoint(pointer));
       this.slime.grab(this.worldPoint(pointer), this.clock);
     });
     const release = pointer => {
@@ -301,6 +394,11 @@ export default class GameScene extends Phaser.Scene {
         this.aimPath = null;
         return;
       }
+      if (this.pumping) {
+        this.pumping = false;
+        this.jungle.letGoVine(this.slime);
+        return;
+      }
       if (this.tongue.active) {
         this.tongue.release();
         return;
@@ -315,6 +413,20 @@ export default class GameScene extends Phaser.Scene {
     };
     this.input.on('pointerup', release);
     this.input.on('pointerupoutside', release);
+  }
+
+  /** When split, you move whichever half is nearer your finger. */
+  pickHalf(point) {
+    const other = this.otherSlime;
+    if (!other || other.isFalling || this.slime.heldEnd) {
+      return;
+    }
+    const near = slime =>
+      Math.min(...slime.ends.map(e => Math.hypot(e.x - point.x, e.y - point.y)));
+    if (near(other) < near(this.slime)) {
+      [this.slime, this.otherSlime] = [other, this.slime];
+      [this.slimeView, this.otherView] = [this.otherView, this.slimeView];
+    }
   }
 
   worldPoint(pointer) {
@@ -343,7 +455,20 @@ export default class GameScene extends Phaser.Scene {
       this.updateTongue(dt);
       const canyonHit = this.canyon.update(dt, this.slime);
       const caveHit = this.cave.update(dt, this.slime);
+      const islandHit = this.island.update(dt, this.slime, this.time_);
+      const finger =
+        this.pumping && this.activePointer ? this.worldPoint(this.activePointer) : null;
+      const jungleHit = this.jungle.update(dt, this.slime, finger);
+      if (this.bigMachine && this.bigMachine.catchBlobs(this.shots.blobs)) {
+        sfx.power();
+        this.showBanner('The belt is going backwards! Wait for a bomb box to go in...', 2200);
+      }
+      const factoryHit = this.factory.update(dt, this.slime, this.shots.blobs);
       this.updateShots(dt);
+      this.playFactorySounds();
+      this.updateBigMachine(dt);
+      this.playIslandSounds();
+      this.playJungleSounds();
       this.playSlimeSounds();
       this.playCanyonSounds();
       this.playWarehouseSounds();
@@ -353,10 +478,22 @@ export default class GameScene extends Phaser.Scene {
       this.checkPickups();
       this.checkExit(dt);
       const hazard = findHazard(this.level, this.slime, this.lasers, this.time_, this.chaser);
+      const hurt =
+        hazard ||
+        canyonHit ||
+        caveHit ||
+        islandHit ||
+        jungleHit ||
+        factoryHit ||
+        this.bossHurtSlime;
+      this.updateSplit(dt, !hurt);
       if (canyonHit === 'boulder') {
         this.startCrush();
-      } else if (hazard || canyonHit || caveHit || this.bossHurtSlime) {
-        this.die();
+      } else if (hurt && this.status === 'playing') {
+        this.hurtSlime();
+        if (jungleHit === 'quicksand' && this.status === 'dying') {
+          this.showBanner('Glug glug! The quicksand swallowed you.', 1800);
+        }
       }
     } else if (this.status === 'crushed') {
       this.updateCrush(dt);
@@ -401,11 +538,21 @@ export default class GameScene extends Phaser.Scene {
   updateTongue(dt) {
     this.tongue.tick(dt);
     this.updateTongueButton();
+    if (this.tongueBanana && !this.tongue.active) {
+      this.tongueBanana = false;
+      this.eatBanana();
+    }
     if (!this.tongue.active) {
       return;
     }
     const head = this.slime.ends[this.slime.lead];
     const eaten = this.tongue.update(dt, this.level, head, this.canyon.boxes);
+    if (this.tongue.state === 'out' && this.jungle.catchBanana(this.tongue.tip, TONGUE_RADIUS)) {
+      // Caught a flying banana! Pull it in and eat it.
+      this.tongueBanana = true;
+      this.tongue.release();
+      sfx.grab();
+    }
     if (this.crystal && this.tongue.state === 'out' && this.crystal.inRect(this.tongue.tip, 6)) {
       // Licking the crystal robot: if its armor is cracked, gobble an orb!
       if (this.crystal.eatOrb()) {
@@ -448,6 +595,22 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Yum! A banana can give you back a missing piece of slime. */
+  eatBanana() {
+    sfx.yum();
+    const got = this.jungle.eatBanana(this.island, this.shots);
+    if (got === 'lost') {
+      this.showBanner(
+        this.island.lost ? 'Yum! You got some of your slime back!' : 'Yum! Back to full size!',
+        1800
+      );
+    } else if (got === 'shot') {
+      this.showBanner('Yum! A slime blob came back to you!', 1800);
+    } else {
+      this.showBanner('Yum! A tasty banana!', 1400);
+    }
+  }
+
   updateTongueButton() {
     if (!this.tongueButton) {
       return;
@@ -467,8 +630,22 @@ export default class GameScene extends Phaser.Scene {
           this.cave.knockDown(s);
         }
       }
+      // ...and flips crabs onto their backs.
+      for (const crab of this.island.crabs) {
+        if (Math.hypot(blob.x - crab.x, blob.y - crab.y) < CRAB_RADIUS + BLOB_RADIUS + 4) {
+          this.island.flipCrab(crab);
+        }
+      }
+      // ...and scares monkeys.
+      for (const m of this.jungle.monkeys) {
+        if (Math.hypot(blob.x - m.x, blob.y - m.y) < MONKEY_RADIUS + BLOB_RADIUS + 4) {
+          this.jungle.scareMonkey(m);
+        }
+      }
     });
-    this.slime.reach = this.shots.reach();
+    // Missing blobs, quicksand and being split all cut how far you can stretch.
+    const half = this.splitState === 'whole' ? 1 : SPLIT_REACH;
+    this.slime.reach = this.shots.reach(this.island.lost) * this.jungle.reachScale * half;
     for (const e of this.shots.takeEvents()) {
       if (e === 'shoot') {
         sfx.throwBomb();
@@ -476,6 +653,93 @@ export default class GameScene extends Phaser.Scene {
         sfx.splorch();
       } else if (e === 'absorb' || e === 'return') {
         sfx.grab();
+      }
+    }
+  }
+
+  playIslandSounds() {
+    const { warn } = waveState(this.island.waves, this.time_);
+    if (warn && !this.waveWasWarning) {
+      sfx.wave();
+    }
+    this.waveWasWarning = warn;
+    for (const e of this.island.takeEvents()) {
+      if (e.type === 'rustle') {
+        sfx.rustle();
+      } else if (e.type === 'crack') {
+        sfx.coconut();
+      } else if (e.type === 'bonk') {
+        sfx.bonk();
+        this.showBanner('BONK! The coconut knocked out the crab!', 1600);
+      } else if (e.type === 'flip') {
+        sfx.bonk();
+      } else if (e.type === 'bounce') {
+        sfx.bounce();
+      } else if (e.type === 'squawk') {
+        sfx.squawk();
+      } else if (e.type === 'gullGrab') {
+        sfx.clawGrab();
+      } else if (e.type === 'gullDrop') {
+        sfx.clawDrop();
+      } else if (e.type === 'barf') {
+        sfx.barf();
+        this.showBanner('BLECH! The seagull barfed you up. Find your missing slime!', 2200);
+      } else if (e.type === 'absorb') {
+        sfx.grab();
+        if (!this.island.lost) {
+          this.showBanner('Back to full size!', 1400);
+        }
+      }
+    }
+  }
+
+  /** Show a tip the first time something happens in a level. */
+  hintOnce(key, message, duration = 2000) {
+    if (!this.hintsShown.has(key)) {
+      this.hintsShown.add(key);
+      this.showBanner(message, duration);
+    }
+  }
+
+  playJungleSounds() {
+    for (const e of this.jungle.takeEvents()) {
+      if (e.type === 'quicksand') {
+        sfx.gloop();
+        this.hintOnce('quicksand', "Quicksand! You can't stretch far. Get out before you sink!");
+      } else if (e.type === 'chatter') {
+        sfx.chatter();
+      } else if (e.type === 'throw') {
+        sfx.whoosh();
+      } else if (e.type === 'splat') {
+        sfx.squish();
+      } else if (e.type === 'scared') {
+        sfx.eek();
+      } else if (e.type === 'hiss') {
+        sfx.hiss();
+      } else if (e.type === 'snap') {
+        sfx.snakeSnap();
+      } else if (e.type === 'trap') {
+        sfx.leafBreak();
+        this.cameras.main.shake(150, 0.006);
+        this.hintOnce('trap', 'It was a trap! Those leaves were hiding a snake pit.');
+      } else if (e.type === 'vineGrab' || e.type === 'zipGrab') {
+        // The finger that touched it doesn't count as letting go.
+        this.activePointer = null;
+        this.pumping = false;
+        if (e.type === 'vineGrab') {
+          sfx.vine();
+          this.hintOnce('vine', 'Drag sideways to swing higher. Let go to fly!', 2500);
+        } else {
+          sfx.zip();
+        }
+      } else if (e.type === 'vineLetGo') {
+        sfx.wheee();
+      } else if (e.type === 'zipDrop') {
+        sfx.clawDrop();
+      } else if (e.type === 'creak') {
+        sfx.creak();
+      } else if (e.type === 'tip') {
+        sfx.whoosh();
       }
     }
   }
@@ -701,6 +965,21 @@ export default class GameScene extends Phaser.Scene {
       sfx.core();
       this.checkAllCores();
     }
+    this.island.touchedChests(this.slime).forEach(chest => {
+      const sprite = this.chestSprites[this.island.chests.indexOf(chest)];
+      this.tweens.killTweensOf(sprite);
+      this.tweens.add({
+        targets: sprite,
+        y: sprite.y - 50,
+        alpha: 0,
+        scale: 1.8,
+        duration: 600,
+        onComplete: () => sprite.destroy(),
+      });
+      sfx.chest();
+      this.showBanner('Treasure! +10 tokens!', 1600);
+      this.updateHud();
+    });
     for (const cp of this.checkpoints) {
       if (!cp.active && touchedItems(this.slime, [cp], TILE / 2).length) {
         for (const other of this.checkpoints) {
@@ -743,11 +1022,20 @@ export default class GameScene extends Phaser.Scene {
     if (!this.level.exit || !touchingExit(this.slime, this.level.exit)) {
       return;
     }
+    if (this.splitState === 'split') {
+      if (this.lockedMessageTimer <= 0) {
+        sfx.locked();
+        this.showBanner('Bring your two halves together first!', 1800);
+        this.lockedMessageTimer = 2.5;
+      }
+      return;
+    }
     const missing = this.cores.filter(c => !c.taken).length;
     if (missing > 0) {
       if (this.lockedMessageTimer <= 0) {
         sfx.locked();
-        this.showBanner(`Locked! Find ${missing} more power core${missing > 1 ? 's' : ''}.`, 1800);
+        const name = `${this.coreName}${missing > 1 ? 's' : ''}`;
+        this.showBanner(`Locked! Find ${missing} more ${name}.`, 1800);
         this.lockedMessageTimer = 2.5;
       }
       return;
@@ -757,11 +1045,169 @@ export default class GameScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ dying/winning
 
+  /**
+   * Something hurt the slime. Without Split that's the end of it. With Split,
+   * a whole slime splits in two, a half that's hurt is gone, and only the last
+   * half-size slime really dies.
+   */
+  hurtSlime() {
+    if (!this.hasSplit || this.splitState === 'half') {
+      this.die();
+      return;
+    }
+    if (this.safeTime > 0) {
+      return;
+    }
+    this.activePointer = null;
+    this.pumping = false;
+    this.cameras.main.shake(150, 0.008);
+    if (this.splitState === 'whole') {
+      const [a, b] = this.safeTrail.splitSpots(this.checkpoint || this.level.start);
+      this.slime.spawn(a);
+      this.otherSlime = new Slime(b);
+      this.splitState = 'split';
+      this.safeTime = SAFE_TIME;
+      sfx.split();
+      this.hintOnce('split', 'SPLIT! Bring your two halves back together.', 2200);
+    } else {
+      // This half is gone; carry on with the other one.
+      [this.slime, this.slimeView, this.otherView] = [
+        this.otherSlime,
+        this.otherView,
+        this.slimeView,
+      ];
+      this.otherSlime = null;
+      this.splitState = 'half';
+      this.safeTime = SAFE_TIME;
+      sfx.death();
+      this.showBanner('One half is gone! Be careful now.', 2000);
+    }
+  }
+
+  /** Split bookkeeping every frame: the other half, merging and safe spots. */
+  updateSplit(dt, safe) {
+    this.safeTime = Math.max(0, this.safeTime - dt);
+    if (this.splitState === 'whole' && this.hasSplit) {
+      this.safeTrail.record(dt, this.slime, safe);
+    }
+    const other = this.otherSlime;
+    if (!other) {
+      return;
+    }
+    other.reach = this.slime.reach;
+    other.update(dt, this.level);
+    if (this.safeTime <= 0 && findHazard(this.level, other, this.lasers, this.time_, this.chaser)) {
+      // The half you weren't moving got hurt, so it's gone.
+      this.otherSlime = null;
+      this.splitState = 'half';
+      this.safeTime = SAFE_TIME;
+      sfx.death();
+      this.showBanner('One half is gone! Be careful now.', 2000);
+      return;
+    }
+    const settled = s => !s.isFalling && !s.frozen;
+    if (
+      this.safeTime <= 0 &&
+      settled(this.slime) &&
+      settled(other) &&
+      touching(this.slime, other)
+    ) {
+      this.otherSlime = null;
+      this.splitState = 'whole';
+      sfx.merge();
+      this.showBanner('Back together!', 1400);
+    }
+  }
+
+  endSplit() {
+    this.otherSlime = null;
+    this.otherView.clear();
+    this.splitState = 'whole';
+    this.safeTime = 0;
+    this.safeTrail.clear();
+  }
+
+  updateBigMachine(dt) {
+    const boss = this.bigMachine;
+    if (!boss) {
+      return;
+    }
+    if (boss.update(dt, this.slime)) {
+      this.bossHurtSlime = true;
+    }
+    for (const e of boss.takeEvents()) {
+      if (e === 'crate') {
+        sfx.cannonIn();
+      } else if (e === 'reverse' || e === 'forward') {
+        sfx.clawDrop();
+      } else if (e === 'gulp') {
+        sfx.gulp();
+        sfx.explode();
+        this.cameras.main.shake(300, 0.01);
+        this.showBanner('GULP! Its mouth is shut. Quick, press the big button on top!', 2400);
+      } else if (e === 'reopen') {
+        sfx.locked();
+        this.showBanner('Too slow! Its mouth opened again.', 1600);
+      } else if (e === 'stomp') {
+        sfx.stomp();
+        this.cameras.main.shake(120, 0.005);
+      } else if (e === 'explode') {
+        sfx.explode();
+        this.cameras.main.shake(150, 0.006);
+      } else if (e === 'fire') {
+        sfx.fireball();
+      } else if (e === 'slip') {
+        sfx.boing();
+      } else if (e === 'hit') {
+        sfx.button();
+        sfx.roar();
+        this.cameras.main.shake(500, 0.015);
+        this.showBanner(
+          boss.phase === 2 ? 'ROAR! Now it shoots fireballs!' : 'ROAR! Another crusher, and ice!',
+          2400
+        );
+      } else if (e === 'defeated') {
+        sfx.button();
+        sfx.robotHurt();
+        this.status = 'won-wait';
+        this.time.delayedCall(1400, () => this.win());
+      }
+    }
+    if (boss.sendBack) {
+      // It sends you right back to the beginning.
+      boss.sendBack = false;
+      this.endSplit();
+      this.slime.spawn(this.level.start);
+      this.cameras.main.centerOn(this.level.start.x, this.level.start.y);
+    }
+  }
+
+  playFactorySounds() {
+    for (const e of this.factory.takeEvents()) {
+      if (e.type === 'stomp') {
+        sfx.stomp();
+        this.cameras.main.shake(100, 0.004);
+      } else if (e.type === 'steam') {
+        sfx.steam();
+      } else if (e.type === 'power') {
+        sfx.power();
+        this.hintOnce('machine', 'The machine is running! Its platform is moving.', 2000);
+      } else if (e.type === 'platform') {
+        sfx.liftMove();
+      } else if (e.type === 'unpower') {
+        sfx.grab();
+      }
+    }
+  }
+
   die() {
+    this.endSplit();
     this.status = 'dying';
     this.deaths += 1;
     this.heldBomb = null;
     this.activePointer = null;
+    this.pumping = false;
+    this.tongueBanana = false;
     sfx.death();
     this.cameras.main.shake(200, 0.01);
     const c = this.slime.center;
@@ -783,7 +1229,7 @@ export default class GameScene extends Phaser.Scene {
     });
     this.time.delayedCall(1100, () => {
       drops.destroy();
-      const boss = this.boss || this.crystal;
+      const boss = this.boss || this.crystal || this.bigMachine;
       if (boss) {
         // Each hit on a boss is a checkpoint: it keeps its damage.
         boss.resetAfterSlimeDeath();
@@ -798,6 +1244,12 @@ export default class GameScene extends Phaser.Scene {
 
   respawn() {
     this.canyon.resetAfterDeath();
+    this.island.resetAfterDeath();
+    this.jungle.resetAfterDeath();
+    this.factory.resetAfterDeath();
+    // Blobs stuck in slime machines come back to you.
+    this.shots.blobs = this.shots.blobs.filter(b => b.state !== 'inMachine');
+    this.endSplit();
     this.shotArmed = false;
     this.warehouse.resetAfterDeath();
     this.aiming = false;
@@ -824,7 +1276,7 @@ export default class GameScene extends Phaser.Scene {
     this.status = 'won';
     this.activePointer = null;
     sfx.win();
-    const tokens = this.tokens.filter(t => t.taken).length;
+    const tokens = this.tokenCount();
     const score = scoreLevel({ tokens, seconds: this.clock, deaths: this.deaths });
     const progress = loadProgress();
     const isBest = recordFinish(progress, this.levelIndex, this.def.id, { score, tokens });
@@ -833,6 +1285,9 @@ export default class GameScene extends Phaser.Scene {
     }
     if (this.crystal) {
       progress.caveRewards = true;
+    }
+    if (this.bigMachine) {
+      progress.split = true;
     }
     saveProgress(progress);
     this.showWinPanel({ tokens, score, isBest, best: progress.best[this.def.id].score });
@@ -852,12 +1307,14 @@ export default class GameScene extends Phaser.Scene {
 
     const title = this.crystal
       ? 'You beat the crystal robot!'
-      : this.boss
-        ? 'You beat the robot!'
-        : 'Level Complete!';
+      : this.bigMachine
+        ? 'You beat the big machine!'
+        : this.boss
+          ? 'You beat the robot!'
+          : 'Level Complete!';
     const lines = [];
-    if (this.tokens.length) {
-      lines.push(`Tokens: ${tokens} / ${this.tokens.length}`);
+    if (this.tokenTotal()) {
+      lines.push(`Tokens: ${tokens} / ${this.tokenTotal()}`);
     }
     lines.push(`Score: ${score}`);
     lines.push(isBest ? 'New best score!' : `Best: ${best}`);
@@ -876,6 +1333,17 @@ export default class GameScene extends Phaser.Scene {
       fixed(
         this.add
           .text(cx, cy + 70, 'You got GLOW and SLIME SHOT! 💧', textStyle(30, '#9affc0'))
+          .setOrigin(0.5)
+      );
+    } else if (this.bigMachine) {
+      fixed(
+        this.add
+          .text(
+            cx,
+            cy + 70,
+            'You got SPLIT! Getting hurt splits you in two.',
+            textStyle(26, '#ffb070')
+          )
           .setOrigin(0.5)
       );
     } else if (isLast) {
@@ -946,6 +1414,7 @@ export default class GameScene extends Phaser.Scene {
 
     const fx = this.fxGfx;
     fx.clear();
+    this.drawJungleBehind(fx);
     this.drawLasers(fx);
     this.drawGates(fx);
     this.drawTongue(fx);
@@ -959,6 +1428,12 @@ export default class GameScene extends Phaser.Scene {
     this.drawBombBlasts(over, dt);
     this.drawBoulders(over);
     this.drawCave(over);
+    this.drawIsland(over);
+    this.drawJungle(over);
+    drawFactory(over, this.factory, this.clock);
+    if (this.bigMachine) {
+      drawBigMachine(over, this.bigMachine, this.clock, this.bossBar);
+    }
     this.drawBlobs(over);
     if (this.crystal) {
       this.drawCrystal(over);
@@ -971,9 +1446,27 @@ export default class GameScene extends Phaser.Scene {
 
     const visible = ['playing', 'won', 'won-wait', 'crushed'];
     // Inside a cannon the slime is hidden (the cannon draws a peek of it).
-    if (visible.includes(this.status) && this.warehouse.inCannon === null) {
+    // Inside a seagull's tummy the slime is hidden too.
+    const hidden = this.warehouse.inCannon !== null || this.island.eaten;
+    if (visible.includes(this.status) && !hidden) {
       const look = this.slime.heldEnd ? this.slime.finger : this.slime.ends[1 - this.slime.lead];
-      this.slimeView.draw(this.slime, dt, look, this.shots.size(), this.hasCaveRewards);
+      const half = this.splitState === 'whole' ? 1 : 0.72;
+      const size = this.shots.size(this.island.lost) * half;
+      // A fresh half blinks while nothing can hurt it.
+      const blink = this.safeTime > 0 && Math.floor(this.clock * 12) % 2 === 0;
+      if (blink) {
+        this.slimeView.clear();
+      } else {
+        this.slimeView.draw(this.slime, dt, look, size, this.hasCaveRewards);
+      }
+      if (this.otherSlime) {
+        const o = this.otherSlime;
+        this.otherView.draw(o, dt, o.ends[1 - o.lead], size, this.hasCaveRewards);
+      } else {
+        this.otherView.clear();
+      }
+    } else if (hidden) {
+      this.slimeView.clear();
     }
     this.drawDarkness();
   }
@@ -1103,6 +1596,458 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Rope bridges and hammocks dip down where the slime is standing on them. */
+  drawSwingTiles(g) {
+    const feet = this.slime.ends.filter(e => e.state === 'stuck' && !this.slime.isFalling);
+    const dipAt = (x, top) => {
+      let dip = 0;
+      for (const e of feet) {
+        if (Math.abs(e.y + END_RADIUS - top) < 8) {
+          dip = Math.max(dip, 8 * Math.exp(-(((e.x - x) / 40) ** 2)));
+        }
+      }
+      return dip;
+    };
+    const bounce = Math.max(0, 1 - (this.island.time - this.island.lastBounce) * 3);
+    for (const t of this.swingTiles) {
+      const x = t.col * TILE;
+      const y = t.row * TILE;
+      if (t.kind === TileKind.BRIDGE) {
+        drawBridge(g, x, y, dipAt(x, y), dipAt(x + TILE, y));
+      } else if (t.kind === TileKind.FLOWER) {
+        drawFlower(g, x, y, dipAt(x + TILE / 2, y) + bounce * 10);
+      } else {
+        drawHammock(g, x, y, dipAt(x + TILE / 2, y) + bounce * 10);
+      }
+    }
+  }
+
+  drawIsland(g) {
+    const island = this.island;
+    // Waves washing over the sand.
+    const cover = island.waveNow(this.time_);
+    const { warn } = waveState(island.waves, this.time_);
+    this.level.tiles.forEach((row, r) =>
+      row.forEach((kind, c) => {
+        if (kind !== TileKind.SAND || this.level.tiles[r - 1]?.[c] === TileKind.SAND) {
+          return;
+        }
+        const x = c * TILE;
+        const top = r * TILE;
+        if (cover) {
+          const left = Math.max(x, cover.left);
+          const right = Math.min(x + TILE, cover.right);
+          if (right > left) {
+            const wobble = Math.sin(this.clock * 6 + c) * 3;
+            g.fillStyle(0x2f8fff, 0.75);
+            g.fillRect(left, top - WAVE_DEPTH + wobble, right - left, WAVE_DEPTH - wobble);
+            g.fillStyle(0xe8f6ff, 0.95);
+            g.fillRect(left, top - WAVE_DEPTH + wobble, right - left, 5);
+          }
+        } else if (warn) {
+          // Foam building up at the water's edge: a wave is coming!
+          g.fillStyle(0xffffff, 0.25 + 0.25 * Math.sin(this.clock * 10));
+          g.fillRect(x, top - 6, TILE, 6);
+        }
+      })
+    );
+    // Coconuts
+    for (const nut of island.coconuts) {
+      if (nut.state === 'gone') {
+        continue;
+      }
+      const dx = nut.state === 'shaking' ? (Math.random() - 0.5) * 5 : 0;
+      g.fillStyle(0x5a3a1c, 1);
+      g.fillCircle(nut.x + dx, nut.y, 13);
+      g.fillStyle(0x3a2410, 1);
+      g.fillCircle(nut.x - 4 + dx, nut.y - 3, 2);
+      g.fillCircle(nut.x + 3 + dx, nut.y - 4, 2);
+      g.fillCircle(nut.x + dx, nut.y + 2, 2);
+    }
+    // Crabs
+    for (const crab of island.crabs) {
+      this.drawCrab(g, crab);
+    }
+    // Treasure chests glint.
+    island.chests.forEach(chest => {
+      if (!chest.taken && Math.sin(this.clock * 3 + chest.x) > 0.9) {
+        g.fillStyle(0xffffff, 0.9);
+        g.fillCircle(chest.x + 14, chest.y - 6, 3);
+      }
+    });
+    // Spare blobs of slime left behind by a seagull.
+    for (const b of island.spares) {
+      const bob = Math.sin(this.clock * 4 + b.x) * 3;
+      g.fillStyle(0x55e05a, 0.3);
+      g.fillCircle(b.x, b.y + bob, 18);
+      g.fillStyle(0x55e05a, 0.8);
+      g.fillCircle(b.x, b.y + bob, 11);
+      g.fillStyle(0xffffff, 0.6);
+      g.fillCircle(b.x - 3, b.y - 4 + bob, 3);
+    }
+    // Seagulls, and the shadow where one is about to land.
+    for (const gull of island.gulls) {
+      if (gull.state === 'aim' || gull.state === 'swoop') {
+        const t = gull.target;
+        const pulse = 0.5 + 0.5 * Math.sin(this.clock * 14);
+        g.fillStyle(0x000000, 0.2);
+        g.fillCircle(t.x, t.y, GULL_GRAB_RADIUS);
+        g.lineStyle(3, 0xffffff, 0.4 + 0.5 * pulse);
+        g.strokeCircle(t.x, t.y, GULL_GRAB_RADIUS);
+      }
+      this.drawGull(g, gull);
+    }
+  }
+
+  /** Leafy traps and tipping leaves, which come and go. */
+  drawJungleTiles(g) {
+    for (const t of this.jungle.traps) {
+      if (t.state === 'solid') {
+        drawLeafyTrap(g, t.col * TILE, t.row * TILE);
+      } else if (t.timer < 1) {
+        // Growing back.
+        drawLeafyTrap(g, t.col * TILE, t.row * TILE, 0.35 * (1 - t.timer));
+      }
+    }
+    for (const leaf of this.jungle.leaves) {
+      const width = (leaf.to - leaf.from + 1) * TILE;
+      let tilt = this.jungle.leafTilt(leaf);
+      if (leaf.state === 'down' && leaf.timer < 0.3) {
+        tilt = leaf.timer / 0.3; // tipping back up
+      }
+      drawTippingLeaf(g, leaf.from * TILE, leaf.row * TILE, width, tilt);
+    }
+  }
+
+  /** Jungle things the slime goes in front of: logs, vines, ziplines, piranhas. */
+  drawJungleBehind(g) {
+    const jungle = this.jungle;
+    if (this.themeName === 'jungle') {
+      this.drawPiranhas(g);
+    }
+    for (const log of jungle.logs) {
+      const y = log.row * TILE - 4 + Math.sin(this.clock * 2 + log.x * 0.01) * 1.5;
+      const left = log.x - LOG_WIDTH / 2;
+      g.fillStyle(0x7a4e26, 1);
+      g.fillRoundedRect(left, y, LOG_WIDTH, 22, 10);
+      g.fillStyle(0x5a3618, 1);
+      g.fillRect(left + 14, y + 7, 30, 3);
+      g.fillRect(left + 52, y + 13, 24, 3);
+      g.fillStyle(0xc89a62, 1);
+      g.fillEllipse(left + LOG_WIDTH - 6, y + 11, 10, 20);
+      g.lineStyle(2, 0x7a4e26, 1);
+      g.strokeEllipse(left + LOG_WIDTH - 6, y + 11, 5, 10);
+      g.fillStyle(0x5cb84e, 1);
+      g.fillEllipse(left + 30, y + 1, 12, 6);
+    }
+    for (const zip of jungle.ziplines) {
+      g.fillStyle(0x6a4a24, 1);
+      g.fillCircle(zip.from.x, zip.from.y, 6);
+      g.fillCircle(zip.to.x, zip.to.y, 6);
+      g.lineStyle(3, 0x3a3a3a, 1);
+      g.lineBetween(zip.from.x, zip.from.y, zip.to.x, zip.to.y);
+      // The handle: a wheel on the cable with a bar to hold.
+      g.lineStyle(4, 0x888888, 1);
+      g.lineBetween(zip.x - 10, zip.y + ZIP_GRIP, zip.x, zip.y);
+      g.lineBetween(zip.x + 10, zip.y + ZIP_GRIP, zip.x, zip.y);
+      g.fillStyle(0xd0d0d0, 1);
+      g.fillCircle(zip.x, zip.y, 8);
+      g.fillStyle(0x666666, 1);
+      g.fillCircle(zip.x, zip.y, 3);
+      g.lineStyle(8, zip.state === 'ready' ? 0xff5a3a : 0x9a6a5a, 1);
+      g.lineBetween(zip.x - 16, zip.y + ZIP_GRIP, zip.x + 16, zip.y + ZIP_GRIP);
+    }
+    jungle.vines.forEach((vine, i) => {
+      // An empty vine sways a little in the breeze.
+      const riding = jungle.onVine === i;
+      const sway = riding ? 0 : Math.sin(this.clock * 1.3 + i) * 0.05;
+      const tip = vineTip(vine, vine.angle + sway);
+      const bend = riding ? -vine.omega * 6 : 0;
+      const pts = [];
+      for (let k = 0; k <= 10; k++) {
+        const t = k / 10;
+        const curve = Math.sin(t * Math.PI) * bend;
+        pts.push({
+          x: vine.x + (tip.x - vine.x) * t + curve * Math.cos(vine.angle),
+          y: vine.y + (tip.y - vine.y) * t,
+        });
+      }
+      g.lineStyle(5, 0x3d7a2a, 1);
+      for (let k = 0; k < pts.length - 1; k++) {
+        g.lineBetween(pts[k].x, pts[k].y, pts[k + 1].x, pts[k + 1].y);
+      }
+      g.fillStyle(0x5cb84e, 1);
+      for (let k = 1; k < pts.length; k += 2) {
+        g.fillEllipse(pts[k].x + (k % 4 === 1 ? 6 : -6), pts[k].y, 12, 6);
+      }
+      g.fillStyle(0x2f6a22, 1);
+      g.fillCircle(tip.x, tip.y, 6);
+    });
+  }
+
+  /** Little piranhas jumping out of the river now and then. */
+  drawPiranhas(g) {
+    this.level.tiles.forEach((row, r) =>
+      row.forEach((kind, c) => {
+        const surface = this.level.tiles[r - 1]?.[c];
+        const water = k => k === TileKind.WATER || k === TileKind.LOG;
+        if (kind !== TileKind.WATER || water(surface) || (c * 7 + r) % 3 !== 0) {
+          return;
+        }
+        const t = (this.clock + c * 1.7) % 3.5;
+        if (t > 0.9) {
+          return;
+        }
+        const k = t / 0.9;
+        const x = (c + 0.5) * TILE + (k - 0.5) * 36;
+        const y = r * TILE + 8 - Math.sin(k * Math.PI) * 54;
+        const dir = c % 2 ? 1 : -1;
+        g.fillStyle(0x6a7a8a, 1);
+        g.fillEllipse(x, y, 22, 14);
+        g.fillStyle(0xe2462e, 1);
+        g.fillEllipse(x, y + 3, 16, 7);
+        g.fillStyle(0x6a7a8a, 1);
+        g.fillTriangle(x - dir * 10, y, x - dir * 18, y - 7, x - dir * 18, y + 7);
+        g.fillStyle(0xffffff, 1);
+        g.fillTriangle(x + dir * 6, y + 2, x + dir * 9, y + 2, x + dir * 7, y + 6);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(x + dir * 5, y - 3, 1.8);
+      })
+    );
+  }
+
+  /** Jungle things drawn over the slime: monkeys, bananas, snakes, quicksand. */
+  drawJungle(g) {
+    const jungle = this.jungle;
+    for (const m of jungle.monkeys) {
+      this.drawMonkey(g, m);
+    }
+    for (const b of jungle.bananas) {
+      this.drawBanana(g, b.x, b.y, b.age * 12);
+    }
+    if (this.tongueBanana && this.tongue.active) {
+      this.drawBanana(g, this.tongue.tip.x, this.tongue.tip.y, 0);
+    }
+    for (const s of jungle.snakes) {
+      this.drawSnake(g, s);
+    }
+    // Sinking into quicksand: sand creeps up over the slime, with bubbles.
+    const sink = jungle.sink;
+    if (sink > 0 && this.status === 'playing') {
+      for (const e of this.slime.ends) {
+        if (e.state !== 'stuck') {
+          continue;
+        }
+        const h = 6 + sink * 26;
+        const bottom = e.y + END_RADIUS + 4;
+        g.fillStyle(0xc49a52, 1);
+        g.fillEllipse(e.x, bottom - h / 2, 44, h);
+        g.fillStyle(0xdcb46a, 1);
+        g.fillEllipse(e.x, bottom - h + 2, 40, 6);
+        for (let i = 0; i < 3; i++) {
+          const k = (this.clock * 1.5 + i / 3) % 1;
+          g.fillStyle(0xe8cc8a, 1 - k);
+          g.fillCircle(e.x - 14 + i * 14, bottom - h - k * 16, 3 + k * 2);
+        }
+      }
+      if (sink > 0.4) {
+        const c = this.slime.center;
+        const flash = Math.sin(this.clock * 16) > 0 ? 0xff3030 : 0xffffff;
+        g.fillStyle(flash, 1);
+        g.fillRoundedRect(c.x - 4, c.y - 62, 8, 22, 3);
+        g.fillCircle(c.x, c.y - 32, 4);
+      }
+    }
+  }
+
+  drawBanana(g, x, y, spin) {
+    g.lineStyle(7, 0xffd23a, 1);
+    g.beginPath();
+    g.arc(x, y, 9, spin, spin + 2.4);
+    g.strokePath();
+    g.fillStyle(0x6a4a24, 1);
+    g.fillCircle(x + Math.cos(spin) * 9, y + Math.sin(spin) * 9, 2.5);
+  }
+
+  drawMonkey(g, m) {
+    const x = m.x;
+    const y = m.y + 6;
+    if (m.state === 'hiding') {
+      // Hiding in a leafy bush, just its eyes peeking out.
+      g.fillStyle(0x3f8f3a, 1);
+      g.fillCircle(x - 12, y + 4, 14);
+      g.fillCircle(x + 12, y + 4, 14);
+      g.fillCircle(x, y - 6, 16);
+      if (Math.sin(this.clock * 2 + x) > -0.3) {
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(x - 5, y - 4, 3);
+        g.fillCircle(x + 5, y - 4, 3);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(x - 5, y - 4, 1.5);
+        g.fillCircle(x + 5, y - 4, 1.5);
+      }
+      return;
+    }
+    const brown = 0x7a4a24;
+    const face = 0xe0b088;
+    // Curly tail
+    g.lineStyle(4, brown, 1);
+    g.beginPath();
+    g.arc(x + 16, y + 6, 9, -Math.PI / 2, Math.PI);
+    g.strokePath();
+    g.fillStyle(brown, 1);
+    g.fillEllipse(x, y + 8, 26, 22);
+    g.fillCircle(x, y - 10, 13);
+    g.fillCircle(x - 13, y - 12, 6);
+    g.fillCircle(x + 13, y - 12, 6);
+    g.fillStyle(face, 1);
+    g.fillCircle(x - 13, y - 12, 3);
+    g.fillCircle(x + 13, y - 12, 3);
+    g.fillEllipse(x, y - 7, 18, 14);
+    g.fillEllipse(x, y + 10, 14, 12);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(x - 4, y - 11, 2);
+    g.fillCircle(x + 4, y - 11, 2);
+    g.lineStyle(2, 0x5a3418, 1);
+    g.lineBetween(x - 4, y - 4, x + 4, y - 4);
+    if (m.state === 'windup') {
+      // Arm up, holding a banana: it's about to throw!
+      g.lineStyle(5, brown, 1);
+      g.lineBetween(x - 8, y, x - 16, y - 24);
+      this.drawBanana(g, x - 18, y - 30, -1);
+    }
+  }
+
+  drawSnake(g, s) {
+    const head = this.jungle.snakeHead(s);
+    const top = { x: s.x, y: s.top };
+    const shake = s.state === 'warn' ? Math.sin(this.clock * 50) * 3 : 0;
+    // A wiggly body hanging down from the branch.
+    const len = head.y - top.y;
+    const n = Math.max(3, Math.round(len / 8));
+    let prev = top;
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const p = {
+        x:
+          top.x + (head.x - top.x) * t + Math.sin(t * 9 + this.clock * 4) * 5 * (1 - t) + shake * t,
+        y: top.y + len * t,
+      };
+      g.lineStyle(SNAKE_RADIUS * 1.4, 0x4f9a2a, 1);
+      g.lineBetween(prev.x, prev.y, p.x, p.y);
+      prev = p;
+    }
+    g.fillStyle(0x4f9a2a, 1);
+    g.fillCircle(top.x, top.y + 4, SNAKE_RADIUS * 0.8);
+    const hx = prev.x;
+    const hy = head.y;
+    if (s.state === 'warn' || s.state === 'strike') {
+      // Flicking tongue.
+      g.lineStyle(2, 0xff3040, 1);
+      g.lineBetween(hx, hy + 8, hx, hy + 16 + Math.sin(this.clock * 40) * 3);
+    }
+    g.fillStyle(0x3f8a22, 1);
+    g.fillEllipse(hx, hy + 2, 20, 16);
+    g.fillStyle(0xffe066, 1);
+    g.fillCircle(hx - 5, hy, 3.5);
+    g.fillCircle(hx + 5, hy, 3.5);
+    g.fillStyle(0x000000, 1);
+    g.fillRect(hx - 5.5, hy - 2.5, 1.5, 5);
+    g.fillRect(hx + 4.5, hy - 2.5, 1.5, 5);
+    const biting = s.state === 'strike' || s.state === 'hold';
+    if (biting) {
+      g.fillStyle(0xffffff, 1);
+      g.fillTriangle(hx - 5, hy + 7, hx - 2, hy + 7, hx - 3.5, hy + 13);
+      g.fillTriangle(hx + 2, hy + 7, hx + 5, hy + 7, hx + 3.5, hy + 13);
+    }
+  }
+
+  drawCrab(g, crab) {
+    const flipped = crab.state !== 'walk';
+    const x = crab.x;
+    const y = crab.y + 2;
+    const walk = flipped ? 0 : Math.sin(this.clock * 16 + x) * 3;
+    g.fillStyle(0xe2462e, 1);
+    // Legs (wiggling in the air when it's on its back).
+    g.lineStyle(3, 0xb8301c, 1);
+    const legY = flipped ? y - 8 : y + 8;
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const wiggle = flipped ? Math.sin(this.clock * 20 + i) * 4 : walk * (i % 2 ? 1 : -1);
+        g.lineBetween(x + side * (6 + i * 4), y, x + side * (14 + i * 4), legY + wiggle);
+      }
+    }
+    g.fillStyle(0xe2462e, 1);
+    g.fillEllipse(x, y, 34, 22);
+    if (flipped) {
+      g.fillStyle(0xf28a6a, 1);
+      g.fillEllipse(x, y + 2, 24, 12);
+      if (crab.state === 'ko') {
+        // Seeing stars.
+        g.fillStyle(0xffe066, 1);
+        for (let i = 0; i < 3; i++) {
+          const a = this.clock * 4 + (i * Math.PI * 2) / 3;
+          g.fillCircle(x + Math.cos(a) * 16, y - 18 + Math.sin(a) * 5, 3);
+        }
+      }
+      return;
+    }
+    // Claws
+    const snap = Math.sin(this.clock * 8 + x) > 0 ? 4 : 0;
+    for (const side of [-1, 1]) {
+      g.fillStyle(0xe2462e, 1);
+      g.fillCircle(x + side * 20, y - 10, 7);
+      g.fillStyle(0x7a1a0a, 1);
+      g.fillTriangle(
+        x + side * 20,
+        y - 12,
+        x + side * 28,
+        y - 16 - snap,
+        x + side * 28,
+        y - 8 + snap
+      );
+    }
+    // Eyes on stalks
+    g.lineStyle(2, 0xb8301c, 1);
+    g.lineBetween(x - 5, y - 8, x - 6, y - 16);
+    g.lineBetween(x + 5, y - 8, x + 6, y - 16);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(x - 6, y - 17, 4);
+    g.fillCircle(x + 6, y - 17, 4);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(x - 6 + crab.dir, y - 17, 2);
+    g.fillCircle(x + 6 + crab.dir, y - 17, 2);
+  }
+
+  drawGull(g, gull) {
+    // All seagulls look exactly the same: you can never tell which is which!
+    const x = gull.x;
+    const y = gull.y;
+    const flap = Math.sin(this.clock * (gull.state === 'swoop' ? 4 : 12)) * 10;
+    const full = gull.state === 'eat';
+    g.fillStyle(0xf4f4f4, 1);
+    g.fillEllipse(x, y, full ? 44 : 36, full ? 26 : 18);
+    g.fillStyle(0xd8dde4, 1);
+    g.fillTriangle(x - 6, y - 2, x - 34, y - 6 - flap, x - 10, y + 6);
+    g.fillTriangle(x + 6, y - 2, x + 34, y - 6 - flap, x + 10, y + 6);
+    g.fillStyle(0x888e96, 1);
+    g.fillTriangle(x - 30, y - 6 - flap, x - 34, y - 6 - flap, x - 24, y - 2 - flap * 0.6);
+    g.fillTriangle(x + 30, y - 6 - flap, x + 34, y - 6 - flap, x + 24, y - 2 - flap * 0.6);
+    const hx = x + gull.dir * 16;
+    g.fillStyle(0xf4f4f4, 1);
+    g.fillCircle(hx, y - 6, 8);
+    g.fillStyle(0xffb020, 1);
+    g.fillTriangle(hx + gull.dir * 6, y - 8, hx + gull.dir * 18, y - 5, hx + gull.dir * 6, y - 3);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(hx + gull.dir * 3, y - 8, 1.8);
+    if (gull.state === 'carry') {
+      // Little feet holding on.
+      g.lineStyle(2, 0xffb020, 1);
+      g.lineBetween(x - 4, y + 8, x - 6, y + 16);
+      g.lineBetween(x + 4, y + 8, x + 6, y + 16);
+    }
+  }
+
   drawBlobs(g) {
     for (const b of this.shots.blobs) {
       g.fillStyle(0x55e05a, 0.75);
@@ -1182,8 +2127,11 @@ export default class GameScene extends Phaser.Scene {
     const g = this.dynGfx;
     g.clear();
     for (const b of this.belts) {
-      drawBelt(g, b.col * TILE, b.row * TILE, b.dir, this.clock * 40);
+      const dir = this.level.tiles[b.row][b.col] === TileKind.BELT_RIGHT ? 1 : -1;
+      drawBelt(g, b.col * TILE, b.row * TILE, dir, this.clock * 40);
     }
+    this.drawSwingTiles(g);
+    this.drawJungleTiles(g);
     for (const c of this.canyon.crumbles) {
       const x = c.col * TILE;
       const y = c.row * TILE;

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS, WORLDS } from './levels.js';
-import { parseLevel } from '../logic/level.js';
+import { parseLevel, TileKind, tileAt } from '../logic/level.js';
+import { ZIP_HANG } from '../logic/jungle.js';
 import { solveLevel } from '../logic/solver.js';
 import { chaserPosition } from '../logic/hazards.js';
+import { simulateDrop } from '../logic/warehouse.js';
 
 // A kid needs about this many seconds per drag when racing a chaser.
 const SECONDS_PER_DRAG = 2.2;
@@ -49,6 +51,27 @@ describe('levels', () => {
         }
       });
 
+      it('has its vines, ziplines and logs in sensible places', () => {
+        for (const vine of def.vines || []) {
+          // A vine hangs from a branch (or a wall).
+          const [col, row] = vine.at;
+          expect(tileAt(level, col, row - 1)).not.toBe(TileKind.EMPTY);
+          expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+        }
+        for (const zip of def.ziplines || []) {
+          // A zipline drops you somewhere safe.
+          const [col, row] = zip.to;
+          const end = { x: (col + 0.5) * 48, y: (row + 0.5) * 48 + ZIP_HANG };
+          expect(simulateDrop(level, end)).toBeTruthy();
+        }
+        for (const log of def.logs || []) {
+          // Logs float on the river.
+          for (let col = log.from; col <= log.to; col++) {
+            expect(tileAt(level, col, log.row)).toBe(TileKind.WATER);
+          }
+        }
+      });
+
       it('can be finished, and every item can be reached', { timeout: 30000 }, async () => {
         // The checker is slow and never waits on anything; give vitest a turn
         // first so its messages don't time out over a long run of levels.
@@ -59,6 +82,20 @@ describe('levels', () => {
         expect(result.cores.every(Boolean)).toBe(true);
         expect(result.checkpoints.every(Boolean)).toBe(true);
         expect(result.keys.every(Boolean)).toBe(true);
+        expect(result.chests.every(Boolean)).toBe(true);
+        expect(result.slimeMachines.every(Boolean)).toBe(true);
+        // Spare blobs a seagull barfs up must turn up somewhere you can get to.
+        expect(result.blobSpots.every(Boolean)).toBe(true);
+        for (const gull of def.gulls || []) {
+          if (gull.nice) {
+            // Nice seagulls drop you somewhere safe.
+            const [col, row] = gull.drop;
+            expect(simulateDrop(level, { x: (col + 0.5) * 48, y: (row + 0.5) * 48 })).toBeTruthy();
+          } else {
+            // A level with mean seagulls needs spots for your barfed-up blobs.
+            expect((def.blobSpots || []).length).toBeGreaterThanOrEqual(2);
+          }
+        }
 
         if (def.chaser) {
           // The chaser must leave enough time to reach the exit.

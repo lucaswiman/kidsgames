@@ -234,12 +234,14 @@ export class Slime {
 
   /**
    * Shoot the slime out of a cannon. While flying it sticks to the first
-   * sticky thing it hits.
+   * sticky thing it hits. `grip` is how close (in pixels) it has to be to a
+   * sticky thing when it bumps into it; the jungle's flowers and vines use a
+   * bit more so a fast flight always sticks.
    */
-  launch(x, y, vx, vy) {
+  launch(x, y, vx, vy, grip = 3) {
     this.frozen = false;
     this.heldIndex = -1;
-    this.falling = { x, y, vx, vy, sticky: true };
+    this.falling = { x, y, vx, vy, sticky: true, grip };
     for (const end of this.ends) {
       end.x = x;
       end.y = y;
@@ -303,7 +305,7 @@ export class Slime {
     const steps = Math.max(1, Math.ceil((Math.hypot(f.vx, f.vy) * dt) / 4));
     let landed = false;
     // Shot from a cannon: stick to the first sticky thing we bump into.
-    const stickHere = () => f.sticky && isTouchingSticky(level, f, END_RADIUS, 3);
+    const stickHere = () => f.sticky && isTouchingSticky(level, f, END_RADIUS, f.grip);
     for (let i = 0; i < steps && !landed; i++) {
       const nx = f.x + (f.vx * dt) / steps;
       if (circleHitsSolid(level, { x: nx, y: f.y }, END_RADIUS)) {
