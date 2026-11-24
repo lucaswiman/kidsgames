@@ -182,6 +182,27 @@ export const sfx = {
   },
   clawDrop: () => tone({ freq: 400, to: 900, dur: 0.25, vol: 0.15, type: 'triangle' }),
   sore: () => tone({ freq: 500, to: 150, dur: 0.6, vol: 0.25, type: 'sawtooth' }),
+  wave: () => noise({ dur: 1.4, vol: 0.18, filter: 900, to: 250 }),
+  squawk: () => {
+    tone({ freq: 1100, to: 700, dur: 0.12, vol: 0.14, type: 'sawtooth' });
+    tone({ freq: 1000, to: 600, dur: 0.14, vol: 0.14, type: 'sawtooth', delay: 0.16 });
+  },
+  rustle: () => noise({ dur: 0.35, vol: 0.12, filter: 3000, to: 1500 }),
+  coconut: () => {
+    tone({ freq: 300, to: 120, dur: 0.12, vol: 0.3, type: 'triangle' });
+    noise({ dur: 0.1, vol: 0.15, filter: 2000, to: 600 });
+  },
+  bonk: () => tone({ freq: 700, to: 250, dur: 0.18, vol: 0.3, type: 'triangle' }),
+  bounce: () => tone({ freq: 200, to: 800, dur: 0.3, vol: 0.25, type: 'sine' }),
+  barf: () => {
+    tone({ freq: 220, to: 70, dur: 0.4, vol: 0.3, type: 'sawtooth' });
+    noise({ dur: 0.35, vol: 0.2, filter: 800, to: 200, delay: 0.05 });
+  },
+  chest: () => {
+    for (const [i, f] of [523, 659, 784, 1047, 1319].entries()) {
+      tone({ freq: f, dur: 0.14, vol: 0.18, type: 'triangle', delay: i * 0.07 });
+    }
+  },
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -265,6 +286,13 @@ const SONGS = {
     // A bouncy cowboy tune on the minor pentatonic scale.
     lead: [0, null, 3, 5, 7, null, 5, 3, 0, null, 10, null, 7, 5, 3, null],
     bass: [-12, null, -5, null, -12, null, -5, null, -14, null, -7, null, -12, null, -5, null],
+  },
+  island: {
+    bpm: 116,
+    root: 60,
+    // A sunny, bouncy beach tune.
+    lead: [7, null, 4, 7, null, 9, 7, null, 4, null, 2, 4, null, 0, 2, null],
+    bass: [-12, null, -12, -5, null, -5, -7, null, -12, null, -12, -5, null, -10, -7, null],
   },
   boss: {
     bpm: 156,

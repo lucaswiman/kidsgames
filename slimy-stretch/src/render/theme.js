@@ -57,6 +57,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  island: {
+    skyTop: 0x2f9be8,
+    skyBottom: 0xc4ecff,
+    grid: null,
+    wall: 0x6b5a4e,
+    wallDark: 0x463a32,
+    wallLight: 0x8f7d6e,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -141,6 +152,33 @@ export function drawBackdrop(scene, level, theme, themeName) {
         level.pixelHeight - h2
       );
     }
+  } else if (themeName === 'island') {
+    // A big sun, and little islands far out on the ocean.
+    g.fillStyle(0xfff3a0, 0.9);
+    g.fillCircle(level.pixelWidth * 0.75, 110, 60);
+    g.fillStyle(0xffffff, 0.25);
+    g.fillCircle(level.pixelWidth * 0.75, 110, 80);
+    const sea = level.pixelHeight - 3 * TILE;
+    g.fillStyle(0x2a7fc8, 0.45);
+    g.fillRect(0, sea, level.pixelWidth, level.pixelHeight - sea);
+    for (let x = 80; x < level.pixelWidth; x += 520) {
+      const w = 140 + hash(x, 4) * 120;
+      g.fillStyle(0x3d7a4a, 0.5);
+      g.fillEllipse(x + w / 2, sea, w, 50);
+      g.fillStyle(0x6a4a30, 0.5);
+      g.fillRect(x + w / 2 - 3, sea - 70, 6, 50);
+      g.fillStyle(0x3d7a4a, 0.5);
+      g.fillEllipse(x + w / 2 - 18, sea - 72, 40, 12);
+      g.fillEllipse(x + w / 2 + 18, sea - 72, 40, 12);
+    }
+    // Fluffy clouds.
+    g.fillStyle(0xffffff, 0.7);
+    for (let x = 120; x < level.pixelWidth; x += 430) {
+      const y = 70 + hash(x, 7) * 120;
+      g.fillCircle(x, y, 24);
+      g.fillCircle(x + 26, y - 10, 30);
+      g.fillCircle(x + 56, y, 22);
+    }
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -198,6 +236,12 @@ export function drawTiles(scene, level, theme, themeName) {
         drawSpikes(g, level, col, row, x, y);
       } else if (kind === TileKind.PLATFORM) {
         drawPlatform(g, x, y);
+      } else if (kind === TileKind.SAND) {
+        drawSand(g, level, col, row, x, y);
+      } else if (kind === TileKind.PALM) {
+        drawTrunk(g, x, y, col);
+      } else if (kind === TileKind.FROND) {
+        drawFronds(g, level, col, row, x, y);
       } else if (kind === TileKind.EMITTER) {
         g.fillStyle(0x333344, 1);
         g.fillRect(x + 4, y + 4, TILE - 8, TILE - 8);
@@ -269,6 +313,18 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
       g.fillStyle(0x7ff0ff, 0.8);
       g.fillCircle(x + 10 + hash(row, col) * 28, y + 12 + hash(col + 1, row) * 24, 2.5);
     }
+  } else if (themeName === 'island') {
+    // Dark volcanic rock with grass on top.
+    g.fillStyle(theme.wallDark, 0.5);
+    g.fillCircle(x + 12 + hash(col, row) * 24, y + 18 + hash(row, col) * 18, 4);
+    if (openUp) {
+      g.fillStyle(0x3fae4a, 1);
+      g.fillRect(x, y, TILE, 8);
+      g.fillStyle(0x63d36a, 1);
+      for (let i = 4; i < TILE; i += 10) {
+        g.fillTriangle(x + i - 3, y + 2, x + i + 3, y + 2, x + i, y - 5);
+      }
+    }
   } else if (themeName === 'canyon') {
     if (openUp) {
       g.fillStyle(theme.wallLight, 1);
@@ -317,6 +373,106 @@ function drawSpikes(g, level, col, row, x, y) {
       : [sx, y + TILE, sx + 16, y + TILE, sx + 8, y + TILE - 26];
     g.fillTriangle(...pts);
     g.strokeTriangle(...pts);
+  }
+}
+
+function drawSand(g, level, col, row, x, y) {
+  g.fillStyle(0xf0cf86, 1);
+  g.fillRect(x, y, TILE, TILE);
+  if (tileAt(level, col, row - 1) !== TileKind.SAND) {
+    g.fillStyle(0xfbe6b0, 1);
+    g.fillRect(x, y, TILE, 6);
+  }
+  g.fillStyle(0xc9a35e, 0.8);
+  for (let i = 0; i < 4; i++) {
+    g.fillCircle(x + 6 + hash(col + i, row) * 36, y + 10 + hash(row + i, col) * 32, 1.5);
+  }
+  // A little shell now and then.
+  if (hash(col, row + 3) > 0.85) {
+    g.fillStyle(0xffb0c8, 1);
+    g.fillCircle(x + 24, y + 26, 4);
+  }
+}
+
+/** A palm tree's trunk (sticky, like a wall). */
+function drawTrunk(g, x, y, col) {
+  const bend = (hash(col, 0) - 0.5) * 6;
+  g.fillStyle(0x8a5a2e, 1);
+  g.fillRect(x + 6 + bend, y, TILE - 12, TILE);
+  g.fillStyle(0x6b4220, 1);
+  for (let i = 0; i < TILE; i += 12) {
+    g.fillTriangle(x + 6 + bend, y + i, x + TILE - 6 + bend, y + i, x + TILE / 2 + bend, y + i + 8);
+  }
+  g.fillStyle(0xb07a44, 0.6);
+  g.fillRect(x + 10 + bend, y, 5, TILE);
+}
+
+/** Palm fronds: big leaves you can stand on (a one-way platform). */
+function drawFronds(g, level, col, row, x, y) {
+  if (tileAt(level, col, row + 1) === TileKind.PALM) {
+    // The top of the trunk, up under the leaves.
+    drawTrunk(g, x, y, col);
+  }
+  g.fillStyle(0x2f9a3a, 1);
+  g.fillRect(x, y, TILE, 10);
+  g.fillStyle(0x45c24f, 1);
+  g.fillRect(x, y, TILE, 4);
+  // Leafy tips hanging down.
+  g.fillStyle(0x2f9a3a, 1);
+  for (let i = 0; i < 3; i++) {
+    const lx = x + 4 + i * 16;
+    g.fillTriangle(lx, y + 8, lx + 14, y + 8, lx + 4 + hash(col + i, row) * 6, y + 22);
+  }
+  if (!isPlatformLike(level, col - 1, row)) {
+    g.fillTriangle(x, y, x, y + 10, x - 16, y + 18);
+  }
+  if (!isPlatformLike(level, col + 1, row)) {
+    g.fillTriangle(x + TILE, y, x + TILE, y + 10, x + TILE + 16, y + 18);
+  }
+}
+
+function isPlatformLike(level, col, row) {
+  const k = tileAt(level, col, row);
+  return k === TileKind.FROND || k === TileKind.PALM;
+}
+
+/**
+ * A rope bridge tile. `sag` is how far down the middle of this tile dips
+ * (it dips where the slime is standing).
+ */
+export function drawBridge(g, x, y, sagLeft, sagRight) {
+  g.lineStyle(3, 0xc8a46a, 1);
+  g.lineBetween(x, y - 14 + sagLeft * 0.5, x + TILE, y - 14 + sagRight * 0.5);
+  for (let i = 0; i < 3; i++) {
+    const t = (i + 0.5) / 3;
+    const sag = sagLeft + (sagRight - sagLeft) * t;
+    const px = x + i * 16 + 1;
+    g.fillStyle(0x9a6a3a, 1);
+    g.fillRect(px, y + sag, 14, 7);
+    g.fillStyle(0x6b4422, 1);
+    g.fillRect(px, y + sag + 5, 14, 2);
+    g.lineStyle(2, 0xc8a46a, 1);
+    g.lineBetween(px + 7, y + sag, px + 7, y - 14 + sag * 0.5);
+  }
+}
+
+/** A hammock between two little posts. `dip` makes it stretch when you land. */
+export function drawHammock(g, x, y, dip) {
+  g.fillStyle(0x7a4a24, 1);
+  g.fillRect(x - 2, y - 18, 6, TILE + 18);
+  g.fillRect(x + TILE - 4, y - 18, 6, TILE + 18);
+  const pts = [];
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8;
+    pts.push({ x: x + 2 + t * (TILE - 4), y: y - 12 + Math.sin(t * Math.PI) * (10 + dip) });
+  }
+  g.lineStyle(6, 0xe8574a, 1);
+  for (let i = 0; i < pts.length - 1; i++) {
+    g.lineBetween(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+  }
+  g.lineStyle(2, 0xffe08a, 1);
+  for (let i = 0; i < pts.length - 1; i++) {
+    g.lineBetween(pts[i].x, pts[i].y + 2, pts[i + 1].x, pts[i + 1].y + 2);
   }
 }
 

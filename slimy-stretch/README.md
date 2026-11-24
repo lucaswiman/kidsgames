@@ -15,6 +15,11 @@ Climb like an inchworm!
 - **The Cave:** dark tunnels, falling stalactites, friendly bats, mining machines with swinging
   pickaxes (they smash boxes open), mine carts, and a crystal robot boss you trick into crashing
   into a mining machine
+- **The Island:** waves that wash over the sand (get up on a rock!), falling coconuts, crabs (a
+  slime shot flips them over, and a coconut knocks them out), palm trees, hammocks that bounce you
+  up high, wobbly rope bridges, pearls to collect, a hidden treasure chest worth 10 tokens in every
+  level, and seagulls. Some seagulls carry you somewhere useful; others eat you and barf you up at
+  half size, and you have to find the 2 missing blobs of you. They all look the same!
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -74,6 +79,14 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `K`    | mining machine (pickaxe hurts, smashes boxes)     |
 | `=`    | mine cart track (`H` is the cart)                 |
 | `G`    | glowing crystal (lights up dark levels)           |
+| `z`    | sand (waves wash over it)                         |
+| `Y`    | palm tree trunk (sticky)                          |
+| `F`    | palm fronds (a one-way platform)                  |
+| `Q`    | coconut (falls when you go under it)              |
+| `~`    | rope bridge (a one-way platform)                  |
+| `J`    | hammock (bounces you up high)                     |
+| `Z`    | crab                                              |
+| `$`    | treasure chest (worth 10 tokens)                  |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -82,6 +95,11 @@ reading order, for example `boxItems: [null, 'token', 'key-blue', 'core', 'bomb'
 `claws: [{ row: 0, from: 4, to: 9, drop: 12, nice: true }]` (the claw runs along the ceiling in
 `row` between columns `from` and `to`, and drops you at column `drop`). Add `dark: true` to make a
 level dark.
+
+Island levels can have `waves: { every: 8, from: 'right' }` (a wave every 8 seconds from the
+ocean on the right) and seagulls with `gulls: [{ from: 3, to: 12, drop: [27, 7], nice: true }]`
+(the gull flies between columns `from` and `to`; nice ones drop you at `drop`). Levels with mean
+seagulls need `blobSpots: [[col, row], ...]` where your barfed-up blobs can turn up.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

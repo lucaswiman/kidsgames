@@ -45,6 +45,30 @@ export default class BootScene extends Phaser.Scene {
       g.fillCircle(17, 17, 4);
     });
 
+    // Pearls are what you collect on the island.
+    make('pearl', 40, 40, g => {
+      g.fillStyle(0xffd6f0, 0.35);
+      g.fillCircle(20, 20, 19);
+      g.fillStyle(0xe8e4f0, 1);
+      g.fillCircle(20, 20, 12);
+      g.fillStyle(0xfff6ff, 1);
+      g.fillCircle(17, 16, 5);
+      g.fillStyle(0xc9b8d8, 1);
+      g.fillCircle(24, 25, 3);
+    });
+
+    make('chest', 44, 36, g => {
+      g.fillStyle(0x6b3e1c, 1);
+      g.fillRoundedRect(2, 4, 40, 30, 6);
+      g.fillStyle(0x8f5a2c, 1);
+      g.fillRect(4, 16, 36, 16);
+      g.fillStyle(0xe0b030, 1);
+      g.fillRect(2, 14, 40, 4);
+      g.fillRect(19, 10, 6, 12);
+      g.fillStyle(0x3a2410, 1);
+      g.fillRect(21, 16, 2, 4);
+    });
+
     make('bomb', 36, 40, g => {
       g.fillStyle(0x222222, 1);
       g.fillCircle(18, 24, 14);

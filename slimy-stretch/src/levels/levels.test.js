@@ -3,6 +3,7 @@ import { LEVELS, WORLDS } from './levels.js';
 import { parseLevel } from '../logic/level.js';
 import { solveLevel } from '../logic/solver.js';
 import { chaserPosition } from '../logic/hazards.js';
+import { simulateDrop } from '../logic/warehouse.js';
 
 // A kid needs about this many seconds per drag when racing a chaser.
 const SECONDS_PER_DRAG = 2.2;
@@ -59,6 +60,19 @@ describe('levels', () => {
         expect(result.cores.every(Boolean)).toBe(true);
         expect(result.checkpoints.every(Boolean)).toBe(true);
         expect(result.keys.every(Boolean)).toBe(true);
+        expect(result.chests.every(Boolean)).toBe(true);
+        // Spare blobs a seagull barfs up must turn up somewhere you can get to.
+        expect(result.blobSpots.every(Boolean)).toBe(true);
+        for (const gull of def.gulls || []) {
+          if (gull.nice) {
+            // Nice seagulls drop you somewhere safe.
+            const [col, row] = gull.drop;
+            expect(simulateDrop(level, { x: (col + 0.5) * 48, y: (row + 0.5) * 48 })).toBeTruthy();
+          } else {
+            // A level with mean seagulls needs spots for your barfed-up blobs.
+            expect((def.blobSpots || []).length).toBeGreaterThanOrEqual(2);
+          }
+        }
 
         if (def.chaser) {
           // The chaser must leave enough time to reach the exit.

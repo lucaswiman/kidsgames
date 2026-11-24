@@ -12,6 +12,7 @@ import { TileKind } from './level.js';
 import { canReach } from './slime.js';
 import { TONGUE_RADIUS, touchesBox } from './tongue.js';
 import { PICK_RADIUS, pickaxe } from './cave.js';
+import { simulateBounce } from './island.js';
 import { CANNON_ENTER, CLAW_HANG, CLAW_RADIUS, simulateDrop, simulateShot } from './warehouse.js';
 
 const CANNON_ANGLES = 72;
@@ -81,6 +82,16 @@ function explore(level) {
     }
     return cannonLandings[i];
   };
+  // Hammocks: land on one and it bounces you up to wherever you stick.
+  const hammocks = [];
+  level.tiles.forEach((row, r) =>
+    row.forEach((kind, c) => {
+      if (kind === TileKind.HAMMOCK) {
+        const top = { x: (c + 0.5) * TILE, y: r * TILE - END_RADIUS - 1 };
+        hammocks.push({ ...top, landing: simulateBounce(level, top) });
+      }
+    })
+  );
   // Only nice claws count: mean ones drop you somewhere bad.
   const niceClaws = (level.def.claws || [])
     .filter(c => c.nice)
@@ -106,6 +117,11 @@ function explore(level) {
         for (const col of [cart.minCol, cart.maxCol]) {
           visit({ x: (col + 0.5) * TILE, y: top.y }, anchor.moves + 2);
         }
+      }
+    }
+    for (const h of hammocks) {
+      if (h.landing && Math.abs(anchor.x - h.x) < TILE / 2 + 2 && Math.abs(anchor.y - h.y) < 8) {
+        visit({ ...h.landing }, anchor.moves + 1);
       }
     }
     for (const claw of niceClaws) {
@@ -236,6 +252,10 @@ export function solveLevel(level) {
     cores: level.cores.map(c => item(c, ITEM_RADIUS)),
     checkpoints: level.checkpoints.map(c => result.canTouch(c, TILE / 2)),
     keys: level.keys.map(k => item(k, ITEM_RADIUS)),
+    chests: level.chests.map(c => result.canTouch(c, 20)),
+    blobSpots: (level.def.blobSpots || []).map(([col, row]) =>
+      result.canTouch({ x: (col + 0.5) * TILE, y: (row + 0.5) * TILE }, 18)
+    ),
     boxes: level.boxes.map((_b, i) => eaten.has(i)),
   };
 }

@@ -23,19 +23,27 @@ export class SlimeShots {
     return this.blobs.length;
   }
 
-  /** How far the slime can stretch with this many blobs out. */
-  reach() {
-    return MAX_STRETCH * (1 - REACH_PER_BLOB * this.blobs.length);
+  /**
+   * How far the slime can stretch with this many blobs out. `lost` is extra
+   * blobs missing for other reasons (a seagull ate them).
+   */
+  reach(lost = 0) {
+    return MAX_STRETCH * Math.max(0.25, 1 - REACH_PER_BLOB * (this.blobs.length + lost));
   }
 
   /** How big the slime looks (1 = full size). */
-  size() {
-    return 1 - 0.18 * this.blobs.length;
+  size(lost = 0) {
+    return Math.max(0.46, 1 - 0.18 * (this.blobs.length + lost));
+  }
+
+  /** Can another blob be fired, with `lost` blobs already missing? */
+  canFire(lost = 0) {
+    return this.blobs.length + lost < MAX_BLOBS;
   }
 
   /** Fire a blob from `from` toward `toward`. Returns false if 3 are already out. */
-  fire(from, toward) {
-    if (this.blobs.length >= MAX_BLOBS) {
+  fire(from, toward, lost = 0) {
+    if (!this.canFire(lost)) {
       return false;
     }
     const d = dist(from, toward) || 1;

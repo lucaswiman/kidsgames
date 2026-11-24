@@ -23,30 +23,38 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     this.add.text(GAME_WIDTH / 2, 52, 'Pick a Level', textStyle(52, '#7dff7a')).setOrigin(0.5);
 
-    // Fit all the worlds on one screen.
-    const rowHeight = (GAME_HEIGHT - 120) / WORLDS.length;
+    // Fit all the worlds on one screen: in two columns once there are lots.
+    const columns = WORLDS.length > 6 ? 2 : 1;
+    const rows = Math.ceil(WORLDS.length / columns);
+    const rowHeight = (GAME_HEIGHT - 120) / rows;
+    const gap = 16;
+    const bandWidth = (GAME_WIDTH - 80 - (columns - 1) * gap) / columns;
+    const perWorld = WORLDS.map(w => LEVELS.filter(l => l.world === w.id).length);
+    const slot = (bandWidth - 48) / Math.max(...perWorld);
+    const buttonWidth = Math.min(140, slot - (columns > 1 ? 10 : 50));
     WORLDS.forEach((world, w) => {
-      const top = 110 + w * rowHeight;
+      const left = 40 + Math.floor(w / rows) * (bandWidth + gap);
+      const top = 110 + (w % rows) * rowHeight;
       const buttonHeight = Math.min(60, rowHeight - 70);
       const y = top + 42 + buttonHeight / 2; // middle of the level buttons
       const theme = THEMES[world.theme];
       const band = this.add.graphics();
       band.fillStyle(theme.skyBottom, 0.9);
-      band.fillRoundedRect(40, top, GAME_WIDTH - 80, rowHeight - 12, 22);
+      band.fillRoundedRect(left, top, bandWidth, rowHeight - 12, 22);
       band.fillStyle(theme.wall, 1);
-      band.fillRoundedRect(40, top + rowHeight - 26, GAME_WIDTH - 80, 14, {
+      band.fillRoundedRect(left, top + rowHeight - 26, bandWidth, 14, {
         tl: 0,
         tr: 0,
         bl: 14,
         br: 14,
       });
       this.add
-        .text(64, top + 6, `World ${w + 1}: ${world.name}`, textStyle(26, '#ffffff'))
+        .text(left + 24, top + 6, `World ${w + 1}: ${world.name}`, textStyle(26, '#ffffff'))
         .setOrigin(0, 0);
 
       const levels = LEVELS.map((l, i) => ({ ...l, index: i })).filter(l => l.world === world.id);
       levels.forEach((level, k) => {
-        const x = 150 + k * 190;
+        const x = left + 24 + slot * (k + 0.5);
         const unlocked = UNLOCK_ALL || level.index < progress.unlocked;
         const best = progress.best[level.id];
         const bossIcon = level.boss === 'crystal' ? '💎' : '🤖';
@@ -62,13 +70,18 @@ export default class LevelSelectScene extends Phaser.Scene {
             }
           },
           {
-            width: 140,
+            width: buttonWidth,
             height: buttonHeight,
             fontSize: 26,
             color: unlocked ? 0x2fae4a : 0x555a66,
           }
         );
-        if (best) {
+        if (best && columns > 1) {
+          // No room beside the button, so the best score goes under it.
+          this.add
+            .text(x, y + buttonHeight / 2 + 14, `★ ${best.score}`, textStyle(15, '#ffe066'))
+            .setOrigin(0.5);
+        } else if (best) {
           this.add.text(x + 96, y, `★\n${best.score}`, textStyle(16, '#ffe066')).setOrigin(0.5);
         }
       });

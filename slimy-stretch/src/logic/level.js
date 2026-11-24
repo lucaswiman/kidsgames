@@ -21,6 +21,13 @@ import { TILE } from './constants.js';
 //   K  mining machine (swings a pickaxe that hurts, and smashes metal boxes)
 //   =  mine cart track          H  mine cart (on its track)
 //   G  glowing crystal (lights up dark levels)
+//   z  sand (sticky, but waves wash over it)
+//   Y  palm tree trunk (sticky)  F  palm fronds (a one-way platform)
+//   Q  coconut (hangs under palm fronds, falls when you go under it)
+//   ~  rope bridge (a one-way platform that sags)
+//   J  hammock (bounces you up high)
+//   Z  crab (walks back and forth and pinches)
+//   $  treasure chest (worth 10 tokens)
 //   .  empty
 
 export const TileKind = {
@@ -39,7 +46,20 @@ export const TileKind = {
   MACHINE: 12,
   CART: 13,
   RAIL: 14,
+  SAND: 15,
+  PALM: 16,
+  FROND: 17,
+  BRIDGE: 18,
+  HAMMOCK: 19,
 };
+
+// Tiles that work like one-way platforms: stretch up through them from
+// below, stick to their tops.
+const PLATFORMS = new Set([TileKind.PLATFORM, TileKind.FROND, TileKind.BRIDGE, TileKind.HAMMOCK]);
+
+export function isPlatformKind(kind) {
+  return PLATFORMS.has(kind);
+}
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
 const KEY_CHARS = { 1: 'red', 2: 'blue', 3: 'yellow' };
@@ -64,6 +84,8 @@ const SOLID = new Set([
   TileKind.BELT_LEFT,
   TileKind.MACHINE,
   TileKind.CART,
+  TileKind.SAND,
+  TileKind.PALM,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -74,6 +96,8 @@ const STICKY = new Set([
   TileKind.BELT_LEFT,
   TileKind.MACHINE,
   TileKind.CART,
+  TileKind.SAND,
+  TileKind.PALM,
 ]);
 
 export function isSolidKind(kind) {
@@ -126,6 +150,9 @@ export function parseLevel(def) {
     machines: [],
     carts: [],
     crystals: [],
+    coconuts: [],
+    crabs: [],
+    chests: [],
   };
 
   rows.forEach((line, row) => {
@@ -232,6 +259,30 @@ export function parseLevel(def) {
         case 'G':
           level.crystals.push(center);
           break;
+        case 'z':
+          kind = TileKind.SAND;
+          break;
+        case 'Y':
+          kind = TileKind.PALM;
+          break;
+        case 'F':
+          kind = TileKind.FROND;
+          break;
+        case '~':
+          kind = TileKind.BRIDGE;
+          break;
+        case 'J':
+          kind = TileKind.HAMMOCK;
+          break;
+        case 'Q':
+          level.coconuts.push({ ...center, col, row });
+          break;
+        case 'Z':
+          level.crabs.push({ ...center, col, row });
+          break;
+        case '$':
+          level.chests.push(center);
+          break;
         case '.':
           break;
         default:
@@ -303,11 +354,14 @@ function findCartTracks(level) {
   }
 }
 
-/** Tile kind at a tile coordinate. Outside the map counts as wall. */
+/**
+ * Tile kind at a tile coordinate. The sides and top of the map are a
+ * slippery wall you can't stick to (outdoor levels have open sky).
+ */
 export function tileAt(level, col, row) {
   if (row < 0 || col < 0 || row >= level.height || col >= level.width) {
     // Off the bottom is open so the slime can fall out of the world.
-    return row >= level.height ? TileKind.EMPTY : TileKind.WALL;
+    return row >= level.height ? TileKind.EMPTY : TileKind.ICE;
   }
   return level.tiles[row][col];
 }

@@ -27,6 +27,14 @@ import { batPosition, CaveStuff, PICK_RADIUS, pickaxe } from '../logic/cave.js';
 import { BLOB_RADIUS, SlimeShots } from '../logic/slimeShot.js';
 import { CRYSTAL_WIDTH, CrystalBoss, SHARD_RADIUS } from '../logic/crystalBoss.js';
 import {
+  CHEST_TOKENS,
+  CRAB_RADIUS,
+  GULL_GRAB_RADIUS,
+  IslandStuff,
+  WAVE_DEPTH,
+  waveState,
+} from '../logic/island.js';
+import {
   hasCaveRewards,
   hasTongue,
   loadProgress,
@@ -40,7 +48,9 @@ import {
   drawBackground,
   drawBelt,
   drawBox,
+  drawBridge,
   drawCrumble,
+  drawHammock,
   drawFluids,
   drawTiles,
   THEMES,
@@ -94,10 +104,14 @@ export default class GameScene extends Phaser.Scene {
     this.aimPath = null;
     this.bombBlasts = [];
     this.belts = [];
+    this.swingTiles = []; // rope bridges and hammocks, which sag under the slime
     this.level.tiles.forEach((row, r) =>
       row.forEach((kind, c) => {
         if (kind === TileKind.BELT_RIGHT || kind === TileKind.BELT_LEFT) {
           this.belts.push({ col: c, row: r, dir: kind === TileKind.BELT_RIGHT ? 1 : -1 });
+        }
+        if (kind === TileKind.BRIDGE || kind === TileKind.HAMMOCK) {
+          this.swingTiles.push({ col: c, row: r, kind });
         }
       })
     );
@@ -111,6 +125,8 @@ export default class GameScene extends Phaser.Scene {
     this.windWasBlowing = false;
     this.windStreaks = [];
     this.windGfx = this.add.graphics().setScrollFactor(0).setDepth(150);
+    this.island = new IslandStuff(this.level);
+    this.waveWasWarning = false;
     this.createItems();
 
     this.slime = new Slime(this.level.start);
@@ -142,10 +158,20 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: sprite, scaleX: 0.2, yoyo: true, repeat: -1, duration: 600 });
       return { ...t, sprite, taken: false };
     });
+    // On the island you collect pearls instead of power cores.
+    this.coreName = this.themeName === 'island' ? 'pearl' : 'power core';
     this.cores = level.cores.map(c => {
-      const sprite = this.add.image(c.x, c.y, 'core').setDepth(6).setVisible(!hidden(c));
+      const sprite = this.add
+        .image(c.x, c.y, this.themeName === 'island' ? 'pearl' : 'core')
+        .setDepth(6)
+        .setVisible(!hidden(c));
       this.tweens.add({ targets: sprite, y: c.y - 6, yoyo: true, repeat: -1, duration: 800 });
       return { ...c, sprite, taken: false };
+    });
+    this.chestSprites = this.island.chests.map(c => {
+      const sprite = this.add.image(c.x, c.y + 6, 'chest').setDepth(6);
+      this.tweens.add({ targets: sprite, angle: 4, yoyo: true, repeat: -1, duration: 900 });
+      return sprite;
     });
     this.keySprites = this.canyon.keys.map(k => {
       const sprite = this.add
@@ -223,9 +249,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   armShot(armed) {
-    if (armed && this.shots.count >= 3) {
+    if (armed && !this.shots.canFire(this.island.lost)) {
       sfx.locked();
-      this.showBanner('All 3 slime blobs are out. Touch one to get it back!', 1800);
+      this.showBanner(
+        this.island.lost
+          ? "You're too small to shoot! Find your missing slime blobs."
+          : 'All 3 slime blobs are out. Touch one to get it back!',
+        1800
+      );
       return;
     }
     this.shotArmed = armed;
@@ -247,13 +278,24 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Tokens collected so far (a treasure chest counts as 10). */
+  tokenCount() {
+    const chests = this.island.chests.filter(c => c.taken).length;
+    return this.tokens.filter(t => t.taken).length + chests * CHEST_TOKENS;
+  }
+
+  tokenTotal() {
+    return this.tokens.length + this.island.chests.length * CHEST_TOKENS;
+  }
+
   updateHud() {
     const parts = [];
-    if (this.tokens.length) {
-      parts.push(`Tokens ${this.tokens.filter(t => t.taken).length}/${this.tokens.length}`);
+    if (this.tokenTotal()) {
+      parts.push(`Tokens ${this.tokenCount()}/${this.tokenTotal()}`);
     }
     if (this.cores.length) {
-      parts.push(`Cores ${this.cores.filter(c => c.taken).length}/${this.cores.length}`);
+      const label = this.coreName === 'pearl' ? 'Pearls' : 'Cores';
+      parts.push(`${label} ${this.cores.filter(c => c.taken).length}/${this.cores.length}`);
     }
     this.hudItems.setText(parts.join('    '));
   }
@@ -273,7 +315,11 @@ export default class GameScene extends Phaser.Scene {
       }
       if (this.shotArmed && !this.slime.frozen) {
         // Fire a blob of slime toward where you tapped.
-        this.shots.fire(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
+        this.shots.fire(
+          this.slime.ends[this.slime.lead],
+          this.worldPoint(pointer),
+          this.island.lost
+        );
         this.armShot(false);
         this.activePointer = null;
         return;
@@ -343,7 +389,9 @@ export default class GameScene extends Phaser.Scene {
       this.updateTongue(dt);
       const canyonHit = this.canyon.update(dt, this.slime);
       const caveHit = this.cave.update(dt, this.slime);
+      const islandHit = this.island.update(dt, this.slime, this.time_);
       this.updateShots(dt);
+      this.playIslandSounds();
       this.playSlimeSounds();
       this.playCanyonSounds();
       this.playWarehouseSounds();
@@ -355,7 +403,7 @@ export default class GameScene extends Phaser.Scene {
       const hazard = findHazard(this.level, this.slime, this.lasers, this.time_, this.chaser);
       if (canyonHit === 'boulder') {
         this.startCrush();
-      } else if (hazard || canyonHit || caveHit || this.bossHurtSlime) {
+      } else if (hazard || canyonHit || caveHit || islandHit || this.bossHurtSlime) {
         this.die();
       }
     } else if (this.status === 'crushed') {
@@ -467,8 +515,14 @@ export default class GameScene extends Phaser.Scene {
           this.cave.knockDown(s);
         }
       }
+      // ...and flips crabs onto their backs.
+      for (const crab of this.island.crabs) {
+        if (Math.hypot(blob.x - crab.x, blob.y - crab.y) < CRAB_RADIUS + BLOB_RADIUS + 4) {
+          this.island.flipCrab(crab);
+        }
+      }
     });
-    this.slime.reach = this.shots.reach();
+    this.slime.reach = this.shots.reach(this.island.lost);
     for (const e of this.shots.takeEvents()) {
       if (e === 'shoot') {
         sfx.throwBomb();
@@ -476,6 +530,42 @@ export default class GameScene extends Phaser.Scene {
         sfx.splorch();
       } else if (e === 'absorb' || e === 'return') {
         sfx.grab();
+      }
+    }
+  }
+
+  playIslandSounds() {
+    const { warn } = waveState(this.island.waves, this.time_);
+    if (warn && !this.waveWasWarning) {
+      sfx.wave();
+    }
+    this.waveWasWarning = warn;
+    for (const e of this.island.takeEvents()) {
+      if (e.type === 'rustle') {
+        sfx.rustle();
+      } else if (e.type === 'crack') {
+        sfx.coconut();
+      } else if (e.type === 'bonk') {
+        sfx.bonk();
+        this.showBanner('BONK! The coconut knocked out the crab!', 1600);
+      } else if (e.type === 'flip') {
+        sfx.bonk();
+      } else if (e.type === 'bounce') {
+        sfx.bounce();
+      } else if (e.type === 'squawk') {
+        sfx.squawk();
+      } else if (e.type === 'gullGrab') {
+        sfx.clawGrab();
+      } else if (e.type === 'gullDrop') {
+        sfx.clawDrop();
+      } else if (e.type === 'barf') {
+        sfx.barf();
+        this.showBanner('BLECH! The seagull barfed you up. Find your missing slime!', 2200);
+      } else if (e.type === 'absorb') {
+        sfx.grab();
+        if (!this.island.lost) {
+          this.showBanner('Back to full size!', 1400);
+        }
       }
     }
   }
@@ -701,6 +791,21 @@ export default class GameScene extends Phaser.Scene {
       sfx.core();
       this.checkAllCores();
     }
+    this.island.touchedChests(this.slime).forEach(chest => {
+      const sprite = this.chestSprites[this.island.chests.indexOf(chest)];
+      this.tweens.killTweensOf(sprite);
+      this.tweens.add({
+        targets: sprite,
+        y: sprite.y - 50,
+        alpha: 0,
+        scale: 1.8,
+        duration: 600,
+        onComplete: () => sprite.destroy(),
+      });
+      sfx.chest();
+      this.showBanner('Treasure! +10 tokens!', 1600);
+      this.updateHud();
+    });
     for (const cp of this.checkpoints) {
       if (!cp.active && touchedItems(this.slime, [cp], TILE / 2).length) {
         for (const other of this.checkpoints) {
@@ -747,7 +852,8 @@ export default class GameScene extends Phaser.Scene {
     if (missing > 0) {
       if (this.lockedMessageTimer <= 0) {
         sfx.locked();
-        this.showBanner(`Locked! Find ${missing} more power core${missing > 1 ? 's' : ''}.`, 1800);
+        const name = `${this.coreName}${missing > 1 ? 's' : ''}`;
+        this.showBanner(`Locked! Find ${missing} more ${name}.`, 1800);
         this.lockedMessageTimer = 2.5;
       }
       return;
@@ -798,6 +904,7 @@ export default class GameScene extends Phaser.Scene {
 
   respawn() {
     this.canyon.resetAfterDeath();
+    this.island.resetAfterDeath();
     this.shotArmed = false;
     this.warehouse.resetAfterDeath();
     this.aiming = false;
@@ -824,7 +931,7 @@ export default class GameScene extends Phaser.Scene {
     this.status = 'won';
     this.activePointer = null;
     sfx.win();
-    const tokens = this.tokens.filter(t => t.taken).length;
+    const tokens = this.tokenCount();
     const score = scoreLevel({ tokens, seconds: this.clock, deaths: this.deaths });
     const progress = loadProgress();
     const isBest = recordFinish(progress, this.levelIndex, this.def.id, { score, tokens });
@@ -856,8 +963,8 @@ export default class GameScene extends Phaser.Scene {
         ? 'You beat the robot!'
         : 'Level Complete!';
     const lines = [];
-    if (this.tokens.length) {
-      lines.push(`Tokens: ${tokens} / ${this.tokens.length}`);
+    if (this.tokenTotal()) {
+      lines.push(`Tokens: ${tokens} / ${this.tokenTotal()}`);
     }
     lines.push(`Score: ${score}`);
     lines.push(isBest ? 'New best score!' : `Best: ${best}`);
@@ -959,6 +1066,7 @@ export default class GameScene extends Phaser.Scene {
     this.drawBombBlasts(over, dt);
     this.drawBoulders(over);
     this.drawCave(over);
+    this.drawIsland(over);
     this.drawBlobs(over);
     if (this.crystal) {
       this.drawCrystal(over);
@@ -971,9 +1079,14 @@ export default class GameScene extends Phaser.Scene {
 
     const visible = ['playing', 'won', 'won-wait', 'crushed'];
     // Inside a cannon the slime is hidden (the cannon draws a peek of it).
-    if (visible.includes(this.status) && this.warehouse.inCannon === null) {
+    // Inside a seagull's tummy the slime is hidden too.
+    const hidden = this.warehouse.inCannon !== null || this.island.eaten;
+    if (visible.includes(this.status) && !hidden) {
       const look = this.slime.heldEnd ? this.slime.finger : this.slime.ends[1 - this.slime.lead];
-      this.slimeView.draw(this.slime, dt, look, this.shots.size(), this.hasCaveRewards);
+      const size = this.shots.size(this.island.lost);
+      this.slimeView.draw(this.slime, dt, look, size, this.hasCaveRewards);
+    } else if (hidden) {
+      this.slimeView.clear();
     }
     this.drawDarkness();
   }
@@ -1103,6 +1216,193 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Rope bridges and hammocks dip down where the slime is standing on them. */
+  drawSwingTiles(g) {
+    const feet = this.slime.ends.filter(e => e.state === 'stuck' && !this.slime.isFalling);
+    const dipAt = (x, top) => {
+      let dip = 0;
+      for (const e of feet) {
+        if (Math.abs(e.y + END_RADIUS - top) < 8) {
+          dip = Math.max(dip, 8 * Math.exp(-(((e.x - x) / 40) ** 2)));
+        }
+      }
+      return dip;
+    };
+    const bounce = Math.max(0, 1 - (this.island.time - this.island.lastBounce) * 3);
+    for (const t of this.swingTiles) {
+      const x = t.col * TILE;
+      const y = t.row * TILE;
+      if (t.kind === TileKind.BRIDGE) {
+        drawBridge(g, x, y, dipAt(x, y), dipAt(x + TILE, y));
+      } else {
+        drawHammock(g, x, y, dipAt(x + TILE / 2, y) + bounce * 10);
+      }
+    }
+  }
+
+  drawIsland(g) {
+    const island = this.island;
+    // Waves washing over the sand.
+    const cover = island.waveNow(this.time_);
+    const { warn } = waveState(island.waves, this.time_);
+    this.level.tiles.forEach((row, r) =>
+      row.forEach((kind, c) => {
+        if (kind !== TileKind.SAND || this.level.tiles[r - 1]?.[c] === TileKind.SAND) {
+          return;
+        }
+        const x = c * TILE;
+        const top = r * TILE;
+        if (cover) {
+          const left = Math.max(x, cover.left);
+          const right = Math.min(x + TILE, cover.right);
+          if (right > left) {
+            const wobble = Math.sin(this.clock * 6 + c) * 3;
+            g.fillStyle(0x2f8fff, 0.75);
+            g.fillRect(left, top - WAVE_DEPTH + wobble, right - left, WAVE_DEPTH - wobble);
+            g.fillStyle(0xe8f6ff, 0.95);
+            g.fillRect(left, top - WAVE_DEPTH + wobble, right - left, 5);
+          }
+        } else if (warn) {
+          // Foam building up at the water's edge: a wave is coming!
+          g.fillStyle(0xffffff, 0.25 + 0.25 * Math.sin(this.clock * 10));
+          g.fillRect(x, top - 6, TILE, 6);
+        }
+      })
+    );
+    // Coconuts
+    for (const nut of island.coconuts) {
+      if (nut.state === 'gone') {
+        continue;
+      }
+      const dx = nut.state === 'shaking' ? (Math.random() - 0.5) * 5 : 0;
+      g.fillStyle(0x5a3a1c, 1);
+      g.fillCircle(nut.x + dx, nut.y, 13);
+      g.fillStyle(0x3a2410, 1);
+      g.fillCircle(nut.x - 4 + dx, nut.y - 3, 2);
+      g.fillCircle(nut.x + 3 + dx, nut.y - 4, 2);
+      g.fillCircle(nut.x + dx, nut.y + 2, 2);
+    }
+    // Crabs
+    for (const crab of island.crabs) {
+      this.drawCrab(g, crab);
+    }
+    // Treasure chests glint.
+    island.chests.forEach(chest => {
+      if (!chest.taken && Math.sin(this.clock * 3 + chest.x) > 0.9) {
+        g.fillStyle(0xffffff, 0.9);
+        g.fillCircle(chest.x + 14, chest.y - 6, 3);
+      }
+    });
+    // Spare blobs of slime left behind by a seagull.
+    for (const b of island.spares) {
+      const bob = Math.sin(this.clock * 4 + b.x) * 3;
+      g.fillStyle(0x55e05a, 0.3);
+      g.fillCircle(b.x, b.y + bob, 18);
+      g.fillStyle(0x55e05a, 0.8);
+      g.fillCircle(b.x, b.y + bob, 11);
+      g.fillStyle(0xffffff, 0.6);
+      g.fillCircle(b.x - 3, b.y - 4 + bob, 3);
+    }
+    // Seagulls, and the shadow where one is about to land.
+    for (const gull of island.gulls) {
+      if (gull.state === 'aim' || gull.state === 'swoop') {
+        const t = gull.target;
+        const pulse = 0.5 + 0.5 * Math.sin(this.clock * 14);
+        g.fillStyle(0x000000, 0.2);
+        g.fillCircle(t.x, t.y, GULL_GRAB_RADIUS);
+        g.lineStyle(3, 0xffffff, 0.4 + 0.5 * pulse);
+        g.strokeCircle(t.x, t.y, GULL_GRAB_RADIUS);
+      }
+      this.drawGull(g, gull);
+    }
+  }
+
+  drawCrab(g, crab) {
+    const flipped = crab.state !== 'walk';
+    const x = crab.x;
+    const y = crab.y + 2;
+    const walk = flipped ? 0 : Math.sin(this.clock * 16 + x) * 3;
+    g.fillStyle(0xe2462e, 1);
+    // Legs (wiggling in the air when it's on its back).
+    g.lineStyle(3, 0xb8301c, 1);
+    const legY = flipped ? y - 8 : y + 8;
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const wiggle = flipped ? Math.sin(this.clock * 20 + i) * 4 : walk * (i % 2 ? 1 : -1);
+        g.lineBetween(x + side * (6 + i * 4), y, x + side * (14 + i * 4), legY + wiggle);
+      }
+    }
+    g.fillStyle(0xe2462e, 1);
+    g.fillEllipse(x, y, 34, 22);
+    if (flipped) {
+      g.fillStyle(0xf28a6a, 1);
+      g.fillEllipse(x, y + 2, 24, 12);
+      if (crab.state === 'ko') {
+        // Seeing stars.
+        g.fillStyle(0xffe066, 1);
+        for (let i = 0; i < 3; i++) {
+          const a = this.clock * 4 + (i * Math.PI * 2) / 3;
+          g.fillCircle(x + Math.cos(a) * 16, y - 18 + Math.sin(a) * 5, 3);
+        }
+      }
+      return;
+    }
+    // Claws
+    const snap = Math.sin(this.clock * 8 + x) > 0 ? 4 : 0;
+    for (const side of [-1, 1]) {
+      g.fillStyle(0xe2462e, 1);
+      g.fillCircle(x + side * 20, y - 10, 7);
+      g.fillStyle(0x7a1a0a, 1);
+      g.fillTriangle(
+        x + side * 20,
+        y - 12,
+        x + side * 28,
+        y - 16 - snap,
+        x + side * 28,
+        y - 8 + snap
+      );
+    }
+    // Eyes on stalks
+    g.lineStyle(2, 0xb8301c, 1);
+    g.lineBetween(x - 5, y - 8, x - 6, y - 16);
+    g.lineBetween(x + 5, y - 8, x + 6, y - 16);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(x - 6, y - 17, 4);
+    g.fillCircle(x + 6, y - 17, 4);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(x - 6 + crab.dir, y - 17, 2);
+    g.fillCircle(x + 6 + crab.dir, y - 17, 2);
+  }
+
+  drawGull(g, gull) {
+    // All seagulls look exactly the same: you can never tell which is which!
+    const x = gull.x;
+    const y = gull.y;
+    const flap = Math.sin(this.clock * (gull.state === 'swoop' ? 4 : 12)) * 10;
+    const full = gull.state === 'eat';
+    g.fillStyle(0xf4f4f4, 1);
+    g.fillEllipse(x, y, full ? 44 : 36, full ? 26 : 18);
+    g.fillStyle(0xd8dde4, 1);
+    g.fillTriangle(x - 6, y - 2, x - 34, y - 6 - flap, x - 10, y + 6);
+    g.fillTriangle(x + 6, y - 2, x + 34, y - 6 - flap, x + 10, y + 6);
+    g.fillStyle(0x888e96, 1);
+    g.fillTriangle(x - 30, y - 6 - flap, x - 34, y - 6 - flap, x - 24, y - 2 - flap * 0.6);
+    g.fillTriangle(x + 30, y - 6 - flap, x + 34, y - 6 - flap, x + 24, y - 2 - flap * 0.6);
+    const hx = x + gull.dir * 16;
+    g.fillStyle(0xf4f4f4, 1);
+    g.fillCircle(hx, y - 6, 8);
+    g.fillStyle(0xffb020, 1);
+    g.fillTriangle(hx + gull.dir * 6, y - 8, hx + gull.dir * 18, y - 5, hx + gull.dir * 6, y - 3);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(hx + gull.dir * 3, y - 8, 1.8);
+    if (gull.state === 'carry') {
+      // Little feet holding on.
+      g.lineStyle(2, 0xffb020, 1);
+      g.lineBetween(x - 4, y + 8, x - 6, y + 16);
+      g.lineBetween(x + 4, y + 8, x + 6, y + 16);
+    }
+  }
+
   drawBlobs(g) {
     for (const b of this.shots.blobs) {
       g.fillStyle(0x55e05a, 0.75);
@@ -1184,6 +1484,7 @@ export default class GameScene extends Phaser.Scene {
     for (const b of this.belts) {
       drawBelt(g, b.col * TILE, b.row * TILE, b.dir, this.clock * 40);
     }
+    this.drawSwingTiles(g);
     for (const c of this.canyon.crumbles) {
       const x = c.col * TILE;
       const y = c.row * TILE;
