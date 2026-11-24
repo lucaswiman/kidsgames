@@ -198,6 +198,38 @@ export const sfx = {
     tone({ freq: 220, to: 70, dur: 0.4, vol: 0.3, type: 'sawtooth' });
     noise({ dur: 0.35, vol: 0.2, filter: 800, to: 200, delay: 0.05 });
   },
+  gloop: () => {
+    tone({ freq: 120, to: 60, dur: 0.35, vol: 0.3, type: 'sine' });
+    tone({ freq: 220, to: 140, dur: 0.12, vol: 0.15, type: 'sine', delay: 0.15 });
+  },
+  chatter: () => {
+    for (let i = 0; i < 4; i++) {
+      tone({ freq: 900 + (i % 2) * 300, dur: 0.06, vol: 0.12, type: 'square', delay: i * 0.07 });
+    }
+  },
+  whoosh: () => noise({ dur: 0.25, vol: 0.15, filter: 3000, to: 900 }),
+  squish: () => {
+    noise({ dur: 0.15, vol: 0.25, filter: 1200, to: 200 });
+    tone({ freq: 300, to: 120, dur: 0.12, vol: 0.15, type: 'triangle' });
+  },
+  eek: () => tone({ freq: 1200, to: 1800, dur: 0.2, vol: 0.15, type: 'square' }),
+  hiss: () => noise({ dur: 0.6, vol: 0.14, filter: 6000, to: 3000 }),
+  snakeSnap: () => {
+    noise({ dur: 0.1, vol: 0.25, filter: 4000, to: 1000 });
+    tone({ freq: 500, to: 200, dur: 0.1, vol: 0.2, type: 'square' });
+  },
+  leafBreak: () => {
+    noise({ dur: 0.4, vol: 0.3, filter: 3500, to: 400 });
+    tone({ freq: 400, to: 90, dur: 0.5, vol: 0.2, type: 'triangle' });
+  },
+  vine: () => tone({ freq: 260, to: 180, dur: 0.15, vol: 0.2, type: 'triangle' }),
+  wheee: () => tone({ freq: 400, to: 1200, dur: 0.35, vol: 0.18, type: 'triangle' }),
+  zip: () => tone({ freq: 700, to: 1500, dur: 0.9, vol: 0.1, type: 'sawtooth' }),
+  creak: () => tone({ freq: 180, to: 140, dur: 0.4, vol: 0.18, type: 'sawtooth' }),
+  yum: () => {
+    tone({ freq: 523, dur: 0.1, vol: 0.18, type: 'triangle' });
+    tone({ freq: 784, dur: 0.18, vol: 0.18, type: 'triangle', delay: 0.1 });
+  },
   chest: () => {
     for (const [i, f] of [523, 659, 784, 1047, 1319].entries()) {
       tone({ freq: f, dur: 0.14, vol: 0.18, type: 'triangle', delay: i * 0.07 });
@@ -293,6 +325,13 @@ const SONGS = {
     // A sunny, bouncy beach tune.
     lead: [7, null, 4, 7, null, 9, 7, null, 4, null, 2, 4, null, 0, 2, null],
     bass: [-12, null, -12, -5, null, -5, -7, null, -12, null, -12, -5, null, -10, -7, null],
+  },
+  jungle: {
+    bpm: 112,
+    root: 57,
+    // Bongo-ish bass with a marimba melody, deep in the jungle.
+    lead: [12, null, 7, 9, null, 12, 14, null, 12, 9, null, 7, 9, null, 4, null],
+    bass: [-12, -12, null, -5, -12, null, -5, null, -10, -10, null, -3, -10, null, -5, -7],
   },
   boss: {
     bpm: 156,

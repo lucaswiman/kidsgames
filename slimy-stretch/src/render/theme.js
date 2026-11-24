@@ -68,6 +68,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  jungle: {
+    skyTop: 0x4f9e5c,
+    skyBottom: 0xcdeaa8,
+    grid: null,
+    wall: 0x6b6446,
+    wallDark: 0x433e2a,
+    wallLight: 0x8f8760,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -179,6 +190,8 @@ export function drawBackdrop(scene, level, theme, themeName) {
       g.fillCircle(x + 26, y - 10, 30);
       g.fillCircle(x + 56, y, 22);
     }
+  } else if (themeName === 'jungle') {
+    drawJungleBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -215,6 +228,47 @@ export function drawBackdrop(scene, level, theme, themeName) {
   return g;
 }
 
+/** Far-away jungle: misty rows of giant trees, with vines hanging down. */
+function drawJungleBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  // Two layers of tree crowns: pale ones far away, darker ones closer.
+  const layers = [
+    { color: 0x8cc48a, alpha: 0.55, top: 0.25, step: 150, size: 90 },
+    { color: 0x4f9a55, alpha: 0.5, top: 0.45, step: 190, size: 110 },
+  ];
+  for (const layer of layers) {
+    const y0 = h * layer.top;
+    for (let x = -60; x < w + 200; x += layer.step) {
+      const r = layer.size * (0.7 + hash(x, layer.step) * 0.5);
+      const y = y0 + hash(x, 3) * 60;
+      g.fillStyle(layer.color, layer.alpha * 0.8);
+      g.fillRect(x - 8, y, 16, h - y);
+      g.fillStyle(layer.color, layer.alpha);
+      g.fillCircle(x, y, r);
+      g.fillCircle(x - r * 0.7, y + r * 0.3, r * 0.7);
+      g.fillCircle(x + r * 0.7, y + r * 0.25, r * 0.75);
+    }
+    g.fillStyle(layer.color, layer.alpha);
+    g.fillRect(0, y0 + 60, w, h - y0 - 60);
+  }
+  // Vines hanging from the treetops above.
+  for (let x = 30; x < w; x += 110) {
+    const len = 80 + hash(x, 11) * 200;
+    g.lineStyle(3, 0x3d7a3a, 0.45);
+    g.lineBetween(x, 0, x + 6, len);
+    g.fillStyle(0x3d7a3a, 0.45);
+    for (let y = 30; y < len; y += 40) {
+      g.fillEllipse(x + 3 + (y / len) * 6 + 7, y, 12, 6);
+    }
+  }
+  // Sunbeams through the leaves.
+  g.fillStyle(0xfffbd0, 0.12);
+  for (let x = 200; x < w; x += 640) {
+    g.fillTriangle(x, 0, x + 70, 0, x + 260, h);
+  }
+}
+
 function isOpen(level, col, row) {
   const k = tileAt(level, col, row);
   return k !== TileKind.WALL && k !== TileKind.ICE && k !== TileKind.EMITTER;
@@ -242,6 +296,10 @@ export function drawTiles(scene, level, theme, themeName) {
         drawTrunk(g, x, y, col);
       } else if (kind === TileKind.FROND) {
         drawFronds(g, level, col, row, x, y);
+      } else if (kind === TileKind.QUICKSAND) {
+        drawQuicksand(g, level, col, row, x, y);
+      } else if (kind === TileKind.SNAKE_PIT) {
+        drawSnakePit(g, level, col, row, x, y);
       } else if (kind === TileKind.EMITTER) {
         g.fillStyle(0x333344, 1);
         g.fillRect(x + 4, y + 4, TILE - 8, TILE - 8);
@@ -323,6 +381,25 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
       g.fillStyle(0x63d36a, 1);
       for (let i = 4; i < TILE; i += 10) {
         g.fillTriangle(x + i - 3, y + 2, x + i + 3, y + 2, x + i, y - 5);
+      }
+    }
+  } else if (themeName === 'jungle') {
+    // Old mossy stone, with moss dripping over the top.
+    g.fillStyle(theme.wallDark, 0.45);
+    g.fillRoundedRect(x + 4 + hash(col, row) * 18, y + 14 + hash(row, col) * 16, 18, 10, 4);
+    if (hash(col + 7, row) > 0.75) {
+      g.fillStyle(0x4f8a3a, 0.7);
+      g.fillCircle(x + 12 + hash(row, col + 2) * 24, y + 10 + hash(col, row + 2) * 28, 4);
+    }
+    if (openUp) {
+      g.fillStyle(0x3f8f3a, 1);
+      g.fillRect(x, y, TILE, 9);
+      g.fillStyle(0x5cb84e, 1);
+      g.fillRect(x, y, TILE, 4);
+      g.fillStyle(0x3f8f3a, 1);
+      for (let i = 0; i < 3; i++) {
+        const dx = x + 6 + i * 16 + hash(col + i, row) * 6;
+        g.fillRoundedRect(dx, y + 6, 6, 6 + hash(row + i, col) * 10, 3);
       }
     }
   } else if (themeName === 'canyon') {
@@ -431,6 +508,113 @@ function drawFronds(g, level, col, row, x, y) {
   }
 }
 
+/** Quicksand: soft sand with swirls in it (bubbles are drawn as you sink). */
+function drawQuicksand(g, level, col, row, x, y) {
+  g.fillStyle(0xc49a52, 1);
+  g.fillRect(x, y, TILE, TILE);
+  if (tileAt(level, col, row - 1) !== TileKind.QUICKSAND) {
+    g.fillStyle(0xdcb46a, 1);
+    g.fillRect(x, y, TILE, 5);
+  }
+  g.lineStyle(2, 0x9a7638, 0.8);
+  const cx = x + 14 + hash(col, row) * 20;
+  const cy = y + 16 + hash(row, col) * 16;
+  g.strokeEllipse(cx, cy, 18, 8);
+  g.strokeEllipse(cx, cy, 8, 4);
+}
+
+/** The bottom of a snake pit: dark, with snakes curled up all over it. */
+function drawSnakePit(g, level, col, row, x, y) {
+  g.fillStyle(0x2a2418, 1);
+  g.fillRect(x, y, TILE, TILE);
+  for (let i = 0; i < 2; i++) {
+    const sx = x + 10 + i * 24 + hash(col + i, row) * 6;
+    const sy = y + 14 + hash(row, col + i) * 20;
+    g.fillStyle(i ? 0x7ab83a : 0xc8a020, 1);
+    g.fillEllipse(sx, sy, 22, 9);
+    g.fillEllipse(sx + 6, sy + 7, 18, 8);
+    g.fillStyle(0x1a1a10, 1);
+    g.fillCircle(sx - 7, sy - 1, 1.5);
+  }
+}
+
+/** A bunch of green leaves on the ground. It looks like solid ground... */
+export function drawLeafyTrap(g, x, y, alpha = 1) {
+  g.fillStyle(0x2f6f2a, alpha);
+  g.fillRect(x, y + 6, TILE, TILE - 6);
+  // Lots of overlapping leaves, lighter on top.
+  for (let row = 0; row < 3; row++) {
+    for (let i = 0; i < 4; i++) {
+      const light = row === 0 ? 0x5cb84e : row === 1 ? 0x4aa043 : 0x3a8a36;
+      g.fillStyle(i % 2 ? light : 0x46a040, alpha);
+      g.fillEllipse(x + 6 + i * 12 + (row % 2) * 6, y + 6 + row * 15 + (i % 2) * 3, 20, 13);
+    }
+  }
+  g.lineStyle(1.5, 0x2a6a26, alpha);
+  g.lineBetween(x + 8, y + 6, x + 18, y + 8);
+  g.lineBetween(x + 30, y + 21, x + 40, y + 23);
+}
+
+/**
+ * A big tipping leaf, `width` pixels wide. `tilt` goes from 0 (flat) to 1
+ * (tipped over, hanging straight down from its stem on the left).
+ */
+export function drawTippingLeaf(g, x, y, width, tilt, alpha = 1) {
+  const angle = tilt * (Math.PI / 2);
+  const along = (d, up) => ({
+    x: x + Math.cos(angle) * d - Math.sin(angle) * up,
+    y: y + Math.sin(angle) * d + Math.cos(angle) * up,
+  });
+  // The leaf's outline: flat on top, rounded underneath, pointy at the tip.
+  const pts = [];
+  for (let i = 0; i <= 12; i++) {
+    const d = (width * i) / 12;
+    pts.push(along(d, -2 + Math.sin((Math.PI * i) / 12) * 2));
+  }
+  for (let i = 12; i >= 0; i--) {
+    const d = (width * i) / 12;
+    pts.push(along(d, 4 + Math.sin((Math.PI * i) / 12) * 16));
+  }
+  g.fillStyle(0x2f8a3a, alpha);
+  g.fillPoints(pts, true);
+  g.fillStyle(0x4fc25a, alpha);
+  g.fillPoints(pts.slice(0, 13).concat(pts.slice(13).map(p => ({ x: p.x, y: p.y - 6 }))), true);
+  // Veins
+  g.lineStyle(2, 0x2a7a32, alpha);
+  const a = along(0, 4);
+  const b = along(width - 6, 4);
+  g.lineBetween(a.x, a.y, b.x, b.y);
+  for (let d = 14; d < width - 10; d += 18) {
+    const p = along(d, 4);
+    const q = along(d + 10, 12);
+    g.lineBetween(p.x, p.y, q.x, q.y);
+  }
+  // The stem it pivots on.
+  g.fillStyle(0x6a4a24, alpha);
+  g.fillCircle(x, y + 4, 6);
+}
+
+/** A big bouncy jungle flower. `squash` pushes the petals down when you land. */
+export function drawFlower(g, x, y, squash) {
+  const cx = x + TILE / 2;
+  const top = y + 6 + squash;
+  g.fillStyle(0x3f8f3a, 1);
+  g.fillRect(cx - 3, top, 6, TILE - 6 - squash);
+  g.fillEllipse(cx - 12, y + TILE - 10, 20, 8);
+  g.fillEllipse(cx + 12, y + TILE - 12, 20, 8);
+  // Petals, flattening out when squashed.
+  const spread = 26 + squash;
+  g.fillStyle(0xff4f8a, 1);
+  g.fillEllipse(cx - spread * 0.55, top, spread * 0.8, 16 - squash * 0.6);
+  g.fillEllipse(cx + spread * 0.55, top, spread * 0.8, 16 - squash * 0.6);
+  g.fillStyle(0xff7aa8, 1);
+  g.fillEllipse(cx, top - 4 + squash * 0.3, 22, 14 - squash * 0.5);
+  g.fillStyle(0xffd23a, 1);
+  g.fillEllipse(cx, top + 1, 20, 8);
+  g.fillStyle(0xffffff, 0.8);
+  g.fillCircle(cx - 4, top - 1, 2);
+}
+
 function isPlatformLike(level, col, row) {
   const k = tileAt(level, col, row);
   return k === TileKind.FROND || k === TileKind.PALM;
@@ -478,9 +662,14 @@ export function drawHammock(g, x, y, dip) {
 
 /** Lava and water. Redrawn every frame so the surface wobbles. */
 export function drawFluids(g, level, time) {
+  // A floating log's spot is still river underneath.
+  const fluidAt = (c, r) => {
+    const k = tileAt(level, c, r);
+    return k === TileKind.LOG ? TileKind.WATER : k;
+  };
   for (let row = 0; row < level.height; row++) {
     for (let col = 0; col < level.width; col++) {
-      const kind = level.tiles[row][col];
+      const kind = fluidAt(col, row);
       if (kind !== TileKind.LAVA && kind !== TileKind.WATER) {
         continue;
       }
@@ -488,7 +677,7 @@ export function drawFluids(g, level, time) {
       const y = row * TILE;
       const color = kind === TileKind.LAVA ? 0xff5a00 : 0x2f8fff;
       const top = kind === TileKind.LAVA ? 0xffd040 : 0x9fd2ff;
-      const surface = tileAt(level, col, row - 1) !== kind;
+      const surface = fluidAt(col, row - 1) !== kind;
       const wave = surface ? 8 + Math.sin(time * 3 + col) * 3 : 0;
       g.fillStyle(color, kind === TileKind.LAVA ? 1 : 0.85);
       g.fillRect(x, y + wave, TILE, TILE - wave);

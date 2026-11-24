@@ -20,6 +20,12 @@ Climb like an inchworm!
   up high, wobbly rope bridges, pearls to collect, a hidden treasure chest worth 10 tokens in every
   level, and seagulls. Some seagulls carry you somewhere useful; others eat you and barf you up at
   half size, and you have to find the 2 missing blobs of you. They all look the same!
+- **The Jungle:** quicksand (you can't stretch far, and if you stay in it for 3 seconds you sink),
+  monkeys that throw bananas (a slime shot scares them into hiding; catch a banana with your tongue
+  and eat it to get a missing blob of slime back), snakes that snap down from above (wait for them
+  to pull back up, then sneak past), leafy traps over snake pits, piranha rivers with floating logs
+  to ride, vines to swing on, ziplines, bouncy flowers, big leaves that tip over if you sit on them
+  too long, and golden idols to collect
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -87,6 +93,13 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `J`    | hammock (bounces you up high)                     |
 | `Z`    | crab                                              |
 | `$`    | treasure chest (worth 10 tokens)                  |
+| `q`    | quicksand (short stretch; you sink after 3 s)     |
+| `m`    | monkey (throws bananas)                           |
+| `s`    | snake (snaps down from the branch above)          |
+| `%`    | leafy trap (breaks as soon as you touch it)       |
+| `x`    | snake pit (ouch!)                                 |
+| `*`    | bouncy flower (bounces you up high)               |
+| `_`    | big leaf (tips over if you sit on it too long)    |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -100,6 +113,12 @@ Island levels can have `waves: { every: 8, from: 'right' }` (a wave every 8 seco
 ocean on the right) and seagulls with `gulls: [{ from: 3, to: 12, drop: [27, 7], nice: true }]`
 (the gull flies between columns `from` and `to`; nice ones drop you at `drop`). Levels with mean
 seagulls need `blobSpots: [[col, row], ...]` where your barfed-up blobs can turn up.
+
+Jungle levels can have vines with `vines: [{ at: [27, 6], length: 5 }]` (the vine hangs from the
+top of the empty cell at column 27, row 6, and is 5 tiles long), ziplines with
+`ziplines: [{ from: [10, 5], to: [25, 10] }]` (the handle starts at `from` and zooms you to `to`)
+and floating logs with `logs: [{ row: 13, from: 8, to: 19 }]` (a log floats back and forth on the
+river in `row` between columns `from` and `to`; add `speed` to change how fast).
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

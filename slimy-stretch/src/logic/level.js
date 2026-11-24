@@ -28,6 +28,13 @@ import { TILE } from './constants.js';
 //   J  hammock (bounces you up high)
 //   Z  crab (walks back and forth and pinches)
 //   $  treasure chest (worth 10 tokens)
+//   q  quicksand (sticky, but you can't stretch far and you sink if you stay)
+//   m  monkey (sits in a tree and throws bananas)
+//   s  snake (hangs from the branch above and snaps down at you)
+//   %  leafy trap (looks like ground, but breaks as soon as you touch it)
+//   x  snake pit (deadly)
+//   *  bouncy flower (bounces you up high, like a hammock)
+//   _  tipping leaf (a one-way platform that tips over if you sit on it too long)
 //   .  empty
 
 export const TileKind = {
@@ -51,14 +58,32 @@ export const TileKind = {
   FROND: 17,
   BRIDGE: 18,
   HAMMOCK: 19,
+  QUICKSAND: 20,
+  LEAFY: 21,
+  SNAKE_PIT: 22,
+  FLOWER: 23,
+  LEAF: 24,
+  LOG: 25, // a floating log's spot on the river (never in a map)
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
 // below, stick to their tops.
-const PLATFORMS = new Set([TileKind.PLATFORM, TileKind.FROND, TileKind.BRIDGE, TileKind.HAMMOCK]);
+const PLATFORMS = new Set([
+  TileKind.PLATFORM,
+  TileKind.FROND,
+  TileKind.BRIDGE,
+  TileKind.HAMMOCK,
+  TileKind.FLOWER,
+  TileKind.LEAF,
+]);
 
 export function isPlatformKind(kind) {
   return PLATFORMS.has(kind);
+}
+
+/** Hammocks and bouncy flowers bounce you up high when you land on them. */
+export function isBouncyKind(kind) {
+  return kind === TileKind.HAMMOCK || kind === TileKind.FLOWER;
 }
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
@@ -86,6 +111,9 @@ const SOLID = new Set([
   TileKind.CART,
   TileKind.SAND,
   TileKind.PALM,
+  TileKind.QUICKSAND,
+  TileKind.LEAFY,
+  TileKind.LOG,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -98,6 +126,9 @@ const STICKY = new Set([
   TileKind.CART,
   TileKind.SAND,
   TileKind.PALM,
+  TileKind.QUICKSAND,
+  TileKind.LEAFY,
+  TileKind.LOG,
 ]);
 
 export function isSolidKind(kind) {
@@ -109,7 +140,7 @@ export function isStickyKind(kind) {
 }
 
 export function isDeadlyKind(kind) {
-  return kind === TileKind.LAVA || kind === TileKind.WATER;
+  return kind === TileKind.LAVA || kind === TileKind.WATER || kind === TileKind.SNAKE_PIT;
 }
 
 function tileCenter(col, row) {
@@ -153,6 +184,9 @@ export function parseLevel(def) {
     coconuts: [],
     crabs: [],
     chests: [],
+    monkeys: [],
+    snakes: [],
+    leafyTraps: [],
   };
 
   rows.forEach((line, row) => {
@@ -282,6 +316,28 @@ export function parseLevel(def) {
           break;
         case '$':
           level.chests.push(center);
+          break;
+        case 'q':
+          kind = TileKind.QUICKSAND;
+          break;
+        case 'm':
+          level.monkeys.push({ ...center, col, row });
+          break;
+        case 's':
+          level.snakes.push({ ...center, col, row });
+          break;
+        case '%':
+          kind = TileKind.LEAFY;
+          level.leafyTraps.push({ col, row });
+          break;
+        case 'x':
+          kind = TileKind.SNAKE_PIT;
+          break;
+        case '*':
+          kind = TileKind.FLOWER;
+          break;
+        case '_':
+          kind = TileKind.LEAF;
           break;
         case '.':
           break;

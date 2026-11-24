@@ -57,6 +57,24 @@ export default class BootScene extends Phaser.Scene {
       g.fillCircle(24, 25, 3);
     });
 
+    // Golden idols are what you collect in the jungle.
+    make('idol', 40, 44, g => {
+      g.fillStyle(0xffe066, 0.3);
+      g.fillCircle(20, 22, 20);
+      g.fillStyle(0xb8860b, 1);
+      g.fillRect(9, 36, 22, 6);
+      g.fillStyle(0xe8b820, 1);
+      g.fillRoundedRect(12, 18, 16, 19, 4);
+      g.fillCircle(20, 13, 9);
+      g.fillStyle(0xfff1a0, 1);
+      g.fillCircle(17, 10, 3);
+      g.fillStyle(0x7a5208, 1);
+      g.fillRect(15, 12, 3, 3);
+      g.fillRect(22, 12, 3, 3);
+      g.fillRect(17, 17, 6, 2);
+      g.fillRect(13, 24, 14, 2);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

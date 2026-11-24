@@ -1,6 +1,6 @@
 import { END_RADIUS, GRAVITY, MAX_FALL_SPEED, TILE } from './constants.js';
 import { circleHitsDeadly, circleHitsSolid, dist } from './collision.js';
-import { isPlatformKind, isSolidKind, TileKind, tileAt } from './level.js';
+import { isBouncyKind, isPlatformKind, isSolidKind, TileKind, tileAt } from './level.js';
 import { Slime } from './slime.js';
 
 // Things on the Island: waves that wash over the sand, falling coconuts,
@@ -24,6 +24,8 @@ const WAVE_HOLD = 1;
 const WAVE_OUT = 1;
 
 export const HAMMOCK_SPEED = 1000;
+const HAMMOCK_GRIP = 3; // how close you have to be to stick after a bounce, like a cannon
+export const FLOWER_GRIP = 5; // bouncy flowers make sure you stick to what you hit
 const HAMMOCK_MIN_SPEED = 380;
 const HAMMOCK_DAMPING = 0.6; // each quick bounce in a row is lower
 
@@ -107,25 +109,34 @@ export function onSand(level, p) {
   return false;
 }
 
-/** The end (if any) that is stuck on top of a hammock. */
+/** The end (if any) that is stuck on top of a hammock or a bouncy flower. */
 function endOnHammock(level, slime) {
   return slime.ends.find(e => {
     if (e.state !== 'stuck') {
       return false;
     }
     const row = Math.floor((e.y + END_RADIUS + 6) / TILE);
-    return tileAt(level, Math.floor(e.x / TILE), row) === TileKind.HAMMOCK && e.y < row * TILE;
+    return isBouncyKind(tileAt(level, Math.floor(e.x / TILE), row)) && e.y < row * TILE;
   });
 }
 
+/** How well the slime sticks after bouncing off whatever is under `p`. */
+function bounceGrip(level, p) {
+  const row = Math.floor((p.y + END_RADIUS + 6) / TILE);
+  return tileAt(level, Math.floor(p.x / TILE), row) === TileKind.FLOWER
+    ? FLOWER_GRIP
+    : HAMMOCK_GRIP;
+}
+
 /**
- * Bounce up from a hammock at `from` and see where the slime sticks, using
- * the real game physics. Returns null if it lands somewhere deadly, falls out
- * of the level or just comes back down onto a hammock.
+ * Bounce up from a hammock (or bouncy flower) at `from` and see where the
+ * slime sticks, using the real game physics. Returns null if it lands
+ * somewhere deadly, falls out of the level or just comes back down onto
+ * something bouncy.
  */
 export function simulateBounce(level, from, speed = HAMMOCK_SPEED) {
   const slime = new Slime(from);
-  slime.launch(from.x, from.y - 2, 0, -speed);
+  slime.launch(from.x, from.y - 2, 0, -speed, bounceGrip(level, from));
   const dt = 1 / 60;
   for (let t = 0; t < 4; t += dt) {
     slime.update(dt, level);
@@ -342,7 +353,7 @@ export class IslandStuff {
     }
     this.lastBounce = this.time;
     this.lastBounceSpeed = speed;
-    slime.launch(end.x, end.y - 2, 0, -speed);
+    slime.launch(end.x, end.y - 2, 0, -speed, bounceGrip(this.level, end));
     this.events.push({ type: 'bounce', x: end.x, y: end.y });
   }
 

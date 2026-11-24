@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS, WORLDS } from './levels.js';
-import { parseLevel } from '../logic/level.js';
+import { parseLevel, TileKind, tileAt } from '../logic/level.js';
+import { ZIP_HANG } from '../logic/jungle.js';
 import { solveLevel } from '../logic/solver.js';
 import { chaserPosition } from '../logic/hazards.js';
 import { simulateDrop } from '../logic/warehouse.js';
@@ -47,6 +48,27 @@ describe('levels', () => {
         }
         if (def.type === 'escape') {
           expect(def.chaser).toBeTruthy();
+        }
+      });
+
+      it('has its vines, ziplines and logs in sensible places', () => {
+        for (const vine of def.vines || []) {
+          // A vine hangs from a branch (or a wall).
+          const [col, row] = vine.at;
+          expect(tileAt(level, col, row - 1)).not.toBe(TileKind.EMPTY);
+          expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+        }
+        for (const zip of def.ziplines || []) {
+          // A zipline drops you somewhere safe.
+          const [col, row] = zip.to;
+          const end = { x: (col + 0.5) * 48, y: (row + 0.5) * 48 + ZIP_HANG };
+          expect(simulateDrop(level, end)).toBeTruthy();
+        }
+        for (const log of def.logs || []) {
+          // Logs float on the river.
+          for (let col = log.from; col <= log.to; col++) {
+            expect(tileAt(level, col, log.row)).toBe(TileKind.WATER);
+          }
         }
       });
 

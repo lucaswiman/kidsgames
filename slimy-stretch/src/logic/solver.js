@@ -8,12 +8,24 @@ import {
   segmentTouchesDeadly,
 } from './collision.js';
 import { buildLasers } from './hazards.js';
-import { TileKind } from './level.js';
+import { isBouncyKind, TileKind } from './level.js';
 import { canReach } from './slime.js';
 import { TONGUE_RADIUS, touchesBox } from './tongue.js';
 import { PICK_RADIUS, pickaxe } from './cave.js';
 import { simulateBounce } from './island.js';
 import { CANNON_ENTER, CLAW_HANG, CLAW_RADIUS, simulateDrop, simulateShot } from './warehouse.js';
+import {
+  logRange,
+  logRideY,
+  QUICKSAND_REACH,
+  touchingQuicksand,
+  VINE_GRAB,
+  vineLandings,
+  vineTip,
+  ZIP_GRAB,
+  ZIP_HANG,
+  zipGrip,
+} from './jungle.js';
 
 const CANNON_ANGLES = 72;
 
@@ -22,7 +34,8 @@ const CANNON_ANGLES = 72;
  * from every spot the slime can stick, try stretching in lots of directions
  * and letting go, using the same sticking rules as the real game. Timed
  * lasers and chasers are ignored (you can wait for a laser to turn off), but
- * always-on lasers block.
+ * always-on lasers block. So are monkeys and snakes (you can wait for them
+ * too), but quicksand cuts how far you can stretch.
  */
 
 const DIRECTIONS = 32;
@@ -60,12 +73,16 @@ function explore(level) {
       queue.push(spot);
     }
   };
+  // Stuck in quicksand, you can't stretch as far.
+  const reachFrom = a =>
+    touchingQuicksand(level, a) ? MAX_STRETCH * QUICKSAND_REACH : MAX_STRETCH;
   // Can the slime, stuck at `a`, stretch an end to touch point `q`?
   const canStretchTo = (a, q, radius) => {
-    if (dist(a, q) > MAX_STRETCH + radius) {
+    const reach = reachFrom(a);
+    if (dist(a, q) > reach + radius) {
       return false;
     }
-    const tip = castCircle(level, a, clampToRange(a, q, MAX_STRETCH), END_RADIUS, 4);
+    const tip = castCircle(level, a, clampToRange(a, q, reach), END_RADIUS, 4);
     return dist(tip, q) < radius && safe(a, tip);
   };
   const cannonLandings = [];
@@ -86,7 +103,7 @@ function explore(level) {
   const hammocks = [];
   level.tiles.forEach((row, r) =>
     row.forEach((kind, c) => {
-      if (kind === TileKind.HAMMOCK) {
+      if (isBouncyKind(kind)) {
         const top = { x: (c + 0.5) * TILE, y: r * TILE - END_RADIUS - 1 };
         hammocks.push({ ...top, landing: simulateBounce(level, top) });
       }
@@ -100,9 +117,73 @@ function explore(level) {
       return { ...c, y, landing: simulateDrop(level, { x: (c.drop + 0.5) * TILE, y: y + 12 }) };
     });
 
+  // Vines: grab the bottom, swing and let go to fly somewhere new.
+  const vines = (level.def.vines || []).map(v => {
+    const vine = { x: (v.at[0] + 0.5) * TILE, y: v.at[1] * TILE, length: v.length * TILE };
+    return { tip: vineTip(vine, 0), vine, landings: null };
+  });
+  // Tipping leaves: sit on one and it tips over and drops you.
+  const leaves = [];
+  level.tiles.forEach((row, r) =>
+    row.forEach((kind, c) => {
+      if (kind !== TileKind.LEAF || row[c - 1] === TileKind.LEAF) {
+        return;
+      }
+      let to = c;
+      while (row[to + 1] === TileKind.LEAF) {
+        to++;
+      }
+      const tiles = level.tiles.map(line => line.slice());
+      tiles[r].fill(TileKind.EMPTY, c, to + 1);
+      const from = { x: ((c + to + 1) / 2) * TILE, y: r * TILE - END_RADIUS - 1 };
+      const landing = simulateDrop({ ...level, tiles }, from);
+      leaves.push({ left: c * TILE, right: (to + 1) * TILE, y: from.y, landing });
+    })
+  );
+  // Ziplines: grab the handle and get dropped off at the other end.
+  const ziplines = (level.def.ziplines || []).map(z => {
+    const end = { x: (z.to[0] + 0.5) * TILE, y: (z.to[1] + 0.5) * TILE + ZIP_HANG };
+    return {
+      grip: zipGrip({ x: (z.from[0] + 0.5) * TILE, y: (z.from[1] + 0.5) * TILE }),
+      landing: simulateDrop(level, end),
+    };
+  });
+
   while (queue.length) {
     const anchor = queue.shift();
     reached.push(anchor);
+    for (const v of vines) {
+      if (canStretchTo(anchor, v.tip, VINE_GRAB)) {
+        v.landings = v.landings || vineLandings(level, v.vine);
+        for (const spot of v.landings) {
+          visit({ ...spot }, anchor.moves + 3);
+        }
+      }
+    }
+    for (const leaf of leaves) {
+      const on = anchor.x > leaf.left && anchor.x < leaf.right && Math.abs(anchor.y - leaf.y) < 8;
+      if (on && leaf.landing) {
+        visit({ ...leaf.landing }, anchor.moves + 1);
+      }
+    }
+    for (const zip of ziplines) {
+      if (zip.landing && canStretchTo(anchor, zip.grip, ZIP_GRAB)) {
+        visit({ ...zip.landing }, anchor.moves + 2);
+      }
+    }
+    // Floating logs: get on anywhere along the river and ride to either end.
+    for (const log of level.def.logs || []) {
+      const { min, max } = logRange(log);
+      const y = logRideY(log.row) - 1;
+      let onBoard = false;
+      for (let x = min; x <= max && !onBoard; x += TILE / 2) {
+        onBoard = canStretchTo(anchor, { x, y }, TILE * 0.75);
+      }
+      if (onBoard) {
+        visit({ x: min, y }, anchor.moves + 2);
+        visit({ x: max, y }, anchor.moves + 2);
+      }
+    }
     level.cannons.forEach((cannon, i) => {
       if (canStretchTo(anchor, cannon, CANNON_ENTER)) {
         for (const spot of landingsFor(i)) {
@@ -135,10 +216,12 @@ function explore(level) {
         }
       }
     }
-    const allowed = p => canReach(level, anchor, p) && safe(anchor, p);
+    const reachHere = reachFrom(anchor);
+    const reaches = [...REACHES.filter(r => r < reachHere), reachHere];
+    const allowed = p => canReach(level, anchor, p, reachHere) && safe(anchor, p);
     for (let i = 0; i < DIRECTIONS; i++) {
       const angle = (i / DIRECTIONS) * Math.PI * 2;
-      for (const reach of REACHES) {
+      for (const reach of reaches) {
         const target = {
           x: anchor.x + Math.cos(angle) * reach,
           y: anchor.y + Math.sin(angle) * reach,
@@ -162,10 +245,11 @@ function explore(level) {
   const movesTo = (target, radius) => {
     let best = Infinity;
     for (const a of reached) {
-      if (a.moves + 1 >= best || dist(a, target) > MAX_STRETCH + radius + END_RADIUS) {
+      const reach = reachFrom(a);
+      if (a.moves + 1 >= best || dist(a, target) > reach + radius + END_RADIUS) {
         continue;
       }
-      const tip = castCircle(level, a, clampToRange(a, target, MAX_STRETCH), END_RADIUS, 4);
+      const tip = castCircle(level, a, clampToRange(a, target, reach), END_RADIUS, 4);
       if (dist(tip, target) < radius + END_RADIUS && safe(a, tip)) {
         best = a.moves + 1;
       }
@@ -177,9 +261,12 @@ function explore(level) {
   return { start, reached, movesTo, canTouch, safe };
 }
 
-/** A copy of the level with eaten boxes removed and gates open or (deadly) closed. */
+/**
+ * A copy of the level with eaten boxes removed and gates open or (deadly)
+ * closed. Leafy traps are just holes: they break as soon as you touch them.
+ */
 function levelView(level, eaten, openColors) {
-  const tiles = level.tiles.map(row => row.slice());
+  const tiles = level.tiles.map(row => row.map(k => (k === TileKind.LEAFY ? TileKind.EMPTY : k)));
   level.boxes.forEach((b, i) => {
     if (eaten.has(i)) {
       tiles[b.row][b.col] = TileKind.EMPTY;

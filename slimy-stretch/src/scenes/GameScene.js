@@ -35,6 +35,14 @@ import {
   waveState,
 } from '../logic/island.js';
 import {
+  JungleStuff,
+  LOG_WIDTH,
+  MONKEY_RADIUS,
+  SNAKE_RADIUS,
+  vineTip,
+  ZIP_GRIP,
+} from '../logic/jungle.js';
+import {
   hasCaveRewards,
   hasTongue,
   loadProgress,
@@ -50,8 +58,11 @@ import {
   drawBox,
   drawBridge,
   drawCrumble,
+  drawFlower,
   drawHammock,
   drawFluids,
+  drawLeafyTrap,
+  drawTippingLeaf,
   drawTiles,
   THEMES,
 } from '../render/theme.js';
@@ -62,6 +73,13 @@ import { makeButton, makeIconButton, makeMuteButton, textStyle } from '../render
 const UNLOCK_ALL = typeof location !== 'undefined' && /[?&]all\b/.test(location.search);
 
 export const KEY_TINTS = { red: 0xff3b3b, blue: 0x3a8bff, yellow: 0xffd020 };
+
+// What collect levels have you collect in each world.
+const PRIZES = {
+  lab: { texture: 'core', name: 'power core', label: 'Cores' },
+  island: { texture: 'pearl', name: 'pearl', label: 'Pearls' },
+  jungle: { texture: 'idol', name: 'golden idol', label: 'Idols' },
+};
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -104,13 +122,13 @@ export default class GameScene extends Phaser.Scene {
     this.aimPath = null;
     this.bombBlasts = [];
     this.belts = [];
-    this.swingTiles = []; // rope bridges and hammocks, which sag under the slime
+    this.swingTiles = []; // rope bridges, hammocks and flowers, which sag under the slime
     this.level.tiles.forEach((row, r) =>
       row.forEach((kind, c) => {
         if (kind === TileKind.BELT_RIGHT || kind === TileKind.BELT_LEFT) {
           this.belts.push({ col: c, row: r, dir: kind === TileKind.BELT_RIGHT ? 1 : -1 });
         }
-        if (kind === TileKind.BRIDGE || kind === TileKind.HAMMOCK) {
+        if (kind === TileKind.BRIDGE || kind === TileKind.HAMMOCK || kind === TileKind.FLOWER) {
           this.swingTiles.push({ col: c, row: r, kind });
         }
       })
@@ -127,6 +145,10 @@ export default class GameScene extends Phaser.Scene {
     this.windGfx = this.add.graphics().setScrollFactor(0).setDepth(150);
     this.island = new IslandStuff(this.level);
     this.waveWasWarning = false;
+    this.jungle = new JungleStuff(this.level);
+    this.pumping = false; // dragging to pump a vine
+    this.tongueBanana = false; // a banana on the end of the tongue
+    this.hintsShown = new Set();
     this.createItems();
 
     this.slime = new Slime(this.level.start);
@@ -158,13 +180,13 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: sprite, scaleX: 0.2, yoyo: true, repeat: -1, duration: 600 });
       return { ...t, sprite, taken: false };
     });
-    // On the island you collect pearls instead of power cores.
-    this.coreName = this.themeName === 'island' ? 'pearl' : 'power core';
+    // On the island you collect pearls instead of power cores, and in the
+    // jungle golden idols.
+    const prize = PRIZES[this.themeName] || PRIZES.lab;
+    this.coreName = prize.name;
+    this.coreLabel = prize.label;
     this.cores = level.cores.map(c => {
-      const sprite = this.add
-        .image(c.x, c.y, this.themeName === 'island' ? 'pearl' : 'core')
-        .setDepth(6)
-        .setVisible(!hidden(c));
+      const sprite = this.add.image(c.x, c.y, prize.texture).setDepth(6).setVisible(!hidden(c));
       this.tweens.add({ targets: sprite, y: c.y - 6, yoyo: true, repeat: -1, duration: 800 });
       return { ...c, sprite, taken: false };
     });
@@ -294,8 +316,8 @@ export default class GameScene extends Phaser.Scene {
       parts.push(`Tokens ${this.tokenCount()}/${this.tokenTotal()}`);
     }
     if (this.cores.length) {
-      const label = this.coreName === 'pearl' ? 'Pearls' : 'Cores';
-      parts.push(`${label} ${this.cores.filter(c => c.taken).length}/${this.cores.length}`);
+      const got = this.cores.filter(c => c.taken).length;
+      parts.push(`${this.coreLabel} ${got}/${this.cores.length}`);
     }
     this.hudItems.setText(parts.join('    '));
   }
@@ -313,7 +335,9 @@ export default class GameScene extends Phaser.Scene {
         this.warehouse.aim(this.worldPoint(pointer));
         return;
       }
-      if (this.shotArmed && !this.slime.frozen) {
+      // On a vine you can still shoot and use your tongue.
+      const onVine = this.jungle.onVine !== null;
+      if (this.shotArmed && (!this.slime.frozen || onVine)) {
         // Fire a blob of slime toward where you tapped.
         this.shots.fire(
           this.slime.ends[this.slime.lead],
@@ -324,10 +348,16 @@ export default class GameScene extends Phaser.Scene {
         this.activePointer = null;
         return;
       }
-      if (this.tongueArmed && !this.slime.isFalling && !this.slime.heldEnd && !this.slime.frozen) {
+      const free = !this.slime.isFalling && !this.slime.heldEnd && !this.slime.frozen;
+      if (this.tongueArmed && (free || onVine)) {
         // Shoot the tongue out of the slime's head instead of stretching.
         this.tongue.start(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
         this.armTongue(false);
+        return;
+      }
+      if (onVine) {
+        // Swinging on a vine: drag to pump the swing, let go to fly off.
+        this.pumping = true;
         return;
       }
       this.slime.grab(this.worldPoint(pointer), this.clock);
@@ -345,6 +375,11 @@ export default class GameScene extends Phaser.Scene {
         this.warehouse.aim(this.worldPoint(pointer));
         this.warehouse.fire(this.slime);
         this.aimPath = null;
+        return;
+      }
+      if (this.pumping) {
+        this.pumping = false;
+        this.jungle.letGoVine(this.slime);
         return;
       }
       if (this.tongue.active) {
@@ -390,8 +425,12 @@ export default class GameScene extends Phaser.Scene {
       const canyonHit = this.canyon.update(dt, this.slime);
       const caveHit = this.cave.update(dt, this.slime);
       const islandHit = this.island.update(dt, this.slime, this.time_);
+      const finger =
+        this.pumping && this.activePointer ? this.worldPoint(this.activePointer) : null;
+      const jungleHit = this.jungle.update(dt, this.slime, finger);
       this.updateShots(dt);
       this.playIslandSounds();
+      this.playJungleSounds();
       this.playSlimeSounds();
       this.playCanyonSounds();
       this.playWarehouseSounds();
@@ -403,8 +442,11 @@ export default class GameScene extends Phaser.Scene {
       const hazard = findHazard(this.level, this.slime, this.lasers, this.time_, this.chaser);
       if (canyonHit === 'boulder') {
         this.startCrush();
-      } else if (hazard || canyonHit || caveHit || islandHit || this.bossHurtSlime) {
+      } else if (hazard || canyonHit || caveHit || islandHit || jungleHit || this.bossHurtSlime) {
         this.die();
+        if (jungleHit === 'quicksand') {
+          this.showBanner('Glug glug! The quicksand swallowed you.', 1800);
+        }
       }
     } else if (this.status === 'crushed') {
       this.updateCrush(dt);
@@ -449,11 +491,21 @@ export default class GameScene extends Phaser.Scene {
   updateTongue(dt) {
     this.tongue.tick(dt);
     this.updateTongueButton();
+    if (this.tongueBanana && !this.tongue.active) {
+      this.tongueBanana = false;
+      this.eatBanana();
+    }
     if (!this.tongue.active) {
       return;
     }
     const head = this.slime.ends[this.slime.lead];
     const eaten = this.tongue.update(dt, this.level, head, this.canyon.boxes);
+    if (this.tongue.state === 'out' && this.jungle.catchBanana(this.tongue.tip, TONGUE_RADIUS)) {
+      // Caught a flying banana! Pull it in and eat it.
+      this.tongueBanana = true;
+      this.tongue.release();
+      sfx.grab();
+    }
     if (this.crystal && this.tongue.state === 'out' && this.crystal.inRect(this.tongue.tip, 6)) {
       // Licking the crystal robot: if its armor is cracked, gobble an orb!
       if (this.crystal.eatOrb()) {
@@ -496,6 +548,22 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Yum! A banana can give you back a missing piece of slime. */
+  eatBanana() {
+    sfx.yum();
+    const got = this.jungle.eatBanana(this.island, this.shots);
+    if (got === 'lost') {
+      this.showBanner(
+        this.island.lost ? 'Yum! You got some of your slime back!' : 'Yum! Back to full size!',
+        1800
+      );
+    } else if (got === 'shot') {
+      this.showBanner('Yum! A slime blob came back to you!', 1800);
+    } else {
+      this.showBanner('Yum! A tasty banana!', 1400);
+    }
+  }
+
   updateTongueButton() {
     if (!this.tongueButton) {
       return;
@@ -521,8 +589,15 @@ export default class GameScene extends Phaser.Scene {
           this.island.flipCrab(crab);
         }
       }
+      // ...and scares monkeys.
+      for (const m of this.jungle.monkeys) {
+        if (Math.hypot(blob.x - m.x, blob.y - m.y) < MONKEY_RADIUS + BLOB_RADIUS + 4) {
+          this.jungle.scareMonkey(m);
+        }
+      }
     });
-    this.slime.reach = this.shots.reach(this.island.lost);
+    // Missing blobs and quicksand both cut how far you can stretch.
+    this.slime.reach = this.shots.reach(this.island.lost) * this.jungle.reachScale;
     for (const e of this.shots.takeEvents()) {
       if (e === 'shoot') {
         sfx.throwBomb();
@@ -566,6 +641,57 @@ export default class GameScene extends Phaser.Scene {
         if (!this.island.lost) {
           this.showBanner('Back to full size!', 1400);
         }
+      }
+    }
+  }
+
+  /** Show a tip the first time something happens in a level. */
+  hintOnce(key, message, duration = 2000) {
+    if (!this.hintsShown.has(key)) {
+      this.hintsShown.add(key);
+      this.showBanner(message, duration);
+    }
+  }
+
+  playJungleSounds() {
+    for (const e of this.jungle.takeEvents()) {
+      if (e.type === 'quicksand') {
+        sfx.gloop();
+        this.hintOnce('quicksand', "Quicksand! You can't stretch far. Get out before you sink!");
+      } else if (e.type === 'chatter') {
+        sfx.chatter();
+      } else if (e.type === 'throw') {
+        sfx.whoosh();
+      } else if (e.type === 'splat') {
+        sfx.squish();
+      } else if (e.type === 'scared') {
+        sfx.eek();
+      } else if (e.type === 'hiss') {
+        sfx.hiss();
+      } else if (e.type === 'snap') {
+        sfx.snakeSnap();
+      } else if (e.type === 'trap') {
+        sfx.leafBreak();
+        this.cameras.main.shake(150, 0.006);
+        this.hintOnce('trap', 'It was a trap! Those leaves were hiding a snake pit.');
+      } else if (e.type === 'vineGrab' || e.type === 'zipGrab') {
+        // The finger that touched it doesn't count as letting go.
+        this.activePointer = null;
+        this.pumping = false;
+        if (e.type === 'vineGrab') {
+          sfx.vine();
+          this.hintOnce('vine', 'Drag sideways to swing higher. Let go to fly!', 2500);
+        } else {
+          sfx.zip();
+        }
+      } else if (e.type === 'vineLetGo') {
+        sfx.wheee();
+      } else if (e.type === 'zipDrop') {
+        sfx.clawDrop();
+      } else if (e.type === 'creak') {
+        sfx.creak();
+      } else if (e.type === 'tip') {
+        sfx.whoosh();
       }
     }
   }
@@ -868,6 +994,8 @@ export default class GameScene extends Phaser.Scene {
     this.deaths += 1;
     this.heldBomb = null;
     this.activePointer = null;
+    this.pumping = false;
+    this.tongueBanana = false;
     sfx.death();
     this.cameras.main.shake(200, 0.01);
     const c = this.slime.center;
@@ -905,6 +1033,7 @@ export default class GameScene extends Phaser.Scene {
   respawn() {
     this.canyon.resetAfterDeath();
     this.island.resetAfterDeath();
+    this.jungle.resetAfterDeath();
     this.shotArmed = false;
     this.warehouse.resetAfterDeath();
     this.aiming = false;
@@ -1053,6 +1182,7 @@ export default class GameScene extends Phaser.Scene {
 
     const fx = this.fxGfx;
     fx.clear();
+    this.drawJungleBehind(fx);
     this.drawLasers(fx);
     this.drawGates(fx);
     this.drawTongue(fx);
@@ -1067,6 +1197,7 @@ export default class GameScene extends Phaser.Scene {
     this.drawBoulders(over);
     this.drawCave(over);
     this.drawIsland(over);
+    this.drawJungle(over);
     this.drawBlobs(over);
     if (this.crystal) {
       this.drawCrystal(over);
@@ -1234,6 +1365,8 @@ export default class GameScene extends Phaser.Scene {
       const y = t.row * TILE;
       if (t.kind === TileKind.BRIDGE) {
         drawBridge(g, x, y, dipAt(x, y), dipAt(x + TILE, y));
+      } else if (t.kind === TileKind.FLOWER) {
+        drawFlower(g, x, y, dipAt(x + TILE / 2, y) + bounce * 10);
       } else {
         drawHammock(g, x, y, dipAt(x + TILE / 2, y) + bounce * 10);
       }
@@ -1314,6 +1447,269 @@ export default class GameScene extends Phaser.Scene {
         g.strokeCircle(t.x, t.y, GULL_GRAB_RADIUS);
       }
       this.drawGull(g, gull);
+    }
+  }
+
+  /** Leafy traps and tipping leaves, which come and go. */
+  drawJungleTiles(g) {
+    for (const t of this.jungle.traps) {
+      if (t.state === 'solid') {
+        drawLeafyTrap(g, t.col * TILE, t.row * TILE);
+      } else if (t.timer < 1) {
+        // Growing back.
+        drawLeafyTrap(g, t.col * TILE, t.row * TILE, 0.35 * (1 - t.timer));
+      }
+    }
+    for (const leaf of this.jungle.leaves) {
+      const width = (leaf.to - leaf.from + 1) * TILE;
+      let tilt = this.jungle.leafTilt(leaf);
+      if (leaf.state === 'down' && leaf.timer < 0.3) {
+        tilt = leaf.timer / 0.3; // tipping back up
+      }
+      drawTippingLeaf(g, leaf.from * TILE, leaf.row * TILE, width, tilt);
+    }
+  }
+
+  /** Jungle things the slime goes in front of: logs, vines, ziplines, piranhas. */
+  drawJungleBehind(g) {
+    const jungle = this.jungle;
+    if (this.themeName === 'jungle') {
+      this.drawPiranhas(g);
+    }
+    for (const log of jungle.logs) {
+      const y = log.row * TILE - 4 + Math.sin(this.clock * 2 + log.x * 0.01) * 1.5;
+      const left = log.x - LOG_WIDTH / 2;
+      g.fillStyle(0x7a4e26, 1);
+      g.fillRoundedRect(left, y, LOG_WIDTH, 22, 10);
+      g.fillStyle(0x5a3618, 1);
+      g.fillRect(left + 14, y + 7, 30, 3);
+      g.fillRect(left + 52, y + 13, 24, 3);
+      g.fillStyle(0xc89a62, 1);
+      g.fillEllipse(left + LOG_WIDTH - 6, y + 11, 10, 20);
+      g.lineStyle(2, 0x7a4e26, 1);
+      g.strokeEllipse(left + LOG_WIDTH - 6, y + 11, 5, 10);
+      g.fillStyle(0x5cb84e, 1);
+      g.fillEllipse(left + 30, y + 1, 12, 6);
+    }
+    for (const zip of jungle.ziplines) {
+      g.fillStyle(0x6a4a24, 1);
+      g.fillCircle(zip.from.x, zip.from.y, 6);
+      g.fillCircle(zip.to.x, zip.to.y, 6);
+      g.lineStyle(3, 0x3a3a3a, 1);
+      g.lineBetween(zip.from.x, zip.from.y, zip.to.x, zip.to.y);
+      // The handle: a wheel on the cable with a bar to hold.
+      g.lineStyle(4, 0x888888, 1);
+      g.lineBetween(zip.x - 10, zip.y + ZIP_GRIP, zip.x, zip.y);
+      g.lineBetween(zip.x + 10, zip.y + ZIP_GRIP, zip.x, zip.y);
+      g.fillStyle(0xd0d0d0, 1);
+      g.fillCircle(zip.x, zip.y, 8);
+      g.fillStyle(0x666666, 1);
+      g.fillCircle(zip.x, zip.y, 3);
+      g.lineStyle(8, zip.state === 'ready' ? 0xff5a3a : 0x9a6a5a, 1);
+      g.lineBetween(zip.x - 16, zip.y + ZIP_GRIP, zip.x + 16, zip.y + ZIP_GRIP);
+    }
+    jungle.vines.forEach((vine, i) => {
+      // An empty vine sways a little in the breeze.
+      const riding = jungle.onVine === i;
+      const sway = riding ? 0 : Math.sin(this.clock * 1.3 + i) * 0.05;
+      const tip = vineTip(vine, vine.angle + sway);
+      const bend = riding ? -vine.omega * 6 : 0;
+      const pts = [];
+      for (let k = 0; k <= 10; k++) {
+        const t = k / 10;
+        const curve = Math.sin(t * Math.PI) * bend;
+        pts.push({
+          x: vine.x + (tip.x - vine.x) * t + curve * Math.cos(vine.angle),
+          y: vine.y + (tip.y - vine.y) * t,
+        });
+      }
+      g.lineStyle(5, 0x3d7a2a, 1);
+      for (let k = 0; k < pts.length - 1; k++) {
+        g.lineBetween(pts[k].x, pts[k].y, pts[k + 1].x, pts[k + 1].y);
+      }
+      g.fillStyle(0x5cb84e, 1);
+      for (let k = 1; k < pts.length; k += 2) {
+        g.fillEllipse(pts[k].x + (k % 4 === 1 ? 6 : -6), pts[k].y, 12, 6);
+      }
+      g.fillStyle(0x2f6a22, 1);
+      g.fillCircle(tip.x, tip.y, 6);
+    });
+  }
+
+  /** Little piranhas jumping out of the river now and then. */
+  drawPiranhas(g) {
+    this.level.tiles.forEach((row, r) =>
+      row.forEach((kind, c) => {
+        const surface = this.level.tiles[r - 1]?.[c];
+        const water = k => k === TileKind.WATER || k === TileKind.LOG;
+        if (kind !== TileKind.WATER || water(surface) || (c * 7 + r) % 3 !== 0) {
+          return;
+        }
+        const t = (this.clock + c * 1.7) % 3.5;
+        if (t > 0.9) {
+          return;
+        }
+        const k = t / 0.9;
+        const x = (c + 0.5) * TILE + (k - 0.5) * 36;
+        const y = r * TILE + 8 - Math.sin(k * Math.PI) * 54;
+        const dir = c % 2 ? 1 : -1;
+        g.fillStyle(0x6a7a8a, 1);
+        g.fillEllipse(x, y, 22, 14);
+        g.fillStyle(0xe2462e, 1);
+        g.fillEllipse(x, y + 3, 16, 7);
+        g.fillStyle(0x6a7a8a, 1);
+        g.fillTriangle(x - dir * 10, y, x - dir * 18, y - 7, x - dir * 18, y + 7);
+        g.fillStyle(0xffffff, 1);
+        g.fillTriangle(x + dir * 6, y + 2, x + dir * 9, y + 2, x + dir * 7, y + 6);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(x + dir * 5, y - 3, 1.8);
+      })
+    );
+  }
+
+  /** Jungle things drawn over the slime: monkeys, bananas, snakes, quicksand. */
+  drawJungle(g) {
+    const jungle = this.jungle;
+    for (const m of jungle.monkeys) {
+      this.drawMonkey(g, m);
+    }
+    for (const b of jungle.bananas) {
+      this.drawBanana(g, b.x, b.y, b.age * 12);
+    }
+    if (this.tongueBanana && this.tongue.active) {
+      this.drawBanana(g, this.tongue.tip.x, this.tongue.tip.y, 0);
+    }
+    for (const s of jungle.snakes) {
+      this.drawSnake(g, s);
+    }
+    // Sinking into quicksand: sand creeps up over the slime, with bubbles.
+    const sink = jungle.sink;
+    if (sink > 0 && this.status === 'playing') {
+      for (const e of this.slime.ends) {
+        if (e.state !== 'stuck') {
+          continue;
+        }
+        const h = 6 + sink * 26;
+        const bottom = e.y + END_RADIUS + 4;
+        g.fillStyle(0xc49a52, 1);
+        g.fillEllipse(e.x, bottom - h / 2, 44, h);
+        g.fillStyle(0xdcb46a, 1);
+        g.fillEllipse(e.x, bottom - h + 2, 40, 6);
+        for (let i = 0; i < 3; i++) {
+          const k = (this.clock * 1.5 + i / 3) % 1;
+          g.fillStyle(0xe8cc8a, 1 - k);
+          g.fillCircle(e.x - 14 + i * 14, bottom - h - k * 16, 3 + k * 2);
+        }
+      }
+      if (sink > 0.4) {
+        const c = this.slime.center;
+        const flash = Math.sin(this.clock * 16) > 0 ? 0xff3030 : 0xffffff;
+        g.fillStyle(flash, 1);
+        g.fillRoundedRect(c.x - 4, c.y - 62, 8, 22, 3);
+        g.fillCircle(c.x, c.y - 32, 4);
+      }
+    }
+  }
+
+  drawBanana(g, x, y, spin) {
+    g.lineStyle(7, 0xffd23a, 1);
+    g.beginPath();
+    g.arc(x, y, 9, spin, spin + 2.4);
+    g.strokePath();
+    g.fillStyle(0x6a4a24, 1);
+    g.fillCircle(x + Math.cos(spin) * 9, y + Math.sin(spin) * 9, 2.5);
+  }
+
+  drawMonkey(g, m) {
+    const x = m.x;
+    const y = m.y + 6;
+    if (m.state === 'hiding') {
+      // Hiding in a leafy bush, just its eyes peeking out.
+      g.fillStyle(0x3f8f3a, 1);
+      g.fillCircle(x - 12, y + 4, 14);
+      g.fillCircle(x + 12, y + 4, 14);
+      g.fillCircle(x, y - 6, 16);
+      if (Math.sin(this.clock * 2 + x) > -0.3) {
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(x - 5, y - 4, 3);
+        g.fillCircle(x + 5, y - 4, 3);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(x - 5, y - 4, 1.5);
+        g.fillCircle(x + 5, y - 4, 1.5);
+      }
+      return;
+    }
+    const brown = 0x7a4a24;
+    const face = 0xe0b088;
+    // Curly tail
+    g.lineStyle(4, brown, 1);
+    g.beginPath();
+    g.arc(x + 16, y + 6, 9, -Math.PI / 2, Math.PI);
+    g.strokePath();
+    g.fillStyle(brown, 1);
+    g.fillEllipse(x, y + 8, 26, 22);
+    g.fillCircle(x, y - 10, 13);
+    g.fillCircle(x - 13, y - 12, 6);
+    g.fillCircle(x + 13, y - 12, 6);
+    g.fillStyle(face, 1);
+    g.fillCircle(x - 13, y - 12, 3);
+    g.fillCircle(x + 13, y - 12, 3);
+    g.fillEllipse(x, y - 7, 18, 14);
+    g.fillEllipse(x, y + 10, 14, 12);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(x - 4, y - 11, 2);
+    g.fillCircle(x + 4, y - 11, 2);
+    g.lineStyle(2, 0x5a3418, 1);
+    g.lineBetween(x - 4, y - 4, x + 4, y - 4);
+    if (m.state === 'windup') {
+      // Arm up, holding a banana: it's about to throw!
+      g.lineStyle(5, brown, 1);
+      g.lineBetween(x - 8, y, x - 16, y - 24);
+      this.drawBanana(g, x - 18, y - 30, -1);
+    }
+  }
+
+  drawSnake(g, s) {
+    const head = this.jungle.snakeHead(s);
+    const top = { x: s.x, y: s.top };
+    const shake = s.state === 'warn' ? Math.sin(this.clock * 50) * 3 : 0;
+    // A wiggly body hanging down from the branch.
+    const len = head.y - top.y;
+    const n = Math.max(3, Math.round(len / 8));
+    let prev = top;
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const p = {
+        x:
+          top.x + (head.x - top.x) * t + Math.sin(t * 9 + this.clock * 4) * 5 * (1 - t) + shake * t,
+        y: top.y + len * t,
+      };
+      g.lineStyle(SNAKE_RADIUS * 1.4, 0x4f9a2a, 1);
+      g.lineBetween(prev.x, prev.y, p.x, p.y);
+      prev = p;
+    }
+    g.fillStyle(0x4f9a2a, 1);
+    g.fillCircle(top.x, top.y + 4, SNAKE_RADIUS * 0.8);
+    const hx = prev.x;
+    const hy = head.y;
+    if (s.state === 'warn' || s.state === 'strike') {
+      // Flicking tongue.
+      g.lineStyle(2, 0xff3040, 1);
+      g.lineBetween(hx, hy + 8, hx, hy + 16 + Math.sin(this.clock * 40) * 3);
+    }
+    g.fillStyle(0x3f8a22, 1);
+    g.fillEllipse(hx, hy + 2, 20, 16);
+    g.fillStyle(0xffe066, 1);
+    g.fillCircle(hx - 5, hy, 3.5);
+    g.fillCircle(hx + 5, hy, 3.5);
+    g.fillStyle(0x000000, 1);
+    g.fillRect(hx - 5.5, hy - 2.5, 1.5, 5);
+    g.fillRect(hx + 4.5, hy - 2.5, 1.5, 5);
+    const biting = s.state === 'strike' || s.state === 'hold';
+    if (biting) {
+      g.fillStyle(0xffffff, 1);
+      g.fillTriangle(hx - 5, hy + 7, hx - 2, hy + 7, hx - 3.5, hy + 13);
+      g.fillTriangle(hx + 2, hy + 7, hx + 5, hy + 7, hx + 3.5, hy + 13);
     }
   }
 
@@ -1485,6 +1881,7 @@ export default class GameScene extends Phaser.Scene {
       drawBelt(g, b.col * TILE, b.row * TILE, b.dir, this.clock * 40);
     }
     this.drawSwingTiles(g);
+    this.drawJungleTiles(g);
     for (const c of this.canyon.crumbles) {
       const x = c.col * TILE;
       const y = c.row * TILE;
