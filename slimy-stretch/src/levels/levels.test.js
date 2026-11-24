@@ -5,6 +5,14 @@ import { ZIP_HANG } from '../logic/jungle.js';
 import { solveLevel } from '../logic/solver.js';
 import { chaserPosition } from '../logic/hazards.js';
 import { simulateDrop } from '../logic/warehouse.js';
+import {
+  balloonPath,
+  BASKET_SIT,
+  KITE_STRING,
+  RAINBOW_RIDE,
+  rainbowArc,
+  sleepingClouds,
+} from '../logic/sky.js';
 
 // A kid needs about this many seconds per drag when racing a chaser.
 const SECONDS_PER_DRAG = 2.2;
@@ -72,6 +80,40 @@ describe('levels', () => {
         }
       });
 
+      it('has its sky rides going somewhere safe', () => {
+        for (const balloon of def.balloons || []) {
+          // A balloon drops you off somewhere safe.
+          const path = balloonPath(balloon);
+          const end = path[path.length - 1];
+          expect(simulateDrop(level, { x: end.x, y: end.y - BASKET_SIT })).toBeTruthy();
+        }
+        for (const rainbow of def.rainbows || []) {
+          // So does the end of a rainbow.
+          const arc = rainbowArc(rainbow);
+          const end = arc[arc.length - 1];
+          expect(simulateDrop(level, { x: end.x, y: end.y - RAINBOW_RIDE })).toBeTruthy();
+        }
+        for (const island of def.islands || []) {
+          // A floating island's path is open sky.
+          const width = island.width || 3;
+          const [c0, c1] = [island.from[0], island.to[0]].sort((a, b) => a - b);
+          const [r0, r1] = [island.from[1], island.to[1]].sort((a, b) => a - b);
+          for (let row = r0; row <= r1; row++) {
+            for (let col = c0; col < c1 + width; col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+            }
+          }
+        }
+        for (const kite of level.kites) {
+          // A kite needs wind, and the end of its string hangs in open sky.
+          expect(def.wind).toBeTruthy();
+          const string = { x: kite.x, y: kite.y + KITE_STRING };
+          expect(tileAt(level, Math.floor(string.x / 48), Math.floor(string.y / 48))).toBe(
+            TileKind.EMPTY
+          );
+        }
+      });
+
       it('can be finished, and every item can be reached', { timeout: 30000 }, async () => {
         // The checker is slow and never waits on anything; give vitest a turn
         // first so its messages don't time out over a long run of levels.
@@ -84,6 +126,9 @@ describe('levels', () => {
         expect(result.keys.every(Boolean)).toBe(true);
         expect(result.chests.every(Boolean)).toBe(true);
         expect(result.slimeMachines.every(Boolean)).toBe(true);
+        // Every sleeping cloud can be woken up with a slime shot.
+        expect(result.sleepingClouds).toHaveLength(sleepingClouds(level).length);
+        expect(result.sleepingClouds.every(Boolean)).toBe(true);
         // Spare blobs a seagull barfs up must turn up somewhere you can get to.
         expect(result.blobSpots.every(Boolean)).toBe(true);
         for (const gull of def.gulls || []) {

@@ -75,6 +75,32 @@ export default class BootScene extends Phaser.Scene {
       g.fillRect(13, 24, 14, 2);
     });
 
+    // Stars are what you collect up in the sky.
+    make('star', 44, 44, g => {
+      g.fillStyle(0xfff6a0, 0.35);
+      g.fillCircle(22, 22, 21);
+      const star = r => {
+        const pts = [];
+        for (let i = 0; i < 10; i++) {
+          const k = i % 2 === 0 ? r : r * 0.45;
+          const a = -Math.PI / 2 + (i * Math.PI) / 5;
+          pts.push({ x: 22 + Math.cos(a) * k, y: 23 + Math.sin(a) * k });
+        }
+        return pts;
+      };
+      g.fillStyle(0xe8a810, 1);
+      g.fillPoints(star(19), true);
+      g.fillStyle(0xffd83a, 1);
+      g.fillPoints(star(15), true);
+      g.fillStyle(0xfff6c0, 1);
+      g.fillCircle(18, 18, 3);
+      // A happy little face.
+      g.fillStyle(0x7a5208, 1);
+      g.fillCircle(18, 23, 1.8);
+      g.fillCircle(26, 23, 1.8);
+      g.fillRect(19, 27, 6, 2);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

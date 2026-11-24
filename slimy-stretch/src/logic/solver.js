@@ -28,6 +28,19 @@ import {
   ZIP_HANG,
   zipGrip,
 } from './jungle.js';
+import {
+  BALLOON_GRAB,
+  balloonPath,
+  BASKET_SIT,
+  islandEnds,
+  KITE_GRAB,
+  KITE_STRING,
+  kiteLandings,
+  RAINBOW_GRAB,
+  RAINBOW_RIDE,
+  rainbowArc,
+  sleepingClouds,
+} from './sky.js';
 
 const CANNON_ANGLES = 72;
 
@@ -37,7 +50,9 @@ const CANNON_ANGLES = 72;
  * and letting go, using the same sticking rules as the real game. Timed
  * lasers and chasers are ignored (you can wait for a laser to turn off), but
  * always-on lasers block. So are monkeys and snakes (you can wait for them
- * too), but quicksand cuts how far you can stretch.
+ * too), but quicksand cuts how far you can stretch. Lightning clouds zap on
+ * a timer too, and fluffy clouds count as normal platforms (you can always
+ * move off one before you sink through).
  */
 
 const DIRECTIONS = 32;
@@ -156,9 +171,78 @@ function explore(level) {
     };
   });
 
+  // Hot air balloons and rainbows: touch the start and get dropped off at the end.
+  const rides = [];
+  for (const b of level.def.balloons || []) {
+    const path = balloonPath(b);
+    const end = path[path.length - 1];
+    rides.push({
+      grab: path[0],
+      radius: BALLOON_GRAB,
+      landing: simulateDrop(level, { x: end.x, y: end.y - BASKET_SIT }),
+    });
+  }
+  for (const r of level.def.rainbows || []) {
+    const arc = rainbowArc(r);
+    const end = arc[arc.length - 1];
+    rides.push({
+      grab: arc[0],
+      radius: RAINBOW_GRAB,
+      landing: simulateDrop(level, { x: end.x, y: end.y - RAINBOW_RIDE }),
+    });
+  }
+  // Kites: grab the end of the string and let go somewhere along the way.
+  const kites = level.kites.map(k => ({
+    string: { x: k.x, y: k.y + KITE_STRING },
+    home: k,
+    landings: null,
+  }));
+  // Floating islands: get on anywhere along the way and ride to either end.
+  const islands = (level.def.islands || []).map(def => {
+    const { from, to } = islandEnds(def);
+    const width = def.width || 3;
+    const tops = at => {
+      const spots = [];
+      for (let i = 0; i < width; i++) {
+        spots.push({ x: at.x + (i + 0.5) * TILE, y: at.y - END_RADIUS - 1 });
+      }
+      return spots;
+    };
+    const along = [];
+    const steps = Math.max(1, Math.ceil(dist(from, to) / (TILE / 2)));
+    for (let k = 0; k <= steps; k++) {
+      const at = {
+        x: from.x + ((to.x - from.x) * k) / steps,
+        y: from.y + ((to.y - from.y) * k) / steps,
+      };
+      along.push(...tops(at));
+    }
+    return { along, ends: [...tops(from), ...tops(to)] };
+  });
+
   while (queue.length) {
     const anchor = queue.shift();
     reached.push(anchor);
+    for (const ride of rides) {
+      if (ride.landing && canStretchTo(anchor, ride.grab, ride.radius)) {
+        visit({ ...ride.landing }, anchor.moves + 2);
+      }
+    }
+    for (const kite of kites) {
+      if (canStretchTo(anchor, kite.string, KITE_GRAB)) {
+        kite.landings = kite.landings || kiteLandings(level, kite.home, level.def.wind);
+        for (const spot of kite.landings) {
+          visit({ ...spot }, anchor.moves + 3);
+        }
+      }
+    }
+    for (const island of islands) {
+      if (island.along.some(spot => canStretchTo(anchor, spot, TILE * 0.75))) {
+        for (const spot of island.ends) {
+          visit({ ...spot }, anchor.moves + 2);
+        }
+      }
+    }
     for (const v of vines) {
       if (canStretchTo(anchor, v.tip, VINE_GRAB)) {
         v.landings = v.landings || vineLandings(level, v.vine);
@@ -272,8 +356,14 @@ function explore(level) {
  * A copy of the level with eaten boxes removed and gates open or (deadly)
  * closed. Leafy traps are just holes: they break as soon as you touch them.
  */
-function levelView(level, eaten, openColors, powered = new Set()) {
+function levelView(level, eaten, openColors, powered = new Set(), woken = []) {
   const tiles = level.tiles.map(row => row.map(k => (k === TileKind.LEAFY ? TileKind.EMPTY : k)));
+  // A sleeping cloud that's been woken up has flown away.
+  for (const cloud of woken) {
+    for (const t of cloud.tiles) {
+      tiles[t.row][t.col] = TileKind.EMPTY;
+    }
+  }
   // A powered slime machine has moved its platform.
   (level.def.slimeMachines || []).forEach((m, i) => {
     if (powered.has(i)) {
@@ -322,6 +412,8 @@ export function solveLevel(level) {
   const openColors = new Set();
   const powered = new Set();
   const machines = (level.def.slimeMachines || []).map(machineFaces);
+  const clouds = sleepingClouds(level);
+  const woken = new Set();
   let view;
   let result;
   // Things in eaten boxes come straight to you; things in smashed boxes drop
@@ -331,7 +423,13 @@ export function solveLevel(level) {
       ? result.canTouch(it, radius)
       : eaten.has(it.inBox);
   for (;;) {
-    view = levelView(level, eaten, openColors, powered);
+    view = levelView(
+      level,
+      eaten,
+      openColors,
+      powered,
+      clouds.filter((_c, i) => woken.has(i))
+    );
     result = explore(view);
     let changed = false;
     level.boxes.forEach((box, i) => {
@@ -350,6 +448,12 @@ export function solveLevel(level) {
     machines.forEach((m, i) => {
       if (!powered.has(i) && canShootInto(view, result.reached, m.shotFace)) {
         powered.add(i);
+        changed = true;
+      }
+    });
+    clouds.forEach((cloud, i) => {
+      if (!woken.has(i) && canShootCloud(view, result.reached, cloud)) {
+        woken.add(i);
         changed = true;
       }
     });
@@ -373,6 +477,8 @@ export function solveLevel(level) {
     boxes: level.boxes.map((_b, i) => eaten.has(i)),
     // Each slime machine can be powered, and you can climb in to get your blob back.
     slimeMachines: machines.map((m, i) => powered.has(i) && result.canTouch(m.openFace, 12)),
+    // Every sleeping cloud can be woken up with a slime shot.
+    sleepingClouds: clouds.map((_c, i) => woken.has(i)),
   };
 }
 
@@ -395,6 +501,27 @@ function canShootInto(level, reached, face) {
     }
     const end = castCircle(level, a, face, BLOB_RADIUS, 3);
     return dist(end, face) < TILE * 0.5;
+  });
+}
+
+/** Is a circle at `p` touching tile `t`? */
+function touchesTile(p, r, t) {
+  const cx = Math.max(t.col * TILE, Math.min(p.x, (t.col + 1) * TILE));
+  const cy = Math.max(t.row * TILE, Math.min(p.y, (t.row + 1) * TILE));
+  return (p.x - cx) ** 2 + (p.y - cy) ** 2 < r * r;
+}
+
+/** Can a slime shot from any spot the slime can get to hit a sleeping cloud? */
+function canShootCloud(level, reached, cloud) {
+  return cloud.tiles.some(t => {
+    const center = { x: (t.col + 0.5) * TILE, y: (t.row + 0.5) * TILE };
+    return reached.some(a => {
+      if (dist(a, center) > SHOT_RANGE + TILE / 2) {
+        return false;
+      }
+      const end = castCircle(level, a, center, BLOB_RADIUS, 3);
+      return cloud.tiles.some(c => touchesTile(end, BLOB_RADIUS + 4, c));
+    });
   });
 }
 

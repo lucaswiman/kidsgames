@@ -259,6 +259,24 @@ export const sfx = {
     tone({ freq: 300, to: 600, dur: 0.2, vol: 0.25, type: 'sine' });
     tone({ freq: 600, dur: 0.15, vol: 0.2, type: 'sine', delay: 0.2 });
   },
+  zap: () => {
+    noise({ dur: 0.5, vol: 0.3, filter: 8000, to: 400 });
+    tone({ freq: 1600, to: 120, dur: 0.25, vol: 0.18, type: 'sawtooth' });
+  },
+  yawn: () => {
+    tone({ freq: 300, to: 500, dur: 0.35, vol: 0.2, type: 'triangle' });
+    tone({ freq: 500, to: 220, dur: 0.6, vol: 0.2, type: 'triangle', delay: 0.35 });
+  },
+  fluff: () => noise({ dur: 0.3, vol: 0.12, filter: 1500, to: 300 }),
+  balloon: () => {
+    noise({ dur: 0.5, vol: 0.12, filter: 600, to: 200 });
+    tone({ freq: 330, to: 440, dur: 0.4, vol: 0.15, type: 'sine' });
+  },
+  rainbow: () => {
+    [0, 4, 7, 12, 16].forEach((n, i) =>
+      tone({ freq: 523 * 2 ** (n / 12), dur: 0.12, vol: 0.15, type: 'triangle', delay: i * 0.06 })
+    );
+  },
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -363,6 +381,13 @@ const SONGS = {
     // A clunky, chugging machine beat.
     lead: [0, null, 0, 7, null, 6, 7, null, 0, null, 0, 10, null, 9, 7, 5],
     bass: [-12, -12, -12, null, -12, -12, -12, null, -14, -14, -14, null, -10, -10, -9, null],
+  },
+  sky: {
+    bpm: 100,
+    root: 65,
+    // Light and floaty, like drifting along on a cloud.
+    lead: [12, null, 16, null, 19, null, 16, 14, 12, null, 9, null, 7, null, 9, null],
+    bass: [-12, null, null, -5, null, null, -7, null, -10, null, null, -3, null, null, -5, null],
   },
   boss: {
     bpm: 156,

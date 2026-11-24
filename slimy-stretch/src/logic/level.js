@@ -40,6 +40,10 @@ import { TILE } from './constants.js';
 //   v  steam vent (sticky floor that blasts you up into the air)
 //   N  slime machine (slippery; shoot a blob in to move its platform, see def.slimeMachines)
 //   n  a slime machine's platform (sticky; it moves when its machine gets a blob)
+//   !  lightning cloud (slippery; every few seconds it rumbles, then zaps straight down)
+//   @  sleeping cloud (slippery, blocks the way; a slime shot wakes it up and it flies off)
+//   f  fluffy cloud (a one-way platform you slowly sink through if you sit on it too long)
+//   k  kite (grab the bottom of its string and the wind carries you along)
 //   .  empty
 
 export const TileKind = {
@@ -72,6 +76,10 @@ export const TileKind = {
   VENT: 26,
   SLIME_MACHINE: 27,
   LIFT: 28,
+  STORM: 29,
+  SLEEPY: 30,
+  FLUFFY: 31,
+  SKY_ISLAND: 32, // a floating island's spot in the sky (never in a map)
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -83,6 +91,7 @@ const PLATFORMS = new Set([
   TileKind.HAMMOCK,
   TileKind.FLOWER,
   TileKind.LEAF,
+  TileKind.FLUFFY,
 ]);
 
 export function isPlatformKind(kind) {
@@ -125,6 +134,9 @@ const SOLID = new Set([
   TileKind.VENT,
   TileKind.SLIME_MACHINE,
   TileKind.LIFT,
+  TileKind.STORM,
+  TileKind.SLEEPY,
+  TileKind.SKY_ISLAND,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -142,6 +154,7 @@ const STICKY = new Set([
   TileKind.LOG,
   TileKind.VENT,
   TileKind.LIFT,
+  TileKind.SKY_ISLAND,
 ]);
 
 export function isSolidKind(kind) {
@@ -203,6 +216,8 @@ export function parseLevel(def) {
     presses: [],
     saws: [],
     vents: [],
+    stormClouds: [],
+    kites: [],
   };
 
   rows.forEach((line, row) => {
@@ -371,6 +386,19 @@ export function parseLevel(def) {
           break;
         case 'n':
           kind = TileKind.LIFT;
+          break;
+        case '!':
+          kind = TileKind.STORM;
+          level.stormClouds.push({ ...center, col, row });
+          break;
+        case '@':
+          kind = TileKind.SLEEPY;
+          break;
+        case 'f':
+          kind = TileKind.FLUFFY;
+          break;
+        case 'k':
+          level.kites.push({ ...center, col, row });
           break;
         case '.':
           break;

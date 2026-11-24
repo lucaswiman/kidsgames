@@ -43,6 +43,7 @@ import {
   ZIP_GRIP,
 } from '../logic/jungle.js';
 import { FactoryStuff } from '../logic/factory.js';
+import { SkyStuff } from '../logic/sky.js';
 import { BigMachine } from '../logic/bigMachine.js';
 import { SAFE_TIME, SafeTrail, SPLIT_REACH, touching } from '../logic/split.js';
 import {
@@ -72,6 +73,7 @@ import {
 } from '../render/theme.js';
 import { SlimeView } from '../render/slimeView.js';
 import { drawBigMachine, drawFactory } from '../render/factoryView.js';
+import { drawSky, drawSkyBehind, drawSkyTiles } from '../render/skyView.js';
 import { makeButton, makeIconButton, makeMuteButton, textStyle } from '../render/ui.js';
 
 // Add ?all to the address to unlock every level (and the tongue) for testing.
@@ -84,6 +86,7 @@ const PRIZES = {
   lab: { texture: 'core', name: 'power core', label: 'Cores' },
   island: { texture: 'pearl', name: 'pearl', label: 'Pearls' },
   jungle: { texture: 'idol', name: 'golden idol', label: 'Idols' },
+  sky: { texture: 'star', name: 'star', label: 'Stars' },
 };
 
 export default class GameScene extends Phaser.Scene {
@@ -110,6 +113,7 @@ export default class GameScene extends Phaser.Scene {
 
     playMusic(this.def.type === 'boss' ? 'boss' : this.themeName);
     this.factory = new FactoryStuff(this.level);
+    this.sky = new SkyStuff(this.level);
     this.isBoss = this.def.type === 'boss';
 
     drawBackground(this, this.theme);
@@ -196,8 +200,8 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: sprite, scaleX: 0.2, yoyo: true, repeat: -1, duration: 600 });
       return { ...t, sprite, taken: false };
     });
-    // On the island you collect pearls instead of power cores, and in the
-    // jungle golden idols.
+    // On the island you collect pearls instead of power cores, in the jungle
+    // golden idols, and in the sky stars.
     const prize = PRIZES[this.themeName] || PRIZES.lab;
     this.coreName = prize.name;
     this.coreLabel = prize.label;
@@ -351,6 +355,12 @@ export default class GameScene extends Phaser.Scene {
         this.warehouse.aim(this.worldPoint(pointer));
         return;
       }
+      if (this.sky.onKite) {
+        // Holding a kite: tap anywhere to let go.
+        this.sky.letGoKite(this.slime);
+        this.activePointer = null;
+        return;
+      }
       // On a vine you can still shoot and use your tongue.
       const onVine = this.jungle.onVine !== null;
       if (this.shotArmed && (!this.slime.frozen || onVine)) {
@@ -418,7 +428,8 @@ export default class GameScene extends Phaser.Scene {
   /** When split, you move whichever half is nearer your finger. */
   pickHalf(point) {
     const other = this.otherSlime;
-    if (!other || other.isFalling || this.slime.heldEnd) {
+    // A half riding a balloon, rainbow or kite stays the one you're moving.
+    if (!other || other.isFalling || this.slime.heldEnd || this.sky.ride) {
       return;
     }
     const near = slime =>
@@ -464,8 +475,10 @@ export default class GameScene extends Phaser.Scene {
         this.showBanner('The belt is going backwards! Wait for a bomb box to go in...', 2200);
       }
       const factoryHit = this.factory.update(dt, this.slime, this.shots.blobs);
+      const skyHit = this.sky.update(dt, this.slime, this.shots.blobs, this.time_);
       this.updateShots(dt);
       this.playFactorySounds();
+      this.playSkySounds();
       this.updateBigMachine(dt);
       this.playIslandSounds();
       this.playJungleSounds();
@@ -485,6 +498,7 @@ export default class GameScene extends Phaser.Scene {
         islandHit ||
         jungleHit ||
         factoryHit ||
+        skyHit ||
         this.bossHurtSlime;
       this.updateSplit(dt, !hurt);
       if (canyonHit === 'boulder') {
@@ -1200,6 +1214,44 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  playSkySounds() {
+    for (const e of this.sky.takeEvents()) {
+      if (e.type === 'rumble') {
+        sfx.rumble();
+      } else if (e.type === 'zap') {
+        sfx.zap();
+        this.cameras.main.shake(120, 0.004);
+      } else if (e.type === 'wake') {
+        sfx.yawn();
+        this.hintOnce('wake', 'You woke up the sleepy cloud! Off it floats.', 2000);
+      } else if (e.type === 'blobBack') {
+        sfx.grab();
+      } else if (e.type === 'fluff') {
+        sfx.fluff();
+        this.hintOnce('fluff', "Fluffy clouds are soft. Don't sit on one too long!", 2200);
+      } else if (e.type === 'fluffSoft') {
+        sfx.whoosh();
+      } else if (e.type === 'balloonGrab' || e.type === 'rainbowGrab' || e.type === 'kiteGrab') {
+        // The finger that touched it doesn't count as letting go.
+        this.activePointer = null;
+        if (e.type === 'balloonGrab') {
+          sfx.balloon();
+        } else if (e.type === 'rainbowGrab') {
+          sfx.rainbow();
+        } else {
+          sfx.vine();
+          this.hintOnce('kite', 'The wind carries the kite. Tap to let go!', 2500);
+        }
+      } else if (e.type === 'balloonDrop' || e.type === 'rainbowDrop') {
+        sfx.clawDrop();
+      } else if (e.type === 'kiteLetGo') {
+        sfx.whoosh();
+      } else if (e.type === 'kiteStick') {
+        sfx.splorch();
+      }
+    }
+  }
+
   die() {
     this.endSplit();
     this.status = 'dying';
@@ -1247,6 +1299,7 @@ export default class GameScene extends Phaser.Scene {
     this.island.resetAfterDeath();
     this.jungle.resetAfterDeath();
     this.factory.resetAfterDeath();
+    this.sky.resetAfterDeath();
     // Blobs stuck in slime machines come back to you.
     this.shots.blobs = this.shots.blobs.filter(b => b.state !== 'inMachine');
     this.endSplit();
@@ -1408,6 +1461,7 @@ export default class GameScene extends Phaser.Scene {
 
   render(dt) {
     this.drawCanyonTiles();
+    drawSkyTiles(this.dynGfx, this.sky, this.clock);
     this.drawWind();
     this.fluidGfx.clear();
     drawFluids(this.fluidGfx, this.level, this.clock);
@@ -1415,6 +1469,7 @@ export default class GameScene extends Phaser.Scene {
     const fx = this.fxGfx;
     fx.clear();
     this.drawJungleBehind(fx);
+    drawSkyBehind(fx, this.sky, this.clock);
     this.drawLasers(fx);
     this.drawGates(fx);
     this.drawTongue(fx);
@@ -1431,6 +1486,7 @@ export default class GameScene extends Phaser.Scene {
     this.drawIsland(over);
     this.drawJungle(over);
     drawFactory(over, this.factory, this.clock);
+    drawSky(over, this.sky, this.clock);
     if (this.bigMachine) {
       drawBigMachine(over, this.bigMachine, this.clock, this.bossBar);
     }
@@ -2347,7 +2403,11 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     for (const s of this.windStreaks) {
-      if (s.leaf) {
+      if (s.leaf && this.themeName === 'sky') {
+        // Up in the sky the wind blows little wisps of cloud along.
+        g.fillStyle(0xffffff, 0.6);
+        g.fillEllipse(s.x, s.y, 22, 8);
+      } else if (s.leaf) {
         g.fillStyle(0x8a9a3a, 0.9);
         g.fillEllipse(s.x, s.y, 10, 5);
       } else {

@@ -10,7 +10,8 @@
 // hint:   text shown at the start of the level
 // chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball
 // wind:   gusts that push the end you're dragging: { every, gust, strength, dir }
-//         (a gust every `every` seconds, lasting `gust` seconds; dir 1 = right, -1 = left)
+//         (a gust every `every` seconds, lasting `gust` seconds; dir 1 = right, -1 = left).
+//         The wind also pulls kites (k) along; they sink slowly while it's calm.
 // boxItems: what's inside each metal box (M), in reading order
 // boulderEvery: seconds between boulders from each ceiling crack (O), default 4.5
 // claws:  crane claws { row, from, to, drop, nice, speed } (see the Warehouse levels)
@@ -32,6 +33,15 @@
 //         a slime machine (N): a blob shot into its `shot` side moves its
 //         platform (n blocks) from `from` to `to`. Climb in the other side to
 //         get the blob back.
+// balloons: hot air balloons { path: [[col, row], ...] }. The basket waits at the
+//         first point; touch it to climb in, and it floats along the path and
+//         drops you off at the last point, then floats back empty.
+// rainbows: rainbow slides { from: [col, row], to: [col, row] }. Touch the
+//         `from` end and you zoom along the rainbow and get dropped at `to`.
+// islands: floating islands { from: [col, row], to: [col, row], width, speed }
+//         that float back and forth between `from` and `to` (where their left
+//         tile is; sideways or up and down). `width` tiles wide (default 3);
+//         speed in pixels per second (default 55). Anything stuck on top rides along.
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
@@ -43,6 +53,7 @@ export const WORLDS = [
   { id: 'island', name: 'The Island', theme: 'island' },
   { id: 'jungle', name: 'The Jungle', theme: 'jungle' },
   { id: 'factory', name: 'The Factory', theme: 'factory' },
+  { id: 'sky', name: 'Sky City', theme: 'sky' },
 ];
 
 export const LEVELS = [
@@ -1034,6 +1045,143 @@ export const LEVELS = [
       '##...<<<<<<<<<<<<<<<<#####',
       '##...#####################',
       '##########################',
+    ],
+  },
+  // ---------------------------------------------------------------- SKY CITY
+  {
+    id: '10-1',
+    world: 'sky',
+    name: 'Up in the Clouds',
+    type: 'normal',
+    hint: 'Fluffy clouds are soft: hop across before you sink! Ride the floating island, then slide down the rainbow!',
+    // The island floats back and forth across the gap between the two ledges.
+    islands: [{ from: [26, 9], to: [31, 9], width: 3 }],
+    rainbows: [{ from: [39, 8], to: [50, 8] }],
+    map: [
+      '..........................................................',
+      '..........................................................',
+      '..........................................................',
+      '..........................................................',
+      '..........................................................',
+      '..........................................................',
+      '..............................T...........................',
+      '..........................................................',
+      '.............T.........T............C...............E.....',
+      '.....................#####........#####.........#######...',
+      '...............fff...#####........#####.........#######...',
+      '..S......fff.......................................T......',
+      '######....................................................',
+      '######....................................................',
+      '..........................................................',
+      '..........................................................',
+    ],
+  },
+  {
+    id: '10-2',
+    world: 'sky',
+    name: 'Stormy Skies',
+    type: 'normal',
+    hint: 'Storm clouds rumble, then ZAP! Wait for the lightning to stop. Strong wind blows too!',
+    // Much windier than the canyon: a strong gust every 6 seconds, blowing left.
+    wind: { every: 6, gust: 3, strength: 150, dir: -1 },
+    map: [
+      '......................!...!....!..............',
+      '...................................!..........',
+      '................................T.............',
+      '..............................................',
+      '......!.................##....................',
+      '...........!............##...#####............',
+      '.......................T##...#####......E.....',
+      '........................##...........######...',
+      '........................##...........######...',
+      '.........T..............##....................',
+      '..................C.....##....................',
+      '..S..............####...##....................',
+      '#####...#####....####...##....................',
+      '#####...#####...........##....................',
+      '..............................................',
+      '..............................................',
+    ],
+  },
+  {
+    id: '10-3',
+    world: 'sky',
+    name: 'Balloon Ride',
+    type: 'normal',
+    hint: 'Shoot the sleepy cloud to wake it up! Ride the balloon, then hold on to the kite: the wind will carry you.',
+    // Long gusts with short calms, so a kite can carry you a long way.
+    wind: { every: 4, gust: 3, strength: 120, dir: 1 },
+    // The balloon waits past the sleepy cloud, then goes up, over and down to the ledge.
+    balloons: [
+      {
+        path: [
+          [17, 11],
+          [17, 3],
+          [30, 3],
+          [30, 5],
+        ],
+      },
+    ],
+    map: [
+      '............##....................................@@@.....',
+      '............##....................................@@@.....',
+      '............##...................k................@@@..E..',
+      '............##....................................########',
+      '............##....................................########',
+      '............##....................................########',
+      '............##................C...................########',
+      '............##..............#####.................########',
+      '.......T....##..............#####.................########',
+      '............@@................T...................########',
+      '............@@....................................########',
+      '..S.........@@....................................########',
+      '###################..............................T########',
+      '###################...............................########',
+      '............##....................................########',
+      '............##....................................########',
+    ],
+  },
+  {
+    id: '10-4',
+    world: 'sky',
+    name: 'Sky Stars',
+    type: 'collect',
+    hint: 'Find all 5 stars! Use everything you have learned up here in the sky.',
+    wind: { every: 4, gust: 3, strength: 120, dir: -1 },
+    islands: [{ from: [32, 14], to: [39, 14], width: 3 }],
+    balloons: [
+      {
+        path: [
+          [30, 13],
+          [30, 2],
+          [43, 2],
+          [43, 3],
+        ],
+      },
+    ],
+    // The kite blows you over to the tower; the rainbow takes you back down.
+    rainbows: [{ from: [21, 2], to: [17, 12] }],
+    map: [
+      '........................................k.......',
+      '................................................',
+      '.........!.............P........................',
+      '......................###....................P..',
+      '...P..................###................######.',
+      '.######...............###................######.',
+      '.######...............###.......................',
+      '..........T...........###...................!...',
+      '....ff..............................T...........',
+      '................................................',
+      '........ff......................................',
+      '................................................',
+      '............ff..................................',
+      '....................S.......E...............P.C.',
+      '..#####.........################..........######',
+      '..#...@.........################..........######',
+      '..#.P.@.........................................',
+      '..#...@....T....................................',
+      '..############..................................',
+      '.......#######..................................',
     ],
   },
 ];
