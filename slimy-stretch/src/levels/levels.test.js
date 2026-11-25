@@ -3,11 +3,11 @@ import { LEVELS, WORLDS } from './levels.js';
 import { parseLevel, TileKind, tileAt } from '../logic/level.js';
 import { ZIP_HANG } from '../logic/jungle.js';
 import { canGetBackFrom, solveLevel } from '../logic/solver.js';
-import { ITEM_RADIUS } from '../logic/constants.js';
+import { END_RADIUS, ITEM_RADIUS, TILE } from '../logic/constants.js';
 import { chaserPosition } from '../logic/hazards.js';
 import { simulateDrop } from '../logic/warehouse.js';
 import { ASTEROID_WARN, padCenter, simulateBooster } from '../logic/space.js';
-import { ropeDrop } from '../logic/candy.js';
+import { CANE_LENGTH, CANE_THICK, caneShape, ropeDrop } from '../logic/candy.js';
 import { isSolidKind } from '../logic/level.js';
 import {
   balloonPath,
@@ -182,6 +182,19 @@ describe('levels', () => {
               expect(tileAt(level, col, row)).toBe(TileKind.WALL);
             }
           }
+        }
+      });
+
+      it('leaves room to crawl under every candy cane', () => {
+        for (const cane of level.candyCanes) {
+          const { pivot } = caneShape(cane, 0);
+          let row = cane.row + 1;
+          while (row < level.height && !isSolidKind(tileAt(level, cane.col, row))) {
+            row++;
+          }
+          // A slime on the floor under the cane has to fit below its hook.
+          const gap = row * TILE - (pivot.y + CANE_LENGTH);
+          expect(gap).toBeGreaterThan(2 * END_RADIUS + CANE_THICK);
         }
       });
 
