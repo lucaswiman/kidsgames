@@ -69,12 +69,15 @@ export class Slime {
     this.wind = { x: 0, y: 0 };
     this.fingerSamples = [];
     this.events = [];
+    // Held still by sticky caramel: neither end can be grabbed (see candy.js).
+    this.glued = false;
     this.spawn(spawnPoint);
   }
 
   /** Drop the slime in at a point. It falls until it lands on something. */
   spawn(point) {
     this.frozen = false;
+    this.glued = false;
     this.falling = { x: point.x, y: point.y, vx: 0, vy: 0 };
     this.heldIndex = -1;
     for (const end of this.ends) {
@@ -110,7 +113,7 @@ export class Slime {
 
   /** Finger went down. Grab whichever end is closest to it. */
   grab(point, time = 0) {
-    if (this.isFalling || this.frozen || this.heldIndex >= 0) {
+    if (this.isFalling || this.frozen || this.glued || this.heldIndex >= 0) {
       return false;
     }
     // Grabbing again while a missed stretch is still boinging back finishes the boing.

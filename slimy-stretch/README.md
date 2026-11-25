@@ -45,6 +45,16 @@ Climb like an inchworm!
   rocket boosters, space elevators, and bouncy moon rocks: pick one up with your tongue (it halves
   your reach while you carry it) and tap 👅 again to throw it. A moon rock thrown at an alien plant
   withers it for good. Plus space crystals to collect
+- **Candyland:** a sweet world with deadly chocolate rivers, sticky caramel (it holds you still
+  for a few seconds), gumball machines that rattle and then shoot gumballs at you (move!), candy
+  canes that swing back and forth, and sour candy clouds that rain sour drops straight down now
+  and then. But also bouncy gumdrops, marshmallows that squish down while you sit on them and then
+  spring you up a little, licorice ropes you slide down, lollipops (lick one with your tongue to
+  stretch 1.5 times farther for 6 seconds), ice cream scoops that melt if you sit on them for 2
+  seconds, and wrapped candies to collect. The boss is **King Claw**, a grumpy claw machine: make
+  his giant claw hands miss, eat them with your tongue while they're stuck, then shoot a slime
+  blob into his mouth when his head falls down. He gets one more hand each time, drops bombs, and
+  in the end turns the walls to ice
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -56,6 +66,9 @@ abilities:
 - The big machine gives you **split**: getting hurt splits you into two half-size slimes (half the
   reach each) instead of killing you. The exit door won't open until you bring the halves back
   together. If a half gets hurt it's gone; get hurt as a half-size slime and you really die.
+- King Claw gives you **super stretch**: tap 🎯, then tap a wall or ceiling the slime can see in a
+  straight line (up to 14 tiles away). The slime stretches super far over to it and sticks there.
+  Then it needs 20 seconds to rest.
 
 ## Running it
 
@@ -136,6 +149,16 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `g`    | gravity switch (turns down into up)               |
 | `D`    | moon rock (bouncy; pick it up with the tongue)    |
 | `+`    | rocket booster (blasts you off)                   |
+| `h`    | chocolate river (ouch!)                           |
+| `t`    | sticky caramel (holds you still for 2.5 s)        |
+| `y`    | gumdrop (bounces you up high)                     |
+| `8`    | marshmallow (squishes, then springs you up)       |
+| `:`    | licorice rope (a column of them; slide down it)   |
+| `9`    | lollipop (lick it to stretch farther)             |
+| `i`    | ice cream scoop (a one-way platform that melts)   |
+| `j`    | gumball machine (shoots gumballs at you)          |
+| `\|`   | candy cane (swings from the top of its cell)      |
+| `w`    | sour candy cloud (rains sour drops)               |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -183,6 +206,10 @@ columns 33 and 40 and drops anything it beams up at `drop`. Say which way each r
 `right`, or two of them joined like `down-left`). A gravity switch flips gravity until you touch a
 switch again (or lose a life); upside down, falling off the top of the level is falling out of
 the world, one-way platforms still only work from above, and only moon rocks bounce you.
+
+Candyland's King Claw is `boss: 'kingclaw'`, with `R` where his head hangs and
+`iceWalls: [{ from: [0, 1], to: [0, 14] }]`: rectangles of walls that turn to ice in his last
+phase.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

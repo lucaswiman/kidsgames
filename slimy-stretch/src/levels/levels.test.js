@@ -6,6 +6,8 @@ import { solveLevel } from '../logic/solver.js';
 import { chaserPosition } from '../logic/hazards.js';
 import { simulateDrop } from '../logic/warehouse.js';
 import { ASTEROID_WARN, padCenter, simulateBooster } from '../logic/space.js';
+import { ropeDrop } from '../logic/candy.js';
+import { isSolidKind } from '../logic/level.js';
 import {
   balloonPath,
   BASKET_SIT,
@@ -159,6 +161,26 @@ describe('levels', () => {
         for (const zone of level.zeroG) {
           expect(zone.right).toBeLessThanOrEqual(level.pixelWidth);
           expect(zone.bottom).toBeLessThanOrEqual(level.pixelHeight);
+        }
+      });
+
+      it('has its candy things in sensible places', () => {
+        for (const rope of level.ropes) {
+          // A licorice rope hangs from something and drops you off somewhere safe.
+          expect(isSolidKind(tileAt(level, rope.col, rope.top / 48 - 1))).toBe(true);
+          expect(simulateDrop(level, ropeDrop(rope))).toBeTruthy();
+        }
+        for (const cane of level.candyCanes) {
+          // A candy cane hangs from the ceiling.
+          expect(isSolidKind(tileAt(level, cane.col, cane.row - 1))).toBe(true);
+        }
+        for (const rect of def.iceWalls || []) {
+          // King Claw's icy walls are walls in the map.
+          for (let row = rect.from[1]; row <= rect.to[1]; row++) {
+            for (let col = rect.from[0]; col <= rect.to[0]; col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.WALL);
+            }
+          }
         }
       });
 

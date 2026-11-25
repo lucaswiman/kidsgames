@@ -112,6 +112,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  candy: {
+    skyTop: 0xffbfe0,
+    skyBottom: 0xc4ecff,
+    grid: null,
+    wall: 0xd99a64,
+    wallDark: 0x9a5c34,
+    wallLight: 0xf6c99a,
+    fluid: 0x6b3a1e,
+    fluidTop: 0xa0603a,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -253,6 +264,8 @@ export function drawBackdrop(scene, level, theme, themeName) {
     drawSkyBackdrop(g, level);
   } else if (themeName === 'space') {
     drawSpaceBackdrop(g, level);
+  } else if (themeName === 'candy') {
+    drawCandyBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -447,6 +460,66 @@ function drawSpaceBackdrop(g, level) {
   }
 }
 
+/**
+ * Candyland: rolling candy hills far away, with lollipop trees, gingerbread
+ * houses and puffy cotton candy clouds.
+ */
+function drawCandyBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  // Cotton candy clouds.
+  for (let x = 90; x < w; x += 380) {
+    const y = 60 + hash(x, 41) * 140;
+    g.fillStyle(hash(x, 42) > 0.5 ? 0xffd6ec : 0xd6f0ff, 0.8);
+    g.fillCircle(x, y, 26);
+    g.fillCircle(x + 30, y - 12, 32);
+    g.fillCircle(x + 62, y, 24);
+  }
+  // Two rows of hills, the far ones paler.
+  const rows = [
+    { base: h - 3.5 * TILE, color: 0xf7b6d8, alpha: 0.55, step: 260, size: 150 },
+    { base: h - 1.5 * TILE, color: 0xb6e6c8, alpha: 0.7, step: 320, size: 190 },
+  ];
+  rows.forEach((r, k) => {
+    for (let x = -100; x < w + 200; x += r.step) {
+      const size = r.size * (0.8 + hash(x, 43 + k) * 0.4);
+      g.fillStyle(r.color, r.alpha);
+      g.fillEllipse(x, r.base, size * 2, size * 1.4);
+      // Stripes of icing over the top of each hill.
+      g.fillStyle(0xffffff, r.alpha * 0.6);
+      g.fillEllipse(x, r.base - size * 0.55, size * 0.9, size * 0.18);
+    }
+  });
+  // Lollipop trees and gingerbread houses dotted along the hills.
+  const ground = h - 2.2 * TILE;
+  const swirl = [0xff5a8a, 0x5ac8ff, 0xffd84a, 0x8ae05a];
+  for (let x = 140; x < w; x += 300) {
+    if (hash(x, 44) > 0.45) {
+      const top = ground - 90 - hash(x, 45) * 40;
+      g.fillStyle(0xffffff, 0.75);
+      g.fillRect(x - 3, top, 6, ground - top);
+      g.fillStyle(swirl[Math.floor(hash(x, 46) * 4)], 0.75);
+      g.fillCircle(x, top, 26);
+      g.lineStyle(4, 0xffffff, 0.75);
+      g.strokeCircle(x, top, 16);
+      g.strokeCircle(x, top, 7);
+    } else {
+      // A little gingerbread house with icing on the roof.
+      g.fillStyle(0xb8743e, 0.75);
+      g.fillRect(x - 30, ground - 46, 60, 46);
+      g.fillStyle(0x8f5630, 0.75);
+      g.fillTriangle(x - 38, ground - 44, x + 38, ground - 44, x, ground - 84);
+      g.fillStyle(0xffffff, 0.8);
+      g.fillTriangle(x - 30, ground - 50, x + 30, ground - 50, x, ground - 80);
+      g.fillStyle(0xff6aa0, 0.8);
+      g.fillRect(x - 8, ground - 24, 16, 24);
+      g.fillStyle(0x7ad0ff, 0.8);
+      g.fillRect(x - 24, ground - 38, 10, 10);
+      g.fillRect(x + 14, ground - 38, 10, 10);
+    }
+  }
+}
+
 function isOpen(level, col, row) {
   const k = tileAt(level, col, row);
   return k !== TileKind.WALL && k !== TileKind.ICE && k !== TileKind.EMITTER;
@@ -629,6 +702,28 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
         g.fillRect(x + 6 + i * 15, y + 2, 7, 2);
       }
     }
+  } else if (themeName === 'candy') {
+    // Cake with a layer of cream through the middle, rainbow sprinkles, and
+    // pink frosting dripping over the top.
+    g.fillStyle(0xfff0e0, 0.8);
+    g.fillRect(x, y + 22, TILE, 5);
+    const sprinkles = [0xff4f8a, 0x4fc3ff, 0xffd23a, 0x7ae05a, 0xffffff];
+    for (let i = 0; i < 3; i++) {
+      const sx = x + 6 + hash(col + i, row) * 34;
+      const sy = y + 8 + hash(row + i, col) * 32;
+      g.lineStyle(3, sprinkles[Math.floor(hash(col, row + i) * 5)], 1);
+      g.lineBetween(sx, sy, sx + 5, sy + (hash(i, col) > 0.5 ? 3 : -3));
+    }
+    if (openUp) {
+      g.fillStyle(0xff9ac8, 1);
+      g.fillRect(x, y, TILE, 9);
+      for (let i = 0; i < 3; i++) {
+        const dx = x + 5 + i * 15 + hash(col + i, row) * 5;
+        g.fillRoundedRect(dx, y + 5, 8, 6 + hash(row + i, col) * 10, 4);
+      }
+      g.fillStyle(0xffd0e6, 1);
+      g.fillRect(x, y, TILE, 3);
+    }
   } else if (themeName === 'canyon') {
     if (openUp) {
       g.fillStyle(theme.wallLight, 1);
@@ -653,7 +748,7 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
   }
 }
 
-function drawIce(g, x, y) {
+export function drawIce(g, x, y) {
   g.fillStyle(0x9feaff, 1);
   g.fillRect(x, y, TILE, TILE);
   g.fillStyle(0xd8f8ff, 1);
@@ -937,7 +1032,14 @@ export function drawLift(g, x, y, width) {
   }
 }
 
-/** Lava and water. Redrawn every frame so the surface wobbles. */
+// The color of each fluid, and of the bright top of its surface.
+const FLUID_LOOK = {
+  [TileKind.LAVA]: { color: 0xff5a00, top: 0xffd040, alpha: 1 },
+  [TileKind.WATER]: { color: 0x2f8fff, top: 0x9fd2ff, alpha: 0.85 },
+  [TileKind.CHOCOLATE]: { color: 0x6b3a1e, top: 0xa0603a, alpha: 1 },
+};
+
+/** Lava, water and chocolate. Redrawn every frame so the surface wobbles. */
 export function drawFluids(g, level, time) {
   // A floating log's spot is still river underneath.
   const fluidAt = (c, r) => {
@@ -947,20 +1049,25 @@ export function drawFluids(g, level, time) {
   for (let row = 0; row < level.height; row++) {
     for (let col = 0; col < level.width; col++) {
       const kind = fluidAt(col, row);
-      if (kind !== TileKind.LAVA && kind !== TileKind.WATER) {
+      const look = FLUID_LOOK[kind];
+      if (!look) {
         continue;
       }
       const x = col * TILE;
       const y = row * TILE;
-      const color = kind === TileKind.LAVA ? 0xff5a00 : 0x2f8fff;
-      const top = kind === TileKind.LAVA ? 0xffd040 : 0x9fd2ff;
       const surface = fluidAt(col, row - 1) !== kind;
       const wave = surface ? 8 + Math.sin(time * 3 + col) * 3 : 0;
-      g.fillStyle(color, kind === TileKind.LAVA ? 1 : 0.85);
+      g.fillStyle(look.color, look.alpha);
       g.fillRect(x, y + wave, TILE, TILE - wave);
       if (surface) {
-        g.fillStyle(top, 1);
+        g.fillStyle(look.top, 1);
         g.fillRect(x, y + wave, TILE, 4);
+      }
+      if (kind === TileKind.CHOCOLATE) {
+        // Swirls flowing along the chocolate river.
+        g.lineStyle(3, 0x8a4e2a, 0.8);
+        const sx = x + ((time * 30 + hash(col, row) * TILE) % TILE);
+        g.lineBetween(sx - 10, y + wave + 16, sx + 4, y + wave + 20);
       }
     }
   }

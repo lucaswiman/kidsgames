@@ -303,6 +303,43 @@ export const sfx = {
   wither: () => tone({ freq: 500, to: 120, dur: 0.7, vol: 0.2, type: 'triangle' }),
   poof: () => noise({ dur: 0.25, vol: 0.18, filter: 2500, to: 600 }),
   float: () => tone({ freq: 400, to: 520, dur: 0.5, vol: 0.12, type: 'sine' }),
+  caramel: () => {
+    noise({ dur: 0.3, vol: 0.2, filter: 600, to: 150 });
+    tone({ freq: 220, to: 160, dur: 0.35, vol: 0.18, type: 'triangle' });
+  },
+  unstick: () => tone({ freq: 300, to: 700, dur: 0.15, vol: 0.15, type: 'triangle' }),
+  marshmallow: () => tone({ freq: 180, to: 120, dur: 0.25, vol: 0.15, type: 'sine' }),
+  spring: () => tone({ freq: 300, to: 900, dur: 0.2, vol: 0.2, type: 'triangle' }),
+  rope: () => tone({ freq: 600, to: 250, dur: 0.6, vol: 0.12, type: 'sine' }),
+  lick: () => {
+    [784, 988, 1175, 1568].forEach((f, i) =>
+      tone({ freq: f, dur: 0.1, vol: 0.15, type: 'triangle', delay: i * 0.05 })
+    );
+  },
+  drip: () => tone({ freq: 1200, to: 500, dur: 0.12, vol: 0.12, type: 'sine' }),
+  melt: () => noise({ dur: 0.4, vol: 0.15, filter: 1500, to: 300 }),
+  rattle: () => {
+    for (let i = 0; i < 4; i++) {
+      noise({ dur: 0.05, vol: 0.15, filter: 3000, to: 1500, delay: i * 0.08 });
+    }
+  },
+  gumball: () => tone({ freq: 500, to: 250, dur: 0.12, vol: 0.18, type: 'square' }),
+  pop: () => tone({ freq: 900, to: 1500, dur: 0.06, vol: 0.15, type: 'square' }),
+  rain: () => noise({ dur: 1.2, vol: 0.12, filter: 4000, to: 2000 }),
+  superStretch: () => {
+    tone({ freq: 200, to: 1200, dur: 0.3, vol: 0.2, type: 'sawtooth' });
+    noise({ dur: 0.3, vol: 0.15, filter: 3000, to: 800 });
+  },
+  clawWarn: () => {
+    for (let i = 0; i < 3; i++) {
+      tone({ freq: 700, dur: 0.08, vol: 0.12, type: 'square', delay: i * 0.12 });
+    }
+  },
+  ice: () => {
+    [1568, 1319, 1047, 784].forEach((f, i) =>
+      tone({ freq: f, dur: 0.18, vol: 0.14, type: 'sine', delay: i * 0.07 })
+    );
+  },
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -421,6 +458,13 @@ const SONGS = {
     // Twinkly arpeggios over a slow, deep bass, floating among the stars.
     lead: [0, 7, 12, 16, 19, 16, 12, 7, 2, 9, 14, 17, 21, 17, 14, 9],
     bass: [-12, null, null, null, -12, null, -5, null, -10, null, null, null, -10, null, -3, null],
+  },
+  candy: {
+    bpm: 120,
+    root: 64,
+    // A sweet, bouncy music-box tune, like a candy shop.
+    lead: [12, 16, 19, 16, 12, null, 14, 16, 17, 21, 19, 17, 16, null, 14, 12],
+    bass: [-12, null, -5, null, -7, null, -5, null, -15, null, -8, null, -10, null, -5, null],
   },
   boss: {
     bpm: 156,

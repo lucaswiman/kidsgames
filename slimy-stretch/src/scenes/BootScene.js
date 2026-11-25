@@ -131,6 +131,27 @@ export default class BootScene extends Phaser.Scene {
       g.fillTriangle(15, 18, 20, 9, 20, 22);
     });
 
+    // Wrapped candies are what you collect in Candyland.
+    make('candy', 52, 36, g => {
+      g.fillStyle(0xffd6ec, 0.35);
+      g.fillCircle(26, 18, 18);
+      // The twisted wrapper ends.
+      g.fillStyle(0xff6aa0, 1);
+      g.fillTriangle(16, 18, 2, 6, 2, 30);
+      g.fillTriangle(36, 18, 50, 6, 50, 30);
+      g.fillStyle(0xffb0d0, 1);
+      g.fillTriangle(16, 18, 6, 12, 6, 24);
+      g.fillTriangle(36, 18, 46, 12, 46, 24);
+      // The candy in the middle, with stripes.
+      g.fillStyle(0xff3a7a, 1);
+      g.fillCircle(26, 18, 12);
+      g.lineStyle(4, 0xffffff, 1);
+      g.lineBetween(19, 10, 23, 27);
+      g.lineBetween(27, 7, 31, 28);
+      g.fillStyle(0xffffff, 0.8);
+      g.fillCircle(22, 13, 3);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

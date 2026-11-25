@@ -52,6 +52,7 @@ import {
   simulateFling,
   SWITCH_RADIUS,
 } from './space.js';
+import { MARSH_BOUNCE, ropeDrop, ROPE_GRAB } from './candy.js';
 
 const CANNON_ANGLES = 72;
 
@@ -67,7 +68,13 @@ const CANNON_ANGLES = 72;
  * ignored too (you can wait for them, and a UFO only sets you back), the
  * middles of black holes and alien plants that can't be withered count as
  * deadly (their pull and chomping are ignored), and in zero gravity letting
- * go of a stretch in the air floats you off in that direction.
+ * go of a stretch in the air floats you off in that direction. In Candyland,
+ * chocolate is deadly, caramel is a normal sticky spot (it only holds you for
+ * a moment), ice cream scoops count as normal platforms (like fluffy clouds),
+ * gumdrops bounce you like hammocks, sitting on a marshmallow springs you up
+ * a little, and touching a licorice rope slides you down to its bottom.
+ * Gumball machines, candy canes and sour clouds are on timers, so they're
+ * ignored, and so are lollipops (their longer stretch doesn't last).
  */
 
 const DIRECTIONS = 32;
@@ -159,6 +166,17 @@ function explore(level, seeds = null) {
     const top = { x: v.x, y: v.row * TILE - END_RADIUS - 1 };
     hammocks.push({ ...top, landing: simulateVent(level, top) });
   }
+  // Sit on a marshmallow long enough and it springs you up a little.
+  if (!upsideDown) {
+    level.tiles.forEach((row, r) =>
+      row.forEach((kind, c) => {
+        if (kind === TileKind.MARSHMALLOW) {
+          const top = { x: (c + 0.5) * TILE, y: r * TILE - END_RADIUS - 1 };
+          hammocks.push({ ...top, landing: simulateBounce(level, top, MARSH_BOUNCE) });
+        }
+      })
+    );
+  }
   // Only nice claws count: mean ones drop you somewhere bad.
   const niceClaws = (level.def.claws || [])
     .filter(c => c.nice)
@@ -219,6 +237,14 @@ function explore(level, seeds = null) {
       landing: simulateDrop(level, { x: end.x, y: end.y - RAINBOW_RIDE }),
     });
   }
+  // Licorice ropes: touch one anywhere and slide down to the bottom.
+  const ropes = level.ropes.map(rope => {
+    const grabs = [];
+    for (let y = rope.top + TILE / 4; y < rope.bottom; y += TILE / 2) {
+      grabs.push({ x: rope.x, y });
+    }
+    return { grabs, landing: simulateDrop(level, ropeDrop(rope)) };
+  });
   // Kites: grab the end of the string and let go somewhere along the way.
   const kites = level.kites.map(k => ({
     string: { x: k.x, y: k.y + KITE_STRING },
@@ -274,6 +300,11 @@ function explore(level, seeds = null) {
     for (const ride of rides) {
       if (ride.landing && canStretchTo(anchor, ride.grab, ride.radius)) {
         visit({ ...ride.landing }, anchor.moves + 2);
+      }
+    }
+    for (const rope of ropes) {
+      if (rope.landing && rope.grabs.some(p => canStretchTo(anchor, p, ROPE_GRAB))) {
+        visit({ ...rope.landing }, anchor.moves + 2);
       }
     }
     for (const t of pads) {

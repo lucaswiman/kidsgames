@@ -49,6 +49,16 @@ import { TILE } from './constants.js';
 //   g  gravity switch (touch it and down becomes up, until you touch one again)
 //   D  moon rock (sticky and extra bouncy; pick it up with the tongue and throw it)
 //   +  rocket booster (blasts you off; def.boosters says which way each one points)
+//   h  chocolate river (deadly)
+//   t  sticky caramel (sticky, but it holds you still for a few seconds)
+//   y  gumdrop (sticky; bounces you up high, like a hammock)
+//   8  marshmallow (sticky; squishes down while you sit on it, then springs you up)
+//   :  licorice rope (a column of them is one rope; touch it and you slide down it)
+//   9  lollipop (lick it with the tongue to stretch farther for a while)
+//   i  ice cream scoop (a one-way platform that melts if you sit on it too long)
+//   j  gumball machine (sticky; shoots gumballs at you)
+//   |  candy cane (swings back and forth from the top of its cell, and hurts)
+//   w  sour candy cloud (slippery; every few seconds it rains sour drops straight down)
 //   .  empty
 
 export const TileKind = {
@@ -86,6 +96,13 @@ export const TileKind = {
   FLUFFY: 31,
   SKY_ISLAND: 32, // a floating island's (or space elevator's) spot (never in a map)
   MOON_ROCK: 33,
+  CHOCOLATE: 34,
+  CARAMEL: 35,
+  GUMDROP: 36,
+  MARSHMALLOW: 37,
+  ICE_CREAM: 38,
+  GUMBALL: 39,
+  SOUR_CLOUD: 40,
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -98,15 +115,21 @@ const PLATFORMS = new Set([
   TileKind.FLOWER,
   TileKind.LEAF,
   TileKind.FLUFFY,
+  TileKind.ICE_CREAM,
 ]);
 
 export function isPlatformKind(kind) {
   return PLATFORMS.has(kind);
 }
 
-/** Hammocks, bouncy flowers and moon rocks bounce you up high when you land on them. */
+/** Hammocks, bouncy flowers, moon rocks and gumdrops bounce you up high when you land on them. */
 export function isBouncyKind(kind) {
-  return kind === TileKind.HAMMOCK || kind === TileKind.FLOWER || kind === TileKind.MOON_ROCK;
+  return (
+    kind === TileKind.HAMMOCK ||
+    kind === TileKind.FLOWER ||
+    kind === TileKind.MOON_ROCK ||
+    kind === TileKind.GUMDROP
+  );
 }
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
@@ -144,6 +167,11 @@ const SOLID = new Set([
   TileKind.SLEEPY,
   TileKind.SKY_ISLAND,
   TileKind.MOON_ROCK,
+  TileKind.CARAMEL,
+  TileKind.GUMDROP,
+  TileKind.MARSHMALLOW,
+  TileKind.GUMBALL,
+  TileKind.SOUR_CLOUD,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -163,6 +191,10 @@ const STICKY = new Set([
   TileKind.LIFT,
   TileKind.SKY_ISLAND,
   TileKind.MOON_ROCK,
+  TileKind.CARAMEL,
+  TileKind.GUMDROP,
+  TileKind.MARSHMALLOW,
+  TileKind.GUMBALL,
 ]);
 
 export function isSolidKind(kind) {
@@ -174,7 +206,12 @@ export function isStickyKind(kind) {
 }
 
 export function isDeadlyKind(kind) {
-  return kind === TileKind.LAVA || kind === TileKind.WATER || kind === TileKind.SNAKE_PIT;
+  return (
+    kind === TileKind.LAVA ||
+    kind === TileKind.WATER ||
+    kind === TileKind.SNAKE_PIT ||
+    kind === TileKind.CHOCOLATE
+  );
 }
 
 function tileCenter(col, row) {
@@ -231,6 +268,10 @@ export function parseLevel(def) {
     switches: [],
     moonRocks: [],
     boosters: [],
+    gumballMachines: [],
+    candyCanes: [],
+    lollipops: [],
+    ropes: [],
     // Which way is down: 1 normally, -1 while a gravity switch has flipped it.
     gravity: 1,
     // Zero gravity zones, as pixel rectangles (see def.zeroG).
@@ -433,6 +474,36 @@ export function parseLevel(def) {
         case '+':
           level.boosters.push({ ...center, col, row });
           break;
+        case 'h':
+          kind = TileKind.CHOCOLATE;
+          break;
+        case 't':
+          kind = TileKind.CARAMEL;
+          break;
+        case 'y':
+          kind = TileKind.GUMDROP;
+          break;
+        case '8':
+          kind = TileKind.MARSHMALLOW;
+          break;
+        case ':':
+          break;
+        case '9':
+          level.lollipops.push({ ...center, col, row });
+          break;
+        case 'i':
+          kind = TileKind.ICE_CREAM;
+          break;
+        case 'j':
+          kind = TileKind.GUMBALL;
+          level.gumballMachines.push({ ...center, col, row });
+          break;
+        case '|':
+          level.candyCanes.push({ ...center, col, row });
+          break;
+        case 'w':
+          kind = TileKind.SOUR_CLOUD;
+          break;
         case '.':
           break;
         default:
@@ -449,6 +520,7 @@ export function parseLevel(def) {
   placeBoxItems(level);
   findCartTracks(level);
   aimBoosters(level);
+  findRopes(level);
   if (!level.exit && def.type !== 'boss') {
     throw new Error(`${def.id}: map has no exit (E)`);
   }
@@ -540,6 +612,26 @@ export function inZeroG(level, p) {
  */
 export function outOfWorld(level, p) {
   return p.y > level.pixelHeight || (level.gravity === -1 && p.y < 0);
+}
+
+/**
+ * Each column of licorice (:) is one rope, hanging from the top of its
+ * highest cell to the bottom of its lowest.
+ */
+function findRopes(level) {
+  const rows = level.def.map;
+  for (let col = 0; col < level.width; col++) {
+    for (let row = 0; row < level.height; row++) {
+      if (rows[row][col] !== ':' || (row > 0 && rows[row - 1][col] === ':')) {
+        continue;
+      }
+      let last = row;
+      while (last + 1 < level.height && rows[last + 1][col] === ':') {
+        last++;
+      }
+      level.ropes.push({ col, x: (col + 0.5) * TILE, top: row * TILE, bottom: (last + 1) * TILE });
+    }
+  }
 }
 
 /** Each mine cart can roll along the run of track (=) it sits on. */
