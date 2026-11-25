@@ -1302,6 +1302,9 @@ export const LEVELS = [
     type: 'collect',
     hint: 'Find all 4 space crystals! Alien plants chomp: grab a moon rock with your tongue, then tap the tongue again to throw it at them.',
     zeroG: [{ from: [1, 1], to: [12, 10] }],
+    // A teleporter on the high ledge by the door brings you back down: the
+    // walls in that room are slippery, so there's no other way off the ledge.
+    teleporters: [{ a: [38, 5], b: [42, 15] }],
     map: [
       '#IIIIIIIIIIII###############################',
       'I...................P#########I............I',

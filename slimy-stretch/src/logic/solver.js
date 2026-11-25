@@ -100,7 +100,9 @@ function explore(level, seeds = null) {
     !segmentTouchesDeadly(level, a, b, END_RADIUS * 0.6, 8) &&
     !blockers.some(l => segmentSegmentDist(a, b, l.from, l.to) < END_RADIUS);
 
-  const start = dropPoint(level, level.start);
+  // `solverStart` starts from a spot the slime is already stuck to (used to
+  // check you can get back from an item); otherwise drop in at the start.
+  const start = level.solverStart ? { ...level.solverStart } : dropPoint(level, level.start);
   const seen = new Set();
   const key = p => `${Math.round(p.x / GRID)},${Math.round(p.y / GRID)}`;
   const reached = [];
@@ -468,7 +470,10 @@ function exploreWithGravity(level) {
     { ...level, gravity: 1 },
     { ...level, gravity: -1 },
   ];
-  const seeds = [[dropPoint(views[0], level.start)], []];
+  const seeds = [
+    [level.solverStart ? { ...level.solverStart } : dropPoint(views[0], level.start)],
+    [],
+  ];
   seeds[0][0].moves = 0;
   const results = [null, null];
   const seedKeys = [new Set(), new Set()];
@@ -508,6 +513,7 @@ function exploreWithGravity(level) {
     reached: parts.flatMap(r => r.reached),
     movesTo: (target, radius) => Math.min(...parts.map(r => r.movesTo(target, radius))),
     canTouch: (target, radius) => parts.some(r => r.canTouch(target, radius)),
+    touchersOf: (target, radius) => parts.flatMap(r => r.touchersOf(target, radius)),
     safe: parts[0].safe,
   };
 }
@@ -578,13 +584,16 @@ export function solveLevel(level) {
   // Keep exploring until no new box can be eaten and no new gate opened.
   // Boxes in reach of a mining machine get smashed for you.
   const smashed = level.machines.length ? smashedBoxes(level) : new Set();
-  const eaten = new Set(smashed);
-  const openColors = new Set();
-  const powered = new Set();
+  // `solverState` carries over what's already been done (eaten boxes, open
+  // gates, withered plants...) when checking you can get back from an item.
+  const before = level.solverState || {};
+  const eaten = new Set([...smashed, ...(before.eaten || [])]);
+  const openColors = new Set(before.openColors);
+  const powered = new Set(before.powered);
   const machines = (level.def.slimeMachines || []).map(machineFaces);
   const clouds = sleepingClouds(level);
-  const woken = new Set();
-  const withered = new Set();
+  const woken = new Set(before.woken);
+  const withered = new Set(before.withered);
   let view;
   let result;
   // Things in eaten boxes come straight to you; things in smashed boxes drop
@@ -661,7 +670,24 @@ export function solveLevel(level) {
     sleepingClouds: clouds.map((_c, i) => woken.has(i)),
     // Alien plants that a thrown moon rock can wither.
     plants: level.plants.map((_p, i) => withered.has(i)),
+    touchersOf: result.touchersOf,
+    state: { eaten, openColors, powered, woken, withered },
   };
+}
+
+/**
+ * Can you still get to the exit after touching `target`? The slime can't let
+ * go and drop on purpose, so grabbing something on a high ledge can leave you
+ * stuck. Tries the few closest spots you could touch it from.
+ */
+export function canGetBackFrom(level, solved, target, radius) {
+  const from = solved
+    .touchersOf(target, radius)
+    .sort((a, b) => a.moves - b.moves)
+    .slice(0, 3);
+  return from.some(
+    a => solveLevel({ ...level, solverStart: { x: a.x, y: a.y }, solverState: solved.state }).exit
+  );
 }
 
 /**
