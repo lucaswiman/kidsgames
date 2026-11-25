@@ -8,7 +8,7 @@ import {
   segmentTouchesDeadly,
 } from './collision.js';
 import { buildLasers } from './hazards.js';
-import { isBouncyKind, TileKind } from './level.js';
+import { gravityDir, inZeroG, isBouncyKind, outOfWorld, TileKind } from './level.js';
 import { canReach } from './slime.js';
 import { TONGUE_RADIUS, touchesBox } from './tongue.js';
 import { PICK_RADIUS, pickaxe } from './cave.js';
@@ -32,6 +32,7 @@ import {
   BALLOON_GRAB,
   balloonPath,
   BASKET_SIT,
+  floatingPlatforms,
   islandEnds,
   KITE_GRAB,
   KITE_STRING,
@@ -41,6 +42,17 @@ import {
   rainbowArc,
   sleepingClouds,
 } from './sky.js';
+import {
+  BOOSTER_ENTER,
+  PAD_RADIUS,
+  padCenter,
+  ROCK_RADIUS,
+  ROCK_THROW_RANGE,
+  simulateBooster,
+  simulateFling,
+  SWITCH_RADIUS,
+} from './space.js';
+import { MARSH_BOUNCE, ropeDrop, ROPE_GRAB } from './candy.js';
 
 const CANNON_ANGLES = 72;
 
@@ -52,7 +64,17 @@ const CANNON_ANGLES = 72;
  * always-on lasers block. So are monkeys and snakes (you can wait for them
  * too), but quicksand cuts how far you can stretch. Lightning clouds zap on
  * a timer too, and fluffy clouds count as normal platforms (you can always
- * move off one before you sink through).
+ * move off one before you sink through). In space, asteroids and UFOs are
+ * ignored too (you can wait for them, and a UFO only sets you back), the
+ * middles of black holes and alien plants that can't be withered count as
+ * deadly (their pull and chomping are ignored), and in zero gravity letting
+ * go of a stretch in the air floats you off in that direction. In Candyland,
+ * chocolate is deadly, caramel is a normal sticky spot (it only holds you for
+ * a moment), ice cream scoops count as normal platforms (like fluffy clouds),
+ * gumdrops bounce you like hammocks, sitting on a marshmallow springs you up
+ * a little, and touching a licorice rope slides you down to its bottom.
+ * Gumball machines, candy canes and sour clouds are on timers, so they're
+ * ignored, and so are lollipops (their longer stretch doesn't last).
  */
 
 const DIRECTIONS = 32;
@@ -61,17 +83,20 @@ const GRID = 10;
 
 /** Where the slime lands after being dropped at `p` (one-way platforms catch it). */
 export function dropPoint(level, p) {
-  return (
-    simulateDrop(level, p) ||
-    castCircle(level, p, { x: p.x, y: level.pixelHeight + TILE * 4 }, END_RADIUS, 2)
-  );
+  // (Upside down, the slime falls up.)
+  const away = gravityDir(level) > 0 ? level.pixelHeight + TILE * 4 : -TILE * 4;
+  return simulateDrop(level, p) || castCircle(level, p, { x: p.x, y: away }, END_RADIUS, 2);
 }
 
-function explore(level) {
+/**
+ * Find every spot the slime can get to, starting from the level's start (or
+ * from `seeds`: spots with how many moves it took to get there).
+ */
+function explore(level, seeds = null) {
   const blockers = buildLasers(level).filter(l => l.off <= 0);
   const safe = (a, b) =>
-    a.y <= level.pixelHeight &&
-    b.y <= level.pixelHeight &&
+    !outOfWorld(level, a) &&
+    !outOfWorld(level, b) &&
     !segmentTouchesDeadly(level, a, b, END_RADIUS * 0.6, 8) &&
     !blockers.some(l => segmentSegmentDist(a, b, l.from, l.to) < END_RADIUS);
 
@@ -80,8 +105,13 @@ function explore(level) {
   const key = p => `${Math.round(p.x / GRID)},${Math.round(p.y / GRID)}`;
   const reached = [];
   start.moves = 0;
-  const queue = [start];
-  seen.add(key(start));
+  const queue = [];
+  for (const spot of seeds || [start]) {
+    if (!seen.has(key(spot))) {
+      seen.add(key(spot));
+      queue.push(spot);
+    }
+  }
 
   const visit = (spot, moves) => {
     if (spot && !seen.has(key(spot))) {
@@ -117,10 +147,15 @@ function explore(level) {
     return cannonLandings[i];
   };
   // Hammocks: land on one and it bounces you up to wherever you stick.
+  // (Upside down, only moon rocks bounce you, off their bottoms.)
   const hammocks = [];
+  const upsideDown = gravityDir(level) < 0;
   level.tiles.forEach((row, r) =>
     row.forEach((kind, c) => {
-      if (isBouncyKind(kind)) {
+      if (upsideDown && kind === TileKind.MOON_ROCK) {
+        const bottom = { x: (c + 0.5) * TILE, y: (r + 1) * TILE + END_RADIUS + 1 };
+        hammocks.push({ ...bottom, landing: simulateBounce(level, bottom) });
+      } else if (!upsideDown && isBouncyKind(kind)) {
         const top = { x: (c + 0.5) * TILE, y: r * TILE - END_RADIUS - 1 };
         hammocks.push({ ...top, landing: simulateBounce(level, top) });
       }
@@ -130,6 +165,17 @@ function explore(level) {
   for (const v of level.vents) {
     const top = { x: v.x, y: v.row * TILE - END_RADIUS - 1 };
     hammocks.push({ ...top, landing: simulateVent(level, top) });
+  }
+  // Sit on a marshmallow long enough and it springs you up a little.
+  if (!upsideDown) {
+    level.tiles.forEach((row, r) =>
+      row.forEach((kind, c) => {
+        if (kind === TileKind.MARSHMALLOW) {
+          const top = { x: (c + 0.5) * TILE, y: r * TILE - END_RADIUS - 1 };
+          hammocks.push({ ...top, landing: simulateBounce(level, top, MARSH_BOUNCE) });
+        }
+      })
+    );
   }
   // Only nice claws count: mean ones drop you somewhere bad.
   const niceClaws = (level.def.claws || [])
@@ -191,14 +237,23 @@ function explore(level) {
       landing: simulateDrop(level, { x: end.x, y: end.y - RAINBOW_RIDE }),
     });
   }
+  // Licorice ropes: touch one anywhere and slide down to the bottom.
+  const ropes = level.ropes.map(rope => {
+    const grabs = [];
+    for (let y = rope.top + TILE / 4; y < rope.bottom; y += TILE / 2) {
+      grabs.push({ x: rope.x, y });
+    }
+    return { grabs, landing: simulateDrop(level, ropeDrop(rope)) };
+  });
   // Kites: grab the end of the string and let go somewhere along the way.
   const kites = level.kites.map(k => ({
     string: { x: k.x, y: k.y + KITE_STRING },
     home: k,
     landings: null,
   }));
-  // Floating islands: get on anywhere along the way and ride to either end.
-  const islands = (level.def.islands || []).map(def => {
+  // Floating islands and space elevators: get on anywhere along the way and
+  // ride to either end.
+  const islands = floatingPlatforms(level.def).map(def => {
     const { from, to } = islandEnds(def);
     const width = def.width || 3;
     const tops = at => {
@@ -219,6 +274,25 @@ function explore(level) {
     }
     return { along, ends: [...tops(from), ...tops(to)] };
   });
+  // Teleporters: touch one pad and you pop out of the other one.
+  const pads = [];
+  for (const t of level.def.teleporters || []) {
+    const a = padCenter(t.a);
+    const b = padCenter(t.b);
+    pads.push({ pad: a, landing: simulateDrop(level, b) });
+    pads.push({ pad: b, landing: simulateDrop(level, a) });
+  }
+  // Rocket boosters: touch one and it blasts you off its way.
+  const boosters = level.boosters.map(b => ({ ...b, landing: simulateBooster(level, b) }));
+  // Zero gravity: letting go of a stretch in the air floats you off.
+  const flings = new Map();
+  const flingFrom = (anchor, tip, angleIndex) => {
+    const k = `${key(tip)},${angleIndex}`;
+    if (!flings.has(k)) {
+      flings.set(k, simulateFling(level, anchor, tip));
+    }
+    return flings.get(k);
+  };
 
   while (queue.length) {
     const anchor = queue.shift();
@@ -226,6 +300,21 @@ function explore(level) {
     for (const ride of rides) {
       if (ride.landing && canStretchTo(anchor, ride.grab, ride.radius)) {
         visit({ ...ride.landing }, anchor.moves + 2);
+      }
+    }
+    for (const rope of ropes) {
+      if (rope.landing && rope.grabs.some(p => canStretchTo(anchor, p, ROPE_GRAB))) {
+        visit({ ...rope.landing }, anchor.moves + 2);
+      }
+    }
+    for (const t of pads) {
+      if (t.landing && canStretchTo(anchor, t.pad, PAD_RADIUS + END_RADIUS)) {
+        visit({ ...t.landing }, anchor.moves + 2);
+      }
+    }
+    for (const b of boosters) {
+      if (b.landing && canStretchTo(anchor, b, BOOSTER_ENTER)) {
+        visit({ ...b.landing }, anchor.moves + 2);
       }
     }
     for (const kite of kites) {
@@ -327,6 +416,9 @@ function explore(level) {
           // Each new spot takes two drags: stretch out, then pull the tail over.
           spot.moves = anchor.moves + 2;
           queue.push(spot);
+        } else if (!spot && level.zeroG.length && inZeroG(level, tip)) {
+          // Nothing to stick to in zero gravity: float off and bump into something.
+          visit(flingFrom(anchor, tip, i), anchor.moves + 1);
         }
       }
     }
@@ -348,16 +440,94 @@ function explore(level) {
     return best;
   };
   const canTouch = (target, radius) => movesTo(target, radius) < Infinity;
+  // The spots from which an end can be stretched to touch `target`.
+  const touchersOf = (target, radius) =>
+    reached.filter(a => {
+      const reach = reachFrom(a);
+      if (dist(a, target) > reach + radius + END_RADIUS) {
+        return false;
+      }
+      const tip = castCircle(level, a, clampToRange(a, target, reach), END_RADIUS, 4);
+      return dist(tip, target) < radius + END_RADIUS && safe(a, tip);
+    });
 
-  return { start, reached, movesTo, canTouch, safe };
+  return { start, reached, movesTo, canTouch, touchersOf, safe };
+}
+
+/**
+ * Explore a level with gravity switches: first the normal way up, then, from
+ * everywhere a switch can be touched, upside down (touching a switch makes
+ * the slime let go and fall the new way), and back again, until nothing new
+ * turns up. Levels without switches are just explored normally.
+ */
+function exploreWithGravity(level) {
+  if (!level.switches.length) {
+    return explore(level);
+  }
+  const views = [
+    { ...level, gravity: 1 },
+    { ...level, gravity: -1 },
+  ];
+  const seeds = [[dropPoint(views[0], level.start)], []];
+  seeds[0][0].moves = 0;
+  const results = [null, null];
+  const seedKeys = [new Set(), new Set()];
+  const seedKey = p => `${Math.round(p.x / GRID)},${Math.round(p.y / GRID)}`;
+  seedKeys[0].add(seedKey(seeds[0][0]));
+  const changed = [true, false];
+  for (let round = 0; round < 6 && (changed[0] || changed[1]); round++) {
+    for (const side of [0, 1]) {
+      if (!changed[side]) {
+        continue;
+      }
+      changed[side] = false;
+      results[side] = explore(views[side], seeds[side]);
+      // Touch a switch (the stretched end reaches it while the other stays
+      // put), let go there and fall the other way.
+      const other = 1 - side;
+      for (const s of level.switches) {
+        for (const a of results[side].touchersOf(s, SWITCH_RADIUS)) {
+          const d = dist(a, s) || 1;
+          const reach = Math.max(0, d - SWITCH_RADIUS - END_RADIUS + 2);
+          const tip = { x: a.x + ((s.x - a.x) / d) * reach, y: a.y + ((s.y - a.y) / d) * reach };
+          const middle = { x: (a.x + tip.x) / 2, y: (a.y + tip.y) / 2 };
+          const landing = simulateDrop(views[other], middle);
+          if (landing && !seedKeys[other].has(seedKey(landing))) {
+            seedKeys[other].add(seedKey(landing));
+            landing.moves = a.moves + 1;
+            seeds[other].push(landing);
+            changed[other] = true;
+          }
+        }
+      }
+    }
+  }
+  const parts = results.filter(Boolean);
+  return {
+    start: parts[0].start,
+    reached: parts.flatMap(r => r.reached),
+    movesTo: (target, radius) => Math.min(...parts.map(r => r.movesTo(target, radius))),
+    canTouch: (target, radius) => parts.some(r => r.canTouch(target, radius)),
+    safe: parts[0].safe,
+  };
 }
 
 /**
  * A copy of the level with eaten boxes removed and gates open or (deadly)
  * closed. Leafy traps are just holes: they break as soon as you touch them.
  */
-function levelView(level, eaten, openColors, powered = new Set(), woken = []) {
+function levelView(level, eaten, openColors, powered = new Set(), woken = [], withered = null) {
   const tiles = level.tiles.map(row => row.map(k => (k === TileKind.LEAFY ? TileKind.EMPTY : k)));
+  // The middle of a black hole hurts, and so does an alien plant until a
+  // thrown moon rock withers it: the checker treats them like lava.
+  for (const h of level.blackHoles) {
+    tiles[h.row][h.col] = TileKind.LAVA;
+  }
+  level.plants.forEach((p, i) => {
+    if (!withered || !withered.has(i)) {
+      tiles[p.row][p.col] = TileKind.LAVA;
+    }
+  });
   // A sleeping cloud that's been woken up has flown away.
   for (const cloud of woken) {
     for (const t of cloud.tiles) {
@@ -414,6 +584,7 @@ export function solveLevel(level) {
   const machines = (level.def.slimeMachines || []).map(machineFaces);
   const clouds = sleepingClouds(level);
   const woken = new Set();
+  const withered = new Set();
   let view;
   let result;
   // Things in eaten boxes come straight to you; things in smashed boxes drop
@@ -428,9 +599,10 @@ export function solveLevel(level) {
       eaten,
       openColors,
       powered,
-      clouds.filter((_c, i) => woken.has(i))
+      clouds.filter((_c, i) => woken.has(i)),
+      withered
     );
-    result = explore(view);
+    result = exploreWithGravity(view);
     let changed = false;
     level.boxes.forEach((box, i) => {
       if (!eaten.has(i) && tongueCanReach(view, result.reached, box, result.safe)) {
@@ -457,6 +629,14 @@ export function solveLevel(level) {
         changed = true;
       }
     });
+    // Pick up a moon rock with the tongue and throw it at a plant to wither it.
+    const hasRock = level.moonRocks.some(r => tongueCanReach(view, result.reached, r, result.safe));
+    level.plants.forEach((plant, i) => {
+      if (hasRock && !withered.has(i) && canThrowAt(view, result.reached, plant)) {
+        withered.add(i);
+        changed = true;
+      }
+    });
     if (!changed) {
       break;
     }
@@ -479,7 +659,28 @@ export function solveLevel(level) {
     slimeMachines: machines.map((m, i) => powered.has(i) && result.canTouch(m.openFace, 12)),
     // Every sleeping cloud can be woken up with a slime shot.
     sleepingClouds: clouds.map((_c, i) => woken.has(i)),
+    // Alien plants that a thrown moon rock can wither.
+    plants: level.plants.map((_p, i) => withered.has(i)),
   };
+}
+
+/**
+ * Can a moon rock be thrown at `plant` from any spot the slime can get to?
+ * (Roughly: a straight clear line, not too far away. The rock you're
+ * carrying isn't in the way any more, and neither are the others.)
+ */
+function canThrowAt(level, reached, plant) {
+  const tiles = level.tiles.map(row =>
+    row.map(k => (k === TileKind.MOON_ROCK ? TileKind.EMPTY : k))
+  );
+  const view = { ...level, tiles };
+  return reached.some(a => {
+    if (dist(a, plant) > ROCK_THROW_RANGE) {
+      return false;
+    }
+    const end = castCircle(view, a, plant, ROCK_RADIUS, 3);
+    return dist(end, plant) < TILE * 0.5;
+  });
 }
 
 function machineFaces(m) {

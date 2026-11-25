@@ -56,3 +56,14 @@ describe('tongue', () => {
     expect(hasTongue(p)).toBe(true);
   });
 });
+
+describe('super stretch', () => {
+  it('is unlocked by beating King Claw', async () => {
+    const { hasSuperStretch } = await import('./progress.js');
+    const p = emptyProgress();
+    expect(hasSuperStretch(p)).toBe(false);
+    p.best['12-4'] = { score: 1000, tokens: 0 };
+    expect(hasSuperStretch(p)).toBe(true);
+    expect(hasSuperStretch({ ...emptyProgress(), superStretch: true })).toBe(true);
+  });
+});

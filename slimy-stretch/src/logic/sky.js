@@ -41,6 +41,7 @@ const RAINBOW_STEPS = 48;
 
 export const ISLAND_SPEED = 55;
 const ISLAND_PAUSE = 1; // an island waits this long at each end of its path
+export const ELEVATOR_SPEED = 70; // space elevators (see floatingPlatforms)
 
 export const KITE_STRING = 2.2 * TILE; // how far below the kite the end of its string hangs
 export const KITE_GRAB = 30;
@@ -152,6 +153,23 @@ export function rainbowArc(def) {
     });
   }
   return pts;
+}
+
+/**
+ * All the floating islands in a level (def.islands), plus Outer Space's
+ * elevators (def.elevators), which are really just floating islands that go
+ * straight up and down a shaft: { col, from, to, width, speed } goes between
+ * rows `from` and `to` with its left tile in column `col`.
+ */
+export function floatingPlatforms(def) {
+  const elevators = (def.elevators || []).map(e => ({
+    from: [e.col, e.from],
+    to: [e.col, e.to],
+    width: e.width || 2,
+    speed: e.speed || ELEVATOR_SPEED,
+    elevator: true,
+  }));
+  return [...(def.islands || []), ...elevators];
 }
 
 /** The two ends of a floating island's path (top-left corners, in pixels). */
@@ -302,7 +320,7 @@ export class SkyStuff {
       y: 0,
       cooldown: 0,
     }));
-    this.islands = (level.def.islands || []).map(def => this.buildIsland(def));
+    this.islands = floatingPlatforms(level.def).map(def => this.buildIsland(def));
     this.islands.forEach(island => this.placeIsland(island));
     this.kites = level.kites.map(k => ({
       home: { x: k.x, y: k.y },
@@ -340,6 +358,7 @@ export class SkyStuff {
       dir: 1,
       pause: ISLAND_PAUSE,
       speed: def.speed || ISLAND_SPEED,
+      elevator: !!def.elevator, // drawn as a space elevator, not an island
       under,
       cells: [],
     };

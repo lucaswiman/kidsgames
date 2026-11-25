@@ -1,6 +1,6 @@
 import { END_RADIUS, MAX_STRETCH, TILE } from './constants.js';
 import { circleHitsDeadly, circleHitsSolid, circleTouches, dist } from './collision.js';
-import { TileKind } from './level.js';
+import { outOfWorld, TileKind } from './level.js';
 import { Slime } from './slime.js';
 
 // Things that first show up in the Warehouse: conveyor belts, slime cannons
@@ -18,15 +18,17 @@ export const TONGUE_SORE_TIME = 10; // seconds without a tongue after a bomb box
 /**
  * Fly the slime out of a cannon at `angle` and see where it ends up, using the
  * real game physics. Returns { x, y, path } where it stuck, or null if it
- * would land in something deadly or fall out of the level.
+ * would land in something deadly or fall out of the level. (Space's rocket
+ * boosters fly you the same way, just at their own `speed` and `grip`.)
  */
-export function simulateShot(level, from, angle, maxTime = 4) {
+export function simulateShot(level, from, angle, maxTime = 4, speed = CANNON_SPEED, grip = 3) {
   const slime = new Slime(from);
   slime.launch(
     from.x + Math.cos(angle) * 30,
     from.y + Math.sin(angle) * 30,
-    Math.cos(angle) * CANNON_SPEED,
-    Math.sin(angle) * CANNON_SPEED
+    Math.cos(angle) * speed,
+    Math.sin(angle) * speed,
+    grip
   );
   const path = [];
   const dt = 1 / 60;
@@ -34,7 +36,7 @@ export function simulateShot(level, from, angle, maxTime = 4) {
     slime.update(dt, level);
     const p = slime.ends[0];
     path.push({ x: p.x, y: p.y });
-    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || p.y > level.pixelHeight) {
+    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || outOfWorld(level, p)) {
       return null;
     }
     if (!slime.isFalling) {
@@ -51,7 +53,7 @@ export function simulateDrop(level, from, maxTime = 4) {
   for (let t = 0; t < maxTime; t += dt) {
     slime.update(dt, level);
     const p = slime.ends[0];
-    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || p.y > level.pixelHeight) {
+    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || outOfWorld(level, p)) {
       return null;
     }
     if (!slime.isFalling) {

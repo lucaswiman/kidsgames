@@ -1,5 +1,6 @@
 import { END_RADIUS, GRAVITY, MAX_FALL_SPEED, MAX_STRETCH } from './constants.js';
 import { circleHitsDeadly, circleHitsSolid, dist, isTouchingSticky } from './collision.js';
+import { gravityDir, outOfWorld } from './level.js';
 
 // Slime shot: a reward for beating the crystal robot. The slime fires a blob
 // of itself. Each blob out in the world makes the slime smaller and cuts its
@@ -72,7 +73,7 @@ export class SlimeShots {
           onHit(b);
         }
       }
-      if (circleHitsDeadly(level, b, BLOB_RADIUS) || b.y > level.pixelHeight) {
+      if (circleHitsDeadly(level, b, BLOB_RADIUS) || outOfWorld(level, b)) {
         // Lost in water, lava or off the screen: it comes right back.
         b.gone = true;
         this.events.push('return');
@@ -88,7 +89,12 @@ export class SlimeShots {
   }
 
   moveBlob(b, dt, level) {
-    b.vy = Math.min(MAX_FALL_SPEED, b.vy + GRAVITY * dt);
+    // Blobs fall whichever way is down (a gravity switch can flip it).
+    if (gravityDir(level) > 0) {
+      b.vy = Math.min(MAX_FALL_SPEED, b.vy + GRAVITY * dt);
+    } else {
+      b.vy = Math.max(-MAX_FALL_SPEED, b.vy - GRAVITY * dt);
+    }
     const steps = Math.max(1, Math.ceil((Math.hypot(b.vx, b.vy) * dt) / 3));
     for (let i = 0; i < steps; i++) {
       const nx = b.x + (b.vx * dt) / steps;

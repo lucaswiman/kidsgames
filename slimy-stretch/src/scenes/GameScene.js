@@ -44,11 +44,16 @@ import {
 } from '../logic/jungle.js';
 import { FactoryStuff } from '../logic/factory.js';
 import { SkyStuff } from '../logic/sky.js';
+import { SpaceStuff } from '../logic/space.js';
 import { BigMachine } from '../logic/bigMachine.js';
+import { CandyStuff } from '../logic/candy.js';
+import { KingClaw } from '../logic/kingClaw.js';
+import { SuperStretch } from '../logic/superStretch.js';
 import { SAFE_TIME, SafeTrail, SPLIT_REACH, touching } from '../logic/split.js';
 import {
   hasCaveRewards,
   hasSplit,
+  hasSuperStretch,
   hasTongue,
   loadProgress,
   recordFinish,
@@ -74,6 +79,8 @@ import {
 import { SlimeView } from '../render/slimeView.js';
 import { drawBigMachine, drawFactory } from '../render/factoryView.js';
 import { drawSky, drawSkyBehind, drawSkyTiles } from '../render/skyView.js';
+import { drawSpace, drawSpaceBehind, drawSpaceTiles, drawZeroGZones } from '../render/spaceView.js';
+import { drawCandy, drawCandyTiles, drawIcedWalls, drawKingClaw } from '../render/candyView.js';
 import { makeButton, makeIconButton, makeMuteButton, textStyle } from '../render/ui.js';
 
 // Add ?all to the address to unlock every level (and the tongue) for testing.
@@ -87,6 +94,8 @@ const PRIZES = {
   island: { texture: 'pearl', name: 'pearl', label: 'Pearls' },
   jungle: { texture: 'idol', name: 'golden idol', label: 'Idols' },
   sky: { texture: 'star', name: 'star', label: 'Stars' },
+  space: { texture: 'spacecrystal', name: 'space crystal', label: 'Crystals' },
+  candy: { texture: 'candy', name: 'wrapped candy', label: 'Candies' },
 };
 
 export default class GameScene extends Phaser.Scene {
@@ -114,10 +123,13 @@ export default class GameScene extends Phaser.Scene {
     playMusic(this.def.type === 'boss' ? 'boss' : this.themeName);
     this.factory = new FactoryStuff(this.level);
     this.sky = new SkyStuff(this.level);
+    this.space = new SpaceStuff(this.level, this.sky);
+    this.candy = new CandyStuff(this.level);
     this.isBoss = this.def.type === 'boss';
 
     drawBackground(this, this.theme);
     drawBackdrop(this, this.level, this.theme, this.themeName);
+    drawZeroGZones(this.add.graphics().setDepth(-4), this.level);
     drawTiles(this, this.level, this.theme, this.themeName);
     this.dynGfx = this.add.graphics().setDepth(1); // crumbling rocks, metal boxes
     this.fluidGfx = this.add.graphics().setDepth(5);
@@ -167,7 +179,11 @@ export default class GameScene extends Phaser.Scene {
     this.crystal = this.isBoss && this.def.boss === 'crystal' ? new CrystalBoss(this.level) : null;
     this.bigMachine =
       this.isBoss && this.def.boss === 'machine' ? new BigMachine(this.level) : null;
-    this.boss = this.isBoss && !this.crystal && !this.bigMachine ? new Boss(this.level) : null;
+    this.kingClaw = this.isBoss && this.def.boss === 'kingclaw' ? new KingClaw(this.level) : null;
+    this.boss =
+      this.isBoss && !this.crystal && !this.bigMachine && !this.kingClaw
+        ? new Boss(this.level)
+        : null;
     // Split (the reward for beating the big machine): getting hurt splits the
     // slime in two instead of killing it.
     this.hasSplit = UNLOCK_ALL || hasSplit(loadProgress());
@@ -176,6 +192,10 @@ export default class GameScene extends Phaser.Scene {
     this.otherView = new SlimeView(this);
     this.safeTime = 0;
     this.safeTrail = new SafeTrail();
+    // Super Stretch (the reward for beating King Claw): stretch super far to a wall.
+    this.hasSuperStretch = UNLOCK_ALL || hasSuperStretch(loadProgress());
+    this.superStretch = new SuperStretch();
+    this.superArmed = false;
     this.blasts = [];
     this.createDarkness();
     this.bombSprites = new Map();
@@ -273,21 +293,59 @@ export default class GameScene extends Phaser.Scene {
         this.armShot(!this.shotArmed)
       );
     }
+    if (this.hasSuperStretch) {
+      this.superButton = makeIconButton(this, GAME_WIDTH - 220, GAME_HEIGHT - 60, '🎯', () =>
+        this.armSuper(!this.superArmed)
+      );
+    }
 
     if (this.isBoss) {
       this.bossBar = this.add.graphics().setScrollFactor(0).setDepth(200);
       this.add
-        .text(
-          GAME_WIDTH / 2,
-          100,
-          this.crystal ? 'CRYSTAL ROBOT' : this.bigMachine ? 'BIG MACHINE' : 'ROBOT',
-          textStyle(22, '#ff8080')
-        )
+        .text(GAME_WIDTH / 2, 100, this.bossName(), textStyle(22, '#ff8080'))
         .setOrigin(0.5)
         .setScrollFactor(0)
         .setDepth(200);
     }
     this.updateHud();
+  }
+
+  /** The boss's name, for the boss bar. */
+  bossName() {
+    if (this.crystal) {
+      return 'CRYSTAL ROBOT';
+    }
+    if (this.bigMachine) {
+      return 'BIG MACHINE';
+    }
+    return this.kingClaw ? 'KING CLAW' : 'ROBOT';
+  }
+
+  armSuper(armed) {
+    if (armed && !this.superStretch.ready) {
+      sfx.locked();
+      return;
+    }
+    this.superArmed = armed;
+    if (armed) {
+      this.armTongue(false);
+      if (this.shotButton) {
+        this.armShot(false);
+      }
+    }
+    this.superButton.setScale(armed ? 1.25 : 1);
+  }
+
+  updateSuperButton() {
+    if (!this.superButton) {
+      return;
+    }
+    const cooldown = this.superStretch.cooldown;
+    const label = cooldown > 0 ? `${Math.ceil(cooldown)}` : '🎯';
+    if (this.superButton.label.text !== label) {
+      this.superButton.label.setText(label);
+      this.superButton.setAlpha(cooldown > 0 ? 0.5 : 0.85);
+    }
   }
 
   armShot(armed) {
@@ -304,6 +362,9 @@ export default class GameScene extends Phaser.Scene {
     this.shotArmed = armed;
     if (armed) {
       this.armTongue(false);
+      if (this.superButton && this.superArmed) {
+        this.armSuper(false);
+      }
     }
     this.shotButton.setScale(armed ? 1.25 : 1);
   }
@@ -314,6 +375,9 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     this.tongueArmed = armed;
+    if (armed && this.superButton && this.superArmed) {
+      this.armSuper(false);
+    }
     if (this.tongueButton) {
       this.tongueButton.setScale(armed ? 1.25 : 1);
       this.tongueButton.setAlpha(armed ? 1 : 0.85);
@@ -361,6 +425,12 @@ export default class GameScene extends Phaser.Scene {
         this.activePointer = null;
         return;
       }
+      if (this.superArmed) {
+        // Super Stretch toward where you tapped.
+        this.trySuperStretch(this.worldPoint(pointer));
+        this.activePointer = null;
+        return;
+      }
       // On a vine you can still shoot and use your tongue.
       const onVine = this.jungle.onVine !== null;
       if (this.shotArmed && (!this.slime.frozen || onVine)) {
@@ -375,6 +445,13 @@ export default class GameScene extends Phaser.Scene {
         return;
       }
       const free = !this.slime.isFalling && !this.slime.heldEnd && !this.slime.frozen;
+      if (this.tongueArmed && free && this.space.carrying !== null) {
+        // Carrying a moon rock: throw it where you tapped.
+        this.space.throwRock(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
+        this.armTongue(false);
+        this.activePointer = null;
+        return;
+      }
       if (this.tongueArmed && (free || onVine)) {
         // Shoot the tongue out of the slime's head instead of stretching.
         this.tongue.start(this.slime.ends[this.slime.lead], this.worldPoint(pointer));
@@ -425,6 +502,22 @@ export default class GameScene extends Phaser.Scene {
     this.input.on('pointerupoutside', release);
   }
 
+  /** Stretch super far to the wall at `p`, if the slime can see it in a straight line. */
+  trySuperStretch(p) {
+    this.armSuper(false);
+    if (this.superStretch.start(this.level, this.slime, p)) {
+      sfx.superStretch();
+      return;
+    }
+    sfx.locked();
+    this.showBanner(
+      this.slime.glued || this.slime.isFalling || this.slime.frozen
+        ? "You can't Super Stretch right now!"
+        : 'Tap a wall you can see in a straight line!',
+      1600
+    );
+  }
+
   /** When split, you move whichever half is nearer your finger. */
   pickHalf(point) {
     const other = this.otherSlime;
@@ -461,6 +554,7 @@ export default class GameScene extends Phaser.Scene {
         this.warehouse.aim(this.worldPoint(this.activePointer));
       }
       this.updateWind(dt);
+      this.space.pullSlime(this.slime);
       this.slime.update(dt, this.level);
       this.warehouse.update(dt, this.slime);
       this.updateTongue(dt);
@@ -476,9 +570,18 @@ export default class GameScene extends Phaser.Scene {
       }
       const factoryHit = this.factory.update(dt, this.slime, this.shots.blobs);
       const skyHit = this.sky.update(dt, this.slime, this.shots.blobs, this.time_);
+      const spaceHit = this.space.update(dt, this.slime, this.time_);
+      const candyHit = this.candy.update(dt, this.slime, this.time_);
+      this.superStretch.update(dt, this.level, this.slime);
+      this.updateSuperButton();
+      if (this.kingClaw && this.kingClaw.catchBlobs(this.shots.blobs)) {
+        sfx.chomp();
+      }
       this.updateShots(dt);
       this.playFactorySounds();
       this.playSkySounds();
+      this.playSpaceSounds();
+      this.playCandySounds();
       this.updateBigMachine(dt);
       this.playIslandSounds();
       this.playJungleSounds();
@@ -488,6 +591,7 @@ export default class GameScene extends Phaser.Scene {
       this.playCaveSounds();
       this.updateBoss(dt);
       this.updateCrystal(dt);
+      this.updateKingClaw(dt);
       this.checkPickups();
       this.checkExit(dt);
       const hazard = findHazard(this.level, this.slime, this.lasers, this.time_, this.chaser);
@@ -499,12 +603,21 @@ export default class GameScene extends Phaser.Scene {
         jungleHit ||
         factoryHit ||
         skyHit ||
+        spaceHit ||
+        candyHit ||
         this.bossHurtSlime;
       this.updateSplit(dt, !hurt);
       if (canyonHit === 'boulder') {
         this.startCrush();
       } else if (hurt && this.status === 'playing') {
         this.hurtSlime();
+        if (this.kingClaw && this.kingClaw.sendBack) {
+          // After a chomp, King Claw spits you back out at the start.
+          this.kingClaw.sendBack = false;
+          if (this.status === 'playing') {
+            this.slime.spawn(this.level.start);
+          }
+        }
         if (jungleHit === 'quicksand' && this.status === 'dying') {
           this.showBanner('Glug glug! The quicksand swallowed you.', 1800);
         }
@@ -566,6 +679,19 @@ export default class GameScene extends Phaser.Scene {
       this.tongueBanana = true;
       this.tongue.release();
       sfx.grab();
+    }
+    if (this.tongue.state === 'out' && this.space.grabRock(this.tongue.tip)) {
+      // Got a moon rock! The slime carries it around until you throw it.
+      this.tongue.release();
+      this.sky.checkSupport(this.slime);
+    }
+    if (this.tongue.state === 'out' && this.candy.lick(this.tongue.tip)) {
+      // Licked a lollipop! Now you can stretch farther for a while.
+      this.tongue.release();
+    }
+    if (this.kingClaw && this.tongue.state === 'out' && this.kingClaw.eatHand(this.tongue.tip)) {
+      // Gobbled up one of King Claw's hands!
+      this.tongue.release();
     }
     if (this.crystal && this.tongue.state === 'out' && this.crystal.inRect(this.tongue.tip, 6)) {
       // Licking the crystal robot: if its armor is cracked, gobble an orb!
@@ -629,7 +755,9 @@ export default class GameScene extends Phaser.Scene {
     if (!this.tongueButton) {
       return;
     }
-    const label = this.tongue.sore > 0 ? `${Math.ceil(this.tongue.sore)}` : '👅';
+    // Carrying a moon rock, the tongue button throws it.
+    const ready = this.space.carrying !== null ? '🪨' : '👅';
+    const label = this.tongue.sore > 0 ? `${Math.ceil(this.tongue.sore)}` : ready;
     if (this.tongueButton.label.text !== label) {
       this.tongueButton.label.setText(label);
       this.tongueButton.setAlpha(this.tongue.sore > 0 ? 0.5 : 0.85);
@@ -657,9 +785,15 @@ export default class GameScene extends Phaser.Scene {
         }
       }
     });
-    // Missing blobs, quicksand and being split all cut how far you can stretch.
+    // Missing blobs, quicksand, being split and carrying a moon rock all cut
+    // how far you can stretch; a lollipop makes it longer.
     const half = this.splitState === 'whole' ? 1 : SPLIT_REACH;
-    this.slime.reach = this.shots.reach(this.island.lost) * this.jungle.reachScale * half;
+    this.slime.reach =
+      this.shots.reach(this.island.lost) *
+      this.jungle.reachScale *
+      half *
+      this.space.reachScale *
+      this.candy.reachScale;
     for (const e of this.shots.takeEvents()) {
       if (e === 'shoot') {
         sfx.throwBomb();
@@ -917,6 +1051,9 @@ export default class GameScene extends Phaser.Scene {
         sfx.boing();
       } else if (e === 'land') {
         sfx.land();
+      } else if (e === 'fling') {
+        sfx.float();
+        this.hintOnce('fling', 'No gravity! You float until you bump into something.', 2200);
       }
     }
   }
@@ -1196,6 +1333,115 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  updateKingClaw(dt) {
+    const boss = this.kingClaw;
+    if (!boss) {
+      return;
+    }
+    if (boss.update(dt, this.slime)) {
+      this.bossHurtSlime = true;
+    }
+    for (const e of boss.takeEvents()) {
+      if (e === 'chase') {
+        sfx.liftMove();
+      } else if (e === 'warn') {
+        sfx.clawWarn();
+      } else if (e === 'grab') {
+        // The finger that was dragging doesn't count any more.
+        this.activePointer = null;
+        sfx.clawGrab();
+        this.hintOnce('kcgrab', 'Uh oh! King Claw grabbed you!', 1600);
+      } else if (e === 'miss') {
+        sfx.thud();
+        this.cameras.main.shake(150, 0.006);
+        this.hintOnce('kcmiss', 'It missed! Quick, eat the claw with your tongue!', 2200);
+      } else if (e === 'eatHand') {
+        sfx.chomp();
+      } else if (e === 'chomp') {
+        sfx.chomp();
+      } else if (e === 'wobble') {
+        sfx.rumble();
+        this.showBanner('No more hands! His head is falling...', 1800);
+      } else if (e === 'thud') {
+        sfx.stomp();
+        this.cameras.main.shake(300, 0.012);
+        this.showBanner('Shoot a slime blob into his mouth!', 2200);
+      } else if (e === 'tooSlow') {
+        sfx.locked();
+        this.showBanner('Too slow! His hands came back.', 1600);
+      } else if (e === 'hands') {
+        sfx.clawDrop();
+      } else if (e === 'bomb') {
+        sfx.robotThrow();
+      } else if (e === 'explode') {
+        sfx.explode();
+        this.cameras.main.shake(150, 0.006);
+      } else if (e === 'ice') {
+        sfx.ice();
+      } else if (e === 'hit') {
+        sfx.robotHurt();
+        sfx.roar();
+        this.cameras.main.shake(400, 0.012);
+        this.showBanner(
+          boss.phase === 2
+            ? 'GULP! Now he has 3 hands, and drops bombs!'
+            : 'GULP! 4 hands, and the walls turned to ice!',
+          2400
+        );
+      } else if (e === 'defeated') {
+        sfx.robotHurt();
+        this.status = 'won-wait';
+        this.time.delayedCall(1400, () => this.win());
+      }
+    }
+  }
+
+  playCandySounds() {
+    for (const e of this.candy.takeEvents()) {
+      if (e.type === 'caramel') {
+        sfx.caramel();
+        this.hintOnce('caramel', "Sticky caramel! You're stuck for a moment...", 2000);
+      } else if (e.type === 'caramelFree') {
+        sfx.unstick();
+      } else if (e.type === 'squish') {
+        sfx.marshmallow();
+      } else if (e.type === 'spring') {
+        sfx.spring();
+      } else if (e.type === 'ropeGrab') {
+        // The finger that touched it doesn't count as letting go.
+        this.activePointer = null;
+        sfx.rope();
+      } else if (e.type === 'ropeDrop') {
+        sfx.clawDrop();
+      } else if (e.type === 'lick') {
+        sfx.lick();
+        this.showBanner('Yum! A lollipop! You can stretch farther for a while.', 2000);
+      } else if (e.type === 'drip') {
+        sfx.drip();
+        this.hintOnce('scoop', "Ice cream melts! Don't sit on it too long.", 2000);
+      } else if (e.type === 'melt') {
+        sfx.melt();
+      } else if (e.type === 'rattle') {
+        sfx.rattle();
+      } else if (e.type === 'shoot') {
+        sfx.gumball();
+      } else if (e.type === 'pop') {
+        sfx.pop();
+      } else if (e.type === 'rumble') {
+        sfx.rumble();
+      } else if (e.type === 'rain') {
+        sfx.rain();
+      }
+    }
+    for (const e of this.superStretch.takeEvents()) {
+      if (e === 'stick') {
+        sfx.splorch();
+      } else if (e === 'done') {
+        sfx.grab();
+      }
+    }
+  }
+
   playFactorySounds() {
     for (const e of this.factory.takeEvents()) {
       if (e.type === 'stomp') {
@@ -1252,6 +1498,59 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  playSpaceSounds() {
+    for (const e of this.space.takeEvents()) {
+      if (e.type === 'asteroidWarn') {
+        sfx.alarm();
+        this.hintOnce('asteroid', 'The edge is blinking red: an asteroid is coming!', 2200);
+      } else if (e.type === 'asteroid') {
+        sfx.asteroid();
+      } else if (e.type === 'crash') {
+        sfx.crumble();
+      } else if (e.type === 'ufoWarn') {
+        sfx.ufoWarn();
+      } else if (e.type === 'beam') {
+        sfx.beam();
+      } else if (e.type === 'plantOpen') {
+        sfx.hiss();
+      } else if (e.type === 'chomp') {
+        sfx.snakeSnap();
+      } else if (e.type === 'wither') {
+        sfx.wither();
+        this.showBanner('The alien plant withered away!', 1800);
+      } else if (e.type === 'rockGrab') {
+        sfx.grab();
+        this.hintOnce('rock', 'You got a moon rock! Tap 🪨, then tap where to throw it.', 2600);
+      } else if (e.type === 'rockThrow') {
+        sfx.throwBomb();
+      } else if (e.type === 'rockPoof' || e.type === 'rockHome') {
+        sfx.poof();
+      } else if (
+        e.type === 'teleport' ||
+        e.type === 'blast' ||
+        e.type === 'flip' ||
+        e.type === 'ufoGrab'
+      ) {
+        // The finger that was dragging doesn't count any more.
+        this.activePointer = null;
+        if (e.type === 'teleport') {
+          sfx.teleport();
+        } else if (e.type === 'blast') {
+          sfx.rocket();
+          this.cameras.main.shake(150, 0.006);
+        } else if (e.type === 'flip') {
+          sfx.gravity();
+          this.hintOnce('flip', 'Whoa! Down is up now!', 1800);
+        } else {
+          sfx.clawGrab();
+          this.hintOnce('ufo', 'Uh oh! The UFO beamed you up!', 1800);
+        }
+      } else if (e.type === 'ufoDrop') {
+        sfx.clawDrop();
+      }
+    }
+  }
+
   die() {
     this.endSplit();
     this.status = 'dying';
@@ -1281,13 +1580,14 @@ export default class GameScene extends Phaser.Scene {
     });
     this.time.delayedCall(1100, () => {
       drops.destroy();
-      const boss = this.boss || this.crystal || this.bigMachine;
+      const boss = this.boss || this.crystal || this.bigMachine || this.kingClaw;
       if (boss) {
         // Each hit on a boss is a checkpoint: it keeps its damage.
         boss.resetAfterSlimeDeath();
         if (boss.hp < 3) {
           const hp = boss.hp;
-          this.showBanner(`The robot still has ${hp} hit${hp > 1 ? 's' : ''} left!`, 2000);
+          const who = this.kingClaw ? 'King Claw' : 'The robot';
+          this.showBanner(`${who} still has ${hp} hit${hp > 1 ? 's' : ''} left!`, 2000);
         }
       }
       this.respawn();
@@ -1300,6 +1600,13 @@ export default class GameScene extends Phaser.Scene {
     this.jungle.resetAfterDeath();
     this.factory.resetAfterDeath();
     this.sky.resetAfterDeath();
+    this.space.resetAfterDeath();
+    this.candy.resetAfterDeath();
+    this.superStretch.cancel();
+    this.superArmed = false;
+    if (this.superButton) {
+      this.superButton.setScale(1);
+    }
     // Blobs stuck in slime machines come back to you.
     this.shots.blobs = this.shots.blobs.filter(b => b.state !== 'inMachine');
     this.endSplit();
@@ -1342,6 +1649,9 @@ export default class GameScene extends Phaser.Scene {
     if (this.bigMachine) {
       progress.split = true;
     }
+    if (this.kingClaw) {
+      progress.superStretch = true;
+    }
     saveProgress(progress);
     this.showWinPanel({ tokens, score, isBest, best: progress.best[this.def.id].score });
   }
@@ -1362,9 +1672,11 @@ export default class GameScene extends Phaser.Scene {
       ? 'You beat the crystal robot!'
       : this.bigMachine
         ? 'You beat the big machine!'
-        : this.boss
-          ? 'You beat the robot!'
-          : 'Level Complete!';
+        : this.kingClaw
+          ? 'You beat King Claw!'
+          : this.boss
+            ? 'You beat the robot!'
+            : 'Level Complete!';
     const lines = [];
     if (this.tokenTotal()) {
       lines.push(`Tokens: ${tokens} / ${this.tokenTotal()}`);
@@ -1397,6 +1709,17 @@ export default class GameScene extends Phaser.Scene {
             'You got SPLIT! Getting hurt splits you in two.',
             textStyle(26, '#ffb070')
           )
+          .setOrigin(0.5)
+      );
+    } else if (this.kingClaw) {
+      fixed(
+        this.add
+          .text(cx, cy + 70, 'You got SUPER STRETCH! 🎯', textStyle(30, '#ff9ad5'))
+          .setOrigin(0.5)
+      );
+      fixed(
+        this.add
+          .text(cx, cy + 104, 'Tap 🎯, then tap a far-away wall.', textStyle(22, '#ffffff'))
           .setOrigin(0.5)
       );
     } else if (isLast) {
@@ -1462,6 +1785,11 @@ export default class GameScene extends Phaser.Scene {
   render(dt) {
     this.drawCanyonTiles();
     drawSkyTiles(this.dynGfx, this.sky, this.clock);
+    drawSpaceTiles(this.dynGfx, this.space, this.clock);
+    drawCandyTiles(this.dynGfx, this.candy, this.clock);
+    if (this.kingClaw) {
+      drawIcedWalls(this.dynGfx, this.kingClaw);
+    }
     this.drawWind();
     this.fluidGfx.clear();
     drawFluids(this.fluidGfx, this.level, this.clock);
@@ -1470,6 +1798,7 @@ export default class GameScene extends Phaser.Scene {
     fx.clear();
     this.drawJungleBehind(fx);
     drawSkyBehind(fx, this.sky, this.clock);
+    drawSpaceBehind(fx, this.space, this.clock);
     this.drawLasers(fx);
     this.drawGates(fx);
     this.drawTongue(fx);
@@ -1487,6 +1816,11 @@ export default class GameScene extends Phaser.Scene {
     this.drawJungle(over);
     drawFactory(over, this.factory, this.clock);
     drawSky(over, this.sky, this.clock);
+    drawSpace(over, this.space, this.clock);
+    drawCandy(over, this.candy, this.clock, this.slime);
+    if (this.kingClaw) {
+      drawKingClaw(over, this.kingClaw, this.clock, this.bossBar);
+    }
     if (this.bigMachine) {
       drawBigMachine(over, this.bigMachine, this.clock, this.bossBar);
     }

@@ -60,3 +60,8 @@ export function hasCaveRewards(progress) {
 export function hasSplit(progress) {
   return !!progress.split || !!progress.best['9-4'];
 }
+
+/** Super Stretch is the reward for beating King Claw. */
+export function hasSuperStretch(progress) {
+  return !!progress.superStretch || !!progress.best['12-4'];
+}

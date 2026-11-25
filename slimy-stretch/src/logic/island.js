@@ -1,6 +1,14 @@
 import { END_RADIUS, GRAVITY, MAX_FALL_SPEED, TILE } from './constants.js';
 import { circleHitsDeadly, circleHitsSolid, dist } from './collision.js';
-import { isBouncyKind, isPlatformKind, isSolidKind, TileKind, tileAt } from './level.js';
+import {
+  gravityDir,
+  isBouncyKind,
+  isPlatformKind,
+  isSolidKind,
+  outOfWorld,
+  TileKind,
+  tileAt,
+} from './level.js';
 import { Slime } from './slime.js';
 
 // Things on the Island: waves that wash over the sand, falling coconuts,
@@ -24,6 +32,7 @@ const WAVE_HOLD = 1;
 const WAVE_OUT = 1;
 
 export const HAMMOCK_SPEED = 1000;
+export const MOON_ROCK_SPEED = 1150; // moon rocks are extra bouncy
 const HAMMOCK_GRIP = 3; // how close you have to be to stick after a bounce, like a cannon
 export const FLOWER_GRIP = 5; // bouncy flowers make sure you stick to what you hit
 const HAMMOCK_MIN_SPEED = 380;
@@ -109,39 +118,57 @@ export function onSand(level, p) {
   return false;
 }
 
-/** The end (if any) that is stuck on top of a hammock or a bouncy flower. */
-function endOnHammock(level, slime) {
-  return slime.ends.find(e => {
-    if (e.state !== 'stuck') {
-      return false;
-    }
-    const row = Math.floor((e.y + END_RADIUS + 6) / TILE);
-    return isBouncyKind(tileAt(level, Math.floor(e.x / TILE), row)) && e.y < row * TILE;
-  });
+/**
+ * The bouncy tile (hammock, flower or moon rock) a slime end at `p` is
+ * sitting on, or null. Upside down (gravity flipped) only moon rocks bounce
+ * you, off their bottoms: hammocks and flowers are one-way platforms you
+ * can only sit on from above.
+ */
+export function bouncyUnder(level, p) {
+  const col = Math.floor(p.x / TILE);
+  if (gravityDir(level) < 0) {
+    const row = Math.floor((p.y - END_RADIUS - 6) / TILE);
+    const kind = tileAt(level, col, row);
+    return kind === TileKind.MOON_ROCK && p.y > (row + 1) * TILE ? kind : null;
+  }
+  const row = Math.floor((p.y + END_RADIUS + 6) / TILE);
+  const kind = tileAt(level, col, row);
+  return isBouncyKind(kind) && p.y < row * TILE ? kind : null;
 }
 
-/** How well the slime sticks after bouncing off whatever is under `p`. */
-function bounceGrip(level, p) {
-  const row = Math.floor((p.y + END_RADIUS + 6) / TILE);
-  return tileAt(level, Math.floor(p.x / TILE), row) === TileKind.FLOWER
-    ? FLOWER_GRIP
-    : HAMMOCK_GRIP;
+/** The end (if any) that is stuck on top of a hammock, a bouncy flower or a moon rock. */
+function endOnHammock(level, slime) {
+  return slime.ends.find(e => e.state === 'stuck' && bouncyUnder(level, e) !== null);
 }
 
 /**
- * Bounce up from a hammock (or bouncy flower) at `from` and see where the
- * slime sticks, using the real game physics. Returns null if it lands
- * somewhere deadly, falls out of the level or just comes back down onto
- * something bouncy.
+ * How well the slime sticks after bouncing off whatever is under `p`
+ * (bouncy flowers and moon rocks make sure you stick to what you hit).
  */
-export function simulateBounce(level, from, speed = HAMMOCK_SPEED) {
+function bounceGrip(level, p) {
+  return bouncyUnder(level, p) === TileKind.HAMMOCK ? HAMMOCK_GRIP : FLOWER_GRIP;
+}
+
+/** How fast whatever is under `p` bounces you. */
+export function bounceSpeed(level, p) {
+  return bouncyUnder(level, p) === TileKind.MOON_ROCK ? MOON_ROCK_SPEED : HAMMOCK_SPEED;
+}
+
+/**
+ * Bounce up (away from whichever way is down) from a hammock, bouncy flower
+ * or moon rock at `from` and see where the slime sticks, using the real game
+ * physics. Returns null if it lands somewhere deadly, falls out of the level
+ * or just comes back down onto something bouncy.
+ */
+export function simulateBounce(level, from, speed = bounceSpeed(level, from)) {
+  const down = gravityDir(level);
   const slime = new Slime(from);
-  slime.launch(from.x, from.y - 2, 0, -speed, bounceGrip(level, from));
+  slime.launch(from.x, from.y - 2 * down, 0, -speed * down, bounceGrip(level, from));
   const dt = 1 / 60;
   for (let t = 0; t < 4; t += dt) {
     slime.update(dt, level);
     const p = slime.ends[0];
-    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || p.y > level.pixelHeight) {
+    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || outOfWorld(level, p)) {
       return null;
     }
     if (!slime.isFalling) {
@@ -347,13 +374,15 @@ export class IslandStuff {
     this.hammockArmed = false;
     // Bouncing again right after a bounce goes less high, until you stop.
     const quick = this.time - this.lastBounce < 2.5;
-    const speed = quick ? this.lastBounceSpeed * HAMMOCK_DAMPING : HAMMOCK_SPEED;
+    const speed = quick ? this.lastBounceSpeed * HAMMOCK_DAMPING : bounceSpeed(this.level, end);
     if (speed < HAMMOCK_MIN_SPEED) {
       return;
     }
     this.lastBounce = this.time;
     this.lastBounceSpeed = speed;
-    slime.launch(end.x, end.y - 2, 0, -speed, bounceGrip(this.level, end));
+    // Up and away from whichever way is down.
+    const down = gravityDir(this.level);
+    slime.launch(end.x, end.y - 2 * down, 0, -speed * down, bounceGrip(this.level, end));
     this.events.push({ type: 'bounce', x: end.x, y: end.y });
   }
 

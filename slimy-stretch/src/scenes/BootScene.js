@@ -101,6 +101,57 @@ export default class BootScene extends Phaser.Scene {
       g.fillRect(19, 27, 6, 2);
     });
 
+    // Glowing space crystals are what you collect in Outer Space.
+    make('spacecrystal', 44, 48, g => {
+      g.fillStyle(0xb48aff, 0.3);
+      g.fillCircle(22, 24, 21);
+      g.fillStyle(0x7a4ad8, 1);
+      g.fillPoints(
+        [
+          { x: 22, y: 4 },
+          { x: 34, y: 18 },
+          { x: 28, y: 44 },
+          { x: 16, y: 44 },
+          { x: 10, y: 18 },
+        ],
+        true
+      );
+      g.fillStyle(0xc9a8ff, 1);
+      g.fillPoints(
+        [
+          { x: 22, y: 4 },
+          { x: 26, y: 18 },
+          { x: 22, y: 44 },
+          { x: 16, y: 44 },
+          { x: 10, y: 18 },
+        ],
+        true
+      );
+      g.fillStyle(0xffffff, 0.9);
+      g.fillTriangle(15, 18, 20, 9, 20, 22);
+    });
+
+    // Wrapped candies are what you collect in Candyland.
+    make('candy', 52, 36, g => {
+      g.fillStyle(0xffd6ec, 0.35);
+      g.fillCircle(26, 18, 18);
+      // The twisted wrapper ends.
+      g.fillStyle(0xff6aa0, 1);
+      g.fillTriangle(16, 18, 2, 6, 2, 30);
+      g.fillTriangle(36, 18, 50, 6, 50, 30);
+      g.fillStyle(0xffb0d0, 1);
+      g.fillTriangle(16, 18, 6, 12, 6, 24);
+      g.fillTriangle(36, 18, 46, 12, 46, 24);
+      // The candy in the middle, with stripes.
+      g.fillStyle(0xff3a7a, 1);
+      g.fillCircle(26, 18, 12);
+      g.lineStyle(4, 0xffffff, 1);
+      g.lineBetween(19, 10, 23, 27);
+      g.lineBetween(27, 7, 31, 28);
+      g.fillStyle(0xffffff, 0.8);
+      g.fillCircle(22, 13, 3);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

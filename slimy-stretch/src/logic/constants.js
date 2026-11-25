@@ -28,6 +28,14 @@ export const SNAP_SPEED = 1400;
 export const GRAVITY = 1500;
 export const MAX_FALL_SPEED = 1100;
 
+// In a zero gravity zone, letting go of a stretch in the air flings the whole
+// slime this fast toward where you were stretching (if you stretched at least
+// ZERO_G_MIN_STRETCH). A slime floating slower than ZERO_G_DRIFT drifts slowly
+// "down" so it can never get stuck hanging in mid-air.
+export const ZERO_G_FLING = 250;
+export const ZERO_G_MIN_STRETCH = 16;
+export const ZERO_G_DRIFT = 40;
+
 // Radius used to pick up tokens, power cores and bombs.
 export const ITEM_RADIUS = 16;
 

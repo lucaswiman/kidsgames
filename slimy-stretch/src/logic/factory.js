@@ -1,6 +1,6 @@
 import { END_RADIUS, TILE } from './constants.js';
 import { circleHitsDeadly, dist } from './collision.js';
-import { isSolidKind, TileKind, tileAt } from './level.js';
+import { isSolidKind, outOfWorld, TileKind, tileAt } from './level.js';
 import { Slime } from './slime.js';
 
 // Things in the Factory: stamping presses, saw blades that roll along floors
@@ -45,7 +45,7 @@ export function simulateVent(level, from) {
   for (let t = 0; t < 4; t += dt) {
     slime.update(dt, level);
     const p = slime.ends[0];
-    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || p.y > level.pixelHeight) {
+    if (circleHitsDeadly(level, p, END_RADIUS * 0.6) || outOfWorld(level, p)) {
       return null;
     }
     if (!slime.isFalling) {

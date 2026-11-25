@@ -5,6 +5,9 @@ import { ZIP_HANG } from '../logic/jungle.js';
 import { solveLevel } from '../logic/solver.js';
 import { chaserPosition } from '../logic/hazards.js';
 import { simulateDrop } from '../logic/warehouse.js';
+import { ASTEROID_WARN, padCenter, simulateBooster } from '../logic/space.js';
+import { ropeDrop } from '../logic/candy.js';
+import { isSolidKind } from '../logic/level.js';
 import {
   balloonPath,
   BASKET_SIT,
@@ -114,6 +117,73 @@ describe('levels', () => {
         }
       });
 
+      it('has its space things in sensible places', () => {
+        // Something that drops you lands safely, the normal way up (or upside
+        // down, in a level with gravity switches).
+        const gravities = level.switches.length ? [1, -1] : [1];
+        const landsSafely = (from, simulate = simulateDrop) =>
+          gravities.some(gravity => simulate({ ...level, gravity }, from));
+        for (const t of def.teleporters || []) {
+          // Each teleporter pad drops you somewhere safe by the other one.
+          expect(landsSafely(padCenter(t.a))).toBe(true);
+          expect(landsSafely(padCenter(t.b))).toBe(true);
+          expect(tileAt(level, ...t.a)).toBe(TileKind.EMPTY);
+          expect(tileAt(level, ...t.b)).toBe(TileKind.EMPTY);
+        }
+        // Each rocket booster blasts you somewhere you stick, safely.
+        expect((def.boosters || []).length).toBe(level.boosters.length);
+        for (const b of level.boosters) {
+          expect(landsSafely(b, simulateBooster)).toBe(true);
+        }
+        for (const ufo of def.ufos || []) {
+          // A UFO's drop spot is a setback, never a fall to your doom.
+          const [col, row] = ufo.drop;
+          expect(simulateDrop(level, { x: (col + 0.5) * 48, y: (row + 0.5) * 48 })).toBeTruthy();
+          for (let c = ufo.from; c <= ufo.to; c++) {
+            expect(tileAt(level, c, ufo.row)).toBe(TileKind.EMPTY);
+          }
+        }
+        for (const lane of def.asteroids || []) {
+          // Asteroids come in from an open edge of the level, with time to warn you first.
+          const edge = lane.dir < 0 ? level.width - 1 : 0;
+          expect(tileAt(level, edge, lane.row)).toBe(TileKind.EMPTY);
+          expect(lane.every || 5).toBeGreaterThan(ASTEROID_WARN + 2);
+        }
+        for (const lift of def.elevators || []) {
+          // A space elevator's shaft is open.
+          const [r0, r1] = [lift.from, lift.to].sort((a, b) => a - b);
+          for (let row = r0; row <= r1; row++) {
+            for (let col = lift.col; col < lift.col + (lift.width || 2); col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+            }
+          }
+        }
+        for (const zone of level.zeroG) {
+          expect(zone.right).toBeLessThanOrEqual(level.pixelWidth);
+          expect(zone.bottom).toBeLessThanOrEqual(level.pixelHeight);
+        }
+      });
+
+      it('has its candy things in sensible places', () => {
+        for (const rope of level.ropes) {
+          // A licorice rope hangs from something and drops you off somewhere safe.
+          expect(isSolidKind(tileAt(level, rope.col, rope.top / 48 - 1))).toBe(true);
+          expect(simulateDrop(level, ropeDrop(rope))).toBeTruthy();
+        }
+        for (const cane of level.candyCanes) {
+          // A candy cane hangs from the ceiling.
+          expect(isSolidKind(tileAt(level, cane.col, cane.row - 1))).toBe(true);
+        }
+        for (const rect of def.iceWalls || []) {
+          // King Claw's icy walls are walls in the map.
+          for (let row = rect.from[1]; row <= rect.to[1]; row++) {
+            for (let col = rect.from[0]; col <= rect.to[0]; col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.WALL);
+            }
+          }
+        }
+      });
+
       it('can be finished, and every item can be reached', { timeout: 30000 }, async () => {
         // The checker is slow and never waits on anything; give vitest a turn
         // first so its messages don't time out over a long run of levels.
@@ -131,6 +201,9 @@ describe('levels', () => {
         expect(result.sleepingClouds.every(Boolean)).toBe(true);
         // Spare blobs a seagull barfs up must turn up somewhere you can get to.
         expect(result.blobSpots.every(Boolean)).toBe(true);
+        // Every alien plant can be withered with a thrown moon rock.
+        expect(result.plants).toHaveLength(level.plants.length);
+        expect(result.plants.every(Boolean)).toBe(true);
         for (const gull of def.gulls || []) {
           if (gull.nice) {
             // Nice seagulls drop you somewhere safe.
