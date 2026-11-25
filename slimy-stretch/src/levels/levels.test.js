@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { LEVELS, WORLDS } from './levels.js';
 import { parseLevel, TileKind, tileAt } from '../logic/level.js';
 import { ZIP_HANG } from '../logic/jungle.js';
-import { solveLevel } from '../logic/solver.js';
+import { canGetBackFrom, solveLevel } from '../logic/solver.js';
+import { ITEM_RADIUS } from '../logic/constants.js';
 import { chaserPosition } from '../logic/hazards.js';
 import { simulateDrop } from '../logic/warehouse.js';
 import { ASTEROID_WARN, padCenter, simulateBooster } from '../logic/space.js';
@@ -184,7 +185,7 @@ describe('levels', () => {
         }
       });
 
-      it('can be finished, and every item can be reached', { timeout: 30000 }, async () => {
+      it('can be finished, and every item can be reached', { timeout: 90000 }, async () => {
         // The checker is slow and never waits on anything; give vitest a turn
         // first so its messages don't time out over a long run of levels.
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -192,6 +193,12 @@ describe('levels', () => {
         expect(result.exit).toBe(true);
         expect(result.tokens.every(Boolean)).toBe(true);
         expect(result.cores.every(Boolean)).toBe(true);
+        // You have to collect every core (or pearl, crystal...), so none of them
+        // can leave you stuck somewhere with no way back to the exit.
+        for (const core of level.cores.filter(c => c.inBox === undefined)) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+          expect(canGetBackFrom(level, result, core, ITEM_RADIUS)).toBe(true);
+        }
         expect(result.checkpoints.every(Boolean)).toBe(true);
         expect(result.keys.every(Boolean)).toBe(true);
         expect(result.chests.every(Boolean)).toBe(true);
