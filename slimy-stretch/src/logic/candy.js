@@ -27,7 +27,7 @@ export const LOLLIPOP_BOOST = 1.5; // licking a lollipop makes your stretch this
 export const LOLLIPOP_TIME = 6; // ...for this many seconds
 export const LOLLIPOP_REGROW = 10; // and a new lollipop turns up after this long
 
-export const MELT_TIME = 2; // sit on an ice cream scoop this long and it melts
+export const MELT_TIME = 3.5; // sit on an ice cream scoop this long and it melts
 export const REFREEZE_TIME = 4; // seconds before a melted scoop freezes back
 export const MELT_SINK = 8; // how far the slime sinks into the melting ice cream
 
@@ -45,7 +45,7 @@ export const CANE_PERIOD = 3; // seconds for one swing there and back
 export const CANE_SWING = 1.1; // radians either side of straight down
 export const CANE_THICK = 7;
 
-export const SOUR_EVERY = 6; // seconds between showers from each sour cloud
+export const SOUR_EVERY = 8; // seconds between showers from each sour cloud
 export const SOUR_WARN = 1; // the cloud turns dark and rumbles this long first
 export const SOUR_RAIN = 2.5; // then it rains this long
 export const SOUR_STAGGER = 2; // clouds take turns, this far apart
