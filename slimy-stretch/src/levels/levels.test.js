@@ -7,7 +7,7 @@ import { END_RADIUS, ITEM_RADIUS, TILE } from '../logic/constants.js';
 import { chaserPosition } from '../logic/hazards.js';
 import { simulateDrop } from '../logic/warehouse.js';
 import { ASTEROID_WARN, padCenter, simulateBooster } from '../logic/space.js';
-import { CANE_LENGTH, CANE_THICK, caneShape, ropeDrop } from '../logic/candy.js';
+import { CANE_LENGTH, CANE_THICK, caneShape, rainBottom, ropeDrop } from '../logic/candy.js';
 import { isSolidKind } from '../logic/level.js';
 import {
   balloonPath,
@@ -183,6 +183,20 @@ describe('levels', () => {
             }
           }
         }
+      });
+
+      it('never rains sour candy on ice cream (you have to stand on it)', () => {
+        level.tiles.forEach((row, r) =>
+          row.forEach((kind, col) => {
+            if (kind !== TileKind.SOUR_CLOUD) {
+              return;
+            }
+            const bottom = rainBottom(level, r, col) / TILE;
+            for (let below = r + 1; below < bottom; below++) {
+              expect(tileAt(level, col, below)).not.toBe(TileKind.ICE_CREAM);
+            }
+          })
+        );
       });
 
       it('leaves room to crawl under every candy cane', () => {

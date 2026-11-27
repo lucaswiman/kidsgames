@@ -13,6 +13,7 @@ import { findHazard } from './hazards.js';
 import { END_RADIUS, TILE } from './constants.js';
 import { solveLevel } from './solver.js';
 import { IslandStuff, simulateBounce } from './island.js';
+import { LEVELS } from '../levels/levels.js';
 import {
   CANE_PERIOD,
   CandyStuff,
@@ -659,5 +660,72 @@ describe('sour candy clouds', () => {
     const candy = new CandyStuff(level);
     const slime = slimeAt(onTop(6, 6).x, onTop(6, 6).y);
     expect(run(candy, slime, level, SOUR_EVERY * 2)).toEqual([]);
+  });
+});
+
+describe('Sour Storm', () => {
+  it('a kid can cross the chocolate river, waiting on the cake for the sour rain to stop', () => {
+    const level = parseMap(LEVELS.find(l => l.id === '12-3'));
+    const candy = new CandyStuff(level);
+    const slime = new Slime({ x: 11.5 * TILE, y: 14.5 * TILE });
+    let time = 0;
+    const step = () => {
+      time += 1 / 60;
+      slime.update(1 / 60, level);
+      const hurt = candy.update(1 / 60, slime, time) || findHazard(level, slime, [], time, null);
+      expect(hurt).toBeNull();
+    };
+    const wait = seconds => {
+      for (let t = 0; t < seconds; t += 1 / 60) {
+        step();
+      }
+    };
+    // Drag an end to `to` over `seconds`, about as fast as a kid's finger.
+    const drag = (end, to, seconds) => {
+      slime.grab({ x: end.x, y: end.y }, time);
+      const from = { x: end.x, y: end.y };
+      const n = Math.round(seconds * 60);
+      for (let i = 1; i <= n; i++) {
+        const k = i / n;
+        slime.moveFinger(
+          { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k },
+          time
+        );
+        step();
+      }
+      slime.release(level);
+      wait(0.2);
+    };
+    const nearest = p =>
+      slime.ends.reduce((a, b) =>
+        Math.hypot(a.x - p.x, a.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? a : b
+      );
+    // Stretch the front end to `to`, then pull the back end over to it.
+    const hop = (col, row) => {
+      const to = { x: col * TILE, y: row * TILE };
+      drag(nearest(to), to, 0.8);
+      const lead = slime.ends[slime.lead];
+      drag(slime.ends[1 - slime.lead], { x: lead.x + 10, y: lead.y }, 0.8);
+    };
+    const afterRain = cloud => {
+      while (sourState(candy.clouds[cloud], time) !== 'rain') {
+        step();
+      }
+      while (sourState(candy.clouds[cloud], time) === 'rain') {
+        step();
+      }
+    };
+    wait(1);
+    hop(12.6, 14.6);
+    afterRain(0);
+    hop(14.4, 11.7); // onto the first ice cream
+    hop(18.3, 11.7); // across under the first cloud, onto the cake
+    hop(19.6, 11.7);
+    afterRain(1);
+    hop(22.3, 11.7); // onto the second ice cream
+    hop(26.3, 11.7); // across under the second cloud, onto the cake
+    hop(27.6, 11.7);
+    hop(28.4, 14.6); // down onto the far bank
+    expect(slime.center.x).toBeGreaterThan(28 * TILE);
   });
 });
