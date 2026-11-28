@@ -340,6 +340,42 @@ export const sfx = {
       tone({ freq: f, dur: 0.18, vol: 0.14, type: 'sine', delay: i * 0.07 })
     );
   },
+  // A creeeeaky old floorboard.
+  floorCreak: () => {
+    tone({ freq: 210, to: 150, dur: 0.35, vol: 0.14, type: 'sawtooth' });
+    tone({ freq: 170, to: 240, dur: 0.4, vol: 0.12, type: 'sawtooth', delay: 0.3 });
+  },
+  boardBreak: () => {
+    noise({ dur: 0.3, vol: 0.3, filter: 3000, to: 300 });
+    tone({ freq: 160, to: 60, dur: 0.25, vol: 0.2, type: 'triangle' });
+  },
+  // Ooooooo! (a silly, not-too-scary ghost)
+  ghost: () => {
+    tone({ freq: 330, to: 440, dur: 0.5, vol: 0.12, type: 'sine' });
+    tone({ freq: 440, to: 300, dur: 0.8, vol: 0.12, type: 'sine', delay: 0.45 });
+    tone({ freq: 660, to: 600, dur: 1.1, vol: 0.04, type: 'triangle', delay: 0.1 });
+  },
+  shove: () => {
+    noise({ dur: 0.15, vol: 0.3, filter: 800, to: 150 });
+    tone({ freq: 240, to: 120, dur: 0.2, vol: 0.2, type: 'triangle' });
+  },
+  // Sticky web strands stretching.
+  web: () => {
+    tone({ freq: 500, to: 950, dur: 0.22, vol: 0.08, type: 'sawtooth' });
+    tone({ freq: 900, to: 600, dur: 0.3, vol: 0.06, type: 'sawtooth', delay: 0.18 });
+  },
+  // Click... whoosh! A secret bookcase spins around.
+  bookcase: () => {
+    tone({ freq: 900, dur: 0.05, vol: 0.15, type: 'square' });
+    noise({ dur: 0.5, vol: 0.18, filter: 2500, to: 500, delay: 0.05 });
+    tone({ freq: 200, to: 500, dur: 0.45, vol: 0.12, type: 'triangle', delay: 0.05 });
+  },
+  // The chandelier's crystals tinkling.
+  chandelier: () => {
+    [1568, 2093, 1760].forEach((f, i) =>
+      tone({ freq: f, dur: 0.15, vol: 0.08, type: 'sine', delay: i * 0.05 })
+    );
+  },
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -465,6 +501,13 @@ const SONGS = {
     // A sweet, bouncy music-box tune, like a candy shop.
     lead: [12, 16, 19, 16, 12, null, 14, 16, 17, 21, 19, 17, 16, null, 14, 12],
     bass: [-12, null, -5, null, -7, null, -5, null, -15, null, -8, null, -10, null, -5, null],
+  },
+  haunted: {
+    bpm: 104,
+    root: 57,
+    // A sneaky, tiptoeing tune with a silly spooky wobble: more fun than scary.
+    lead: [12, null, 15, 19, 18, null, 15, null, 12, 13, 12, null, 10, null, 7, null],
+    bass: [-12, null, -5, null, -12, null, -6, null, -14, null, -7, null, -13, null, -6, null],
   },
   boss: {
     bpm: 156,

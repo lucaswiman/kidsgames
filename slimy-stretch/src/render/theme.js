@@ -1,5 +1,5 @@
 import { GAME_HEIGHT, GAME_WIDTH, TILE } from '../logic/constants.js';
-import { TileKind, tileAt } from '../logic/level.js';
+import { isSolidKind, TileKind, tileAt } from '../logic/level.js';
 
 export const THEMES = {
   lab: {
@@ -121,6 +121,17 @@ export const THEMES = {
     wallLight: 0xf6c99a,
     fluid: 0x6b3a1e,
     fluidTop: 0xa0603a,
+    text: '#ffffff',
+  },
+  haunted: {
+    skyTop: 0x0d0a1c,
+    skyBottom: 0x2a1840,
+    grid: null,
+    wall: 0x4a3e58,
+    wallDark: 0x2c2436,
+    wallLight: 0x6d5f80,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
   canyon: {
@@ -266,6 +277,8 @@ export function drawBackdrop(scene, level, theme, themeName) {
     drawSpaceBackdrop(g, level);
   } else if (themeName === 'candy') {
     drawCandyBackdrop(g, level);
+  } else if (themeName === 'haunted') {
+    drawHauntedBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -520,6 +533,141 @@ function drawCandyBackdrop(g, level) {
   }
 }
 
+/**
+ * Inside the haunted house: striped purple wallpaper, wooden panels along the
+ * bottom of each room, tall moonlit windows and dusty cobwebs in the corners.
+ */
+function drawHauntedBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  // (Furniture and dumbwaiters move around, so they don't count here.)
+  const moving = kind => kind === TileKind.FURNITURE || kind === TileKind.SKY_ISLAND;
+  const empty = (col, row) => {
+    const kind = tileAt(level, col, row);
+    return kind === TileKind.EMPTY || moving(kind);
+  };
+  const solid = (col, row) => {
+    const kind = tileAt(level, col, row);
+    return isSolidKind(kind) && !moving(kind);
+  };
+  g.fillStyle(0x2b1a3c, 1);
+  g.fillRect(0, 0, w, h);
+  // Wallpaper stripes, with a little diamond pattern.
+  g.fillStyle(0x352148, 1);
+  for (let x = 0; x < w; x += 32) {
+    g.fillRect(x, 0, 14, h);
+  }
+  g.fillStyle(0x4a2e5e, 0.6);
+  for (let x = 23; x < w; x += 32) {
+    for (let y = 16 + ((x / 32) % 2) * 24; y < h; y += 48) {
+      g.fillTriangle(x, y - 5, x + 4, y, x, y + 5);
+      g.fillTriangle(x, y - 5, x - 4, y, x, y + 5);
+    }
+  }
+  // Wooden panels along the bottom of the wall, just above each floor.
+  for (let row = 0; row < level.height; row++) {
+    for (let col = 0; col < level.width; col++) {
+      if (empty(col, row) && solid(col, row + 1)) {
+        const x = col * TILE;
+        const y = row * TILE;
+        g.fillStyle(0x3d2a22, 1);
+        g.fillRect(x, y + 20, TILE, TILE - 20);
+        g.fillStyle(0x553a2c, 1);
+        g.fillRect(x, y + 18, TILE, 4);
+        g.lineStyle(2, 0x2c1e18, 1);
+        g.strokeRect(x + 6, y + 27, TILE - 12, TILE - 32);
+      }
+    }
+  }
+  // Tall arched windows with the full moon shining in, wherever there's room.
+  const taken = new Set(level.paintings.map(p => `${p.col},${p.row}`));
+  const fits = (col, row) => {
+    for (let r = row; r < row + 3; r++) {
+      for (let c = col; c < col + 2; c++) {
+        if (!empty(c, r) || taken.has(`${c},${r}`)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+  for (let col = 3; col < level.width - 3; col += 9) {
+    for (let band = 1; band < level.height - 3; band += 9) {
+      for (let row = band; row < band + 5; row++) {
+        if (fits(col, row)) {
+          drawMoonWindow(g, col * TILE + 8, row * TILE + 8, hash(col, row) > 0.5);
+          break;
+        }
+      }
+    }
+  }
+  // Dusty cobwebs in the top corners of the rooms.
+  g.lineStyle(1.5, 0xc8c0d8, 0.35);
+  for (let row = 0; row < level.height; row++) {
+    for (let col = 0; col < level.width; col++) {
+      if (!empty(col, row) || !solid(col, row - 1)) {
+        continue;
+      }
+      for (const side of [-1, 1]) {
+        if (solid(col + side, row)) {
+          drawCornerWeb(g, side < 0 ? col * TILE : (col + 1) * TILE, row * TILE, -side);
+        }
+      }
+    }
+  }
+}
+
+/** A tall arched window with moonlight coming in (and sometimes the moon itself). */
+function drawMoonWindow(g, x, y, moon) {
+  const ww = 2 * TILE - 16;
+  const wh = 3 * TILE - 16;
+  // A soft beam of moonlight down the wall.
+  g.fillStyle(0x9fe8c8, 0.05);
+  g.fillTriangle(x, y + wh, x + ww, y + wh, x + ww + 40, y + wh + 90);
+  g.fillTriangle(x, y + wh, x + ww + 40, y + wh + 90, x - 20, y + wh + 90);
+  g.fillStyle(0x1a1028, 1);
+  g.fillRect(x - 5, y + ww / 2 - 5, ww + 10, wh - ww / 2 + 10);
+  g.fillCircle(x + ww / 2, y + ww / 2, ww / 2 + 5);
+  // Night sky glass, glowing green and purple.
+  g.fillGradientStyle(0x3a2a6a, 0x3a2a6a, 0x2a6a5a, 0x2a6a5a, 1);
+  g.fillRect(x, y + ww / 2, ww, wh - ww / 2);
+  g.fillStyle(0x3a2a6a, 1);
+  g.fillCircle(x + ww / 2, y + ww / 2, ww / 2);
+  if (moon) {
+    g.fillStyle(0xf4f0c8, 0.95);
+    g.fillCircle(x + ww * 0.62, y + ww * 0.55, 13);
+    g.fillStyle(0xd8d4a8, 0.9);
+    g.fillCircle(x + ww * 0.56, y + ww * 0.5, 3);
+    g.fillCircle(x + ww * 0.68, y + ww * 0.64, 2);
+  } else {
+    g.fillStyle(0xffffff, 0.8);
+    g.fillCircle(x + 14, y + 30, 1.5);
+    g.fillCircle(x + 52, y + 50, 1.5);
+    g.fillCircle(x + 30, y + 80, 1.2);
+  }
+  // Window frame bars.
+  g.lineStyle(4, 0x1a1028, 1);
+  g.lineBetween(x + ww / 2, y, x + ww / 2, y + wh);
+  g.lineBetween(x, y + wh * 0.55, x + ww, y + wh * 0.55);
+  g.fillStyle(0x553a2c, 1);
+  g.fillRect(x - 8, y + wh, ww + 16, 7);
+}
+
+/** A dusty cobweb in the corner at (x, y), spreading out toward `dir` (1 = right). */
+function drawCornerWeb(g, x, y, dir) {
+  const size = 26;
+  const spokes = [0, 0.35, 0.75, 1.15, 1.5707];
+  for (const a of spokes) {
+    g.lineBetween(x, y, x + Math.cos(a) * size * dir, y + Math.sin(a) * size);
+  }
+  for (const r of [9, 17, 25]) {
+    const pts = spokes.map(a => ({ x: x + Math.cos(a) * r * dir, y: y + Math.sin(a) * r }));
+    for (let i = 0; i < pts.length - 1; i++) {
+      g.lineBetween(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+    }
+  }
+}
+
 function isOpen(level, col, row) {
   const k = tileAt(level, col, row);
   return k !== TileKind.WALL && k !== TileKind.ICE && k !== TileKind.EMITTER;
@@ -537,6 +685,11 @@ export function drawTiles(scene, level, theme, themeName) {
         drawWall(g, level, theme, themeName, col, row, x, y);
       } else if (kind === TileKind.ICE) {
         drawIce(g, x, y);
+        if (themeName === 'haunted') {
+          // Frosty ice, in the moonlight.
+          g.fillStyle(0x2a1840, 0.35);
+          g.fillRect(x, y, TILE, TILE);
+        }
       } else if (kind === TileKind.SPIKES) {
         drawSpikes(g, level, col, row, x, y);
       } else if (kind === TileKind.PLATFORM) {
@@ -723,6 +876,39 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
       }
       g.fillStyle(0xffd0e6, 1);
       g.fillRect(x, y, TILE, 3);
+    }
+  } else if (themeName === 'haunted') {
+    // Old stone blocks, polished wooden floors on top and dark trim along
+    // the ceilings.
+    g.lineStyle(2, theme.wallDark, 0.6);
+    const offset = row % 2 ? TILE / 2 : 0;
+    g.lineBetween(x, y + TILE / 2, x + TILE, y + TILE / 2);
+    g.lineBetween(x + offset + 4, y, x + offset + 4, y + TILE / 2);
+    g.lineBetween(
+      x + ((offset + TILE / 2) % TILE) + 4,
+      y + TILE / 2,
+      x + ((offset + TILE / 2) % TILE) + 4,
+      y + TILE
+    );
+    if (hash(col, row) > 0.75) {
+      g.fillStyle(0x6a8a5a, 0.35);
+      g.fillCircle(x + 10 + hash(row, col) * 28, y + 12 + hash(col + 3, row) * 24, 4);
+    }
+    if (openDown) {
+      g.fillStyle(0x24182c, 1);
+      g.fillRect(x, y + TILE - 8, TILE, 8);
+      g.fillStyle(0x7a5a8a, 1);
+      g.fillRect(x, y + TILE - 9, TILE, 2);
+    }
+    if (openUp) {
+      g.fillStyle(0x7a5232, 1);
+      g.fillRect(x, y, TILE, 10);
+      g.fillStyle(0xa87448, 1);
+      g.fillRect(x, y, TILE, 3);
+      g.fillStyle(0x4a3020, 1);
+      const seam = ((col * 19) % 3) * 12 + 10;
+      g.fillRect(x + seam, y + 3, 2, 7);
+      g.fillRect(x, y + 9, TILE, 2);
     }
   } else if (themeName === 'canyon') {
     if (openUp) {

@@ -152,6 +152,31 @@ export default class BootScene extends Phaser.Scene {
       g.fillCircle(22, 13, 3);
     });
 
+    // Glowing pumpkins are what you collect in the haunted house.
+    make('pumpkin', 48, 48, g => {
+      g.fillStyle(0xffb030, 0.3);
+      g.fillCircle(24, 26, 22);
+      // The stem and a curly leaf.
+      g.fillStyle(0x4a7a2a, 1);
+      g.fillRect(22, 4, 5, 9);
+      g.fillStyle(0x6aaa3a, 1);
+      g.fillEllipse(32, 9, 12, 6);
+      // A round, ridged pumpkin.
+      g.fillStyle(0xd8601a, 1);
+      g.fillEllipse(15, 28, 18, 28);
+      g.fillEllipse(33, 28, 18, 28);
+      g.fillStyle(0xf07a22, 1);
+      g.fillEllipse(24, 28, 22, 30);
+      // A friendly glowing face.
+      g.fillStyle(0xfff07a, 1);
+      g.fillTriangle(14, 25, 20, 25, 17, 19);
+      g.fillTriangle(28, 25, 34, 25, 31, 19);
+      g.fillTriangle(13, 31, 35, 31, 24, 40);
+      g.fillStyle(0xf07a22, 1);
+      g.fillRect(19, 30, 4, 4);
+      g.fillRect(26, 30, 4, 4);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

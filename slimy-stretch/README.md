@@ -55,6 +55,14 @@ Climb like an inchworm!
   his giant claw hands miss, eat them with your tongue while they're stuck, then shoot a slime
   blob into his mouth when his head falls down. He gets one more hand each time, drops bombs, and
   in the end turns the walls to ice
+- **The Haunted House:** a creaky old mansion at night, spooky but nothing in it hurts you.
+  Creaky floorboards creak when you stick to them and then fall away for a few seconds (hop off
+  quick!), haunted chairs, tables and wardrobes slide back and forth (they shove you out of the
+  way if they bump into you, but stick to one while it's stopped and it gives you a ride), spider
+  webs hold you still for a few seconds (but they're sticky spots in mid-air, too), and spooky
+  paintings watch you with their eyes (that's all they do!). There are secret bookcases that spin
+  you around into another room, chandeliers to swing on, dumbwaiters that carry you between
+  floors, bouncy four-poster beds, and glowing pumpkins to collect
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -159,6 +167,10 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `j`    | gumball machine (shoots gumballs at you)          |
 | `\|`   | candy cane (swings from the top of its cell)      |
 | `w`    | sour candy cloud (rains sour drops)               |
+| `/`    | creaky floorboard (falls soon after you stick)    |
+| `&`    | spider web (holds you still for 2.5 s)            |
+| `[`    | spooky painting (just watches you)                |
+| `4`    | bouncy bed (bounces you up high)                  |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -210,6 +222,17 @@ the world, one-way platforms still only work from above, and only moon rocks bou
 Candyland's King Claw is `boss: 'kingclaw'`, with `R` where his head hangs and
 `iceWalls: [{ from: [0, 1], to: [0, 14] }]`: rectangles of walls that turn to ice in his last
 phase.
+
+Haunted House levels can have haunted furniture with
+`furniture: [{ kind: 'table', at: [13, 6], to: [20, 6] }]` (`kind` is `chair`, `table` (2 tiles
+wide) or `wardrobe` (2 tiles tall); it slides back and forth between `at` and `to`, where its
+top-left tile is, stopping for 2 seconds at each end; add `speed` or `pause` to change them),
+dumbwaiters with `dumbwaiters: [{ col: 4, from: 13, to: 6 }]` (a box 1 tile wide in column 4,
+going up and down between rows 13 and 6, like a space elevator), secret bookcases with
+`bookcases: [{ a: [4, 18], b: [17, 8] }]` (each stands on the floor in its empty cell and is drawn
+2 tiles tall; touch one and it spins you out of the other) and chandeliers with
+`chandeliers: [{ at: [10, 1], length: 4 }]` (they hang from the ceiling and swing just like
+vines).
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

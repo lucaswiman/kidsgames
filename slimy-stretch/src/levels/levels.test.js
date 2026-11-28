@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS, WORLDS } from './levels.js';
 import { parseLevel, TileKind, tileAt } from '../logic/level.js';
-import { ZIP_HANG } from '../logic/jungle.js';
+import { swingingVines, ZIP_HANG } from '../logic/jungle.js';
+import { furnitureSize } from '../logic/haunted.js';
 import { canGetBackFrom, solveLevel } from '../logic/solver.js';
 import { END_RADIUS, ITEM_RADIUS, TILE } from '../logic/constants.js';
 import { chaserPosition } from '../logic/hazards.js';
@@ -64,8 +65,8 @@ describe('levels', () => {
       });
 
       it('has its vines, ziplines and logs in sensible places', () => {
-        for (const vine of def.vines || []) {
-          // A vine hangs from a branch (or a wall).
+        for (const vine of swingingVines(def)) {
+          // A vine hangs from a branch (or a wall), and a chandelier from the ceiling.
           const [col, row] = vine.at;
           expect(tileAt(level, col, row - 1)).not.toBe(TileKind.EMPTY);
           expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
@@ -181,6 +182,40 @@ describe('levels', () => {
             for (let col = rect.from[0]; col <= rect.to[0]; col++) {
               expect(tileAt(level, col, row)).toBe(TileKind.WALL);
             }
+          }
+        }
+      });
+
+      it('has its haunted things in sensible places', () => {
+        for (const f of def.furniture || []) {
+          // Haunted furniture slides through open space, and nothing to collect is in its way.
+          const { w, h } = furnitureSize(f);
+          const [c0, c1] = [f.at[0], f.to[0]].sort((a, b) => a - b);
+          const [r0, r1] = [f.at[1], f.to[1]].sort((a, b) => a - b);
+          for (let row = r0; row < r1 + h; row++) {
+            for (let col = c0; col < c1 + w; col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+              const inside = p => Math.floor(p.x / TILE) === col && Math.floor(p.y / TILE) === row;
+              expect([...level.tokens, ...level.cores].some(inside)).toBe(false);
+            }
+          }
+        }
+        for (const lift of def.dumbwaiters || []) {
+          // A dumbwaiter's shaft is open.
+          const [r0, r1] = [lift.from, lift.to].sort((a, b) => a - b);
+          for (let row = r0; row <= r1; row++) {
+            for (let col = lift.col; col < lift.col + (lift.width || 1); col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+            }
+          }
+        }
+        for (const pair of def.bookcases || []) {
+          // Each bookcase stands on the floor and spins you out safely by the other one.
+          for (const [col, row] of [pair.a, pair.b]) {
+            expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+            expect(tileAt(level, col, row - 1)).toBe(TileKind.EMPTY);
+            expect(isSolidKind(tileAt(level, col, row + 1))).toBe(true);
+            expect(simulateDrop(level, padCenter([col, row]))).toBeTruthy();
           }
         }
       });

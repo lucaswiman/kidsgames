@@ -14,7 +14,8 @@ import { simulateDrop } from './warehouse.js';
 // Things in Sky City: lightning clouds, sleeping clouds that block the way
 // (a slime shot wakes them up), fluffy clouds you slowly sink through, hot air
 // balloons, rainbow slides, floating islands and kites. (Wind gusts are the
-// canyon's wind, see canyon.js, just stronger.)
+// canyon's wind, see canyon.js, just stronger.) Outer Space's elevators and
+// the haunted house's dumbwaiters are floating islands too.
 
 export const LIGHTNING_EVERY = 5; // seconds between zaps from each cloud
 export const LIGHTNING_WARN = 1; // it flickers and rumbles this long first
@@ -42,6 +43,7 @@ const RAINBOW_STEPS = 48;
 export const ISLAND_SPEED = 55;
 const ISLAND_PAUSE = 1; // an island waits this long at each end of its path
 export const ELEVATOR_SPEED = 70; // space elevators (see floatingPlatforms)
+export const DUMBWAITER_SPEED = 60; // the haunted house's dumbwaiters (see floatingPlatforms)
 
 export const KITE_STRING = 2.2 * TILE; // how far below the kite the end of its string hangs
 export const KITE_GRAB = 30;
@@ -157,19 +159,28 @@ export function rainbowArc(def) {
 
 /**
  * All the floating islands in a level (def.islands), plus Outer Space's
- * elevators (def.elevators), which are really just floating islands that go
- * straight up and down a shaft: { col, from, to, width, speed } goes between
- * rows `from` and `to` with its left tile in column `col`.
+ * elevators (def.elevators) and the haunted house's dumbwaiters
+ * (def.dumbwaiters), which are really just floating islands that go straight
+ * up and down a shaft: { col, from, to, width, speed } goes between rows
+ * `from` and `to` with its left tile in column `col`. (Elevators are 2 tiles
+ * wide unless they say otherwise, dumbwaiters 1.)
  */
 export function floatingPlatforms(def) {
-  const elevators = (def.elevators || []).map(e => ({
+  const shaft = (e, width, speed) => ({
     from: [e.col, e.from],
     to: [e.col, e.to],
-    width: e.width || 2,
-    speed: e.speed || ELEVATOR_SPEED,
+    width: e.width || width,
+    speed: e.speed || speed,
+  });
+  const elevators = (def.elevators || []).map(e => ({
+    ...shaft(e, 2, ELEVATOR_SPEED),
     elevator: true,
   }));
-  return [...(def.islands || []), ...elevators];
+  const dumbwaiters = (def.dumbwaiters || []).map(e => ({
+    ...shaft(e, 1, DUMBWAITER_SPEED),
+    dumbwaiter: true,
+  }));
+  return [...(def.islands || []), ...elevators, ...dumbwaiters];
 }
 
 /** The two ends of a floating island's path (top-left corners, in pixels). */
@@ -282,6 +293,30 @@ export function kiteLandings(level, home, wind) {
   return landings;
 }
 
+/**
+ * Like slime.checkSupport, but ends marked in `riding` count as held up (they
+ * are riding on something that moves, whose tiles can lag a little behind it).
+ */
+export function checkSupportWith(level, slime, riding) {
+  const lost = slime.ends.map(
+    (e, i) => e.state === 'stuck' && !riding[i] && !isSupported(level, e, END_RADIUS, 6)
+  );
+  if (!lost[0] && !lost[1]) {
+    return;
+  }
+  const held = slime.heldIndex;
+  if (held >= 0 ? lost[1 - held] : lost[0] && lost[1]) {
+    slime.knockLoose(0, 0);
+    return;
+  }
+  slime.ends.forEach((e, i) => {
+    if (lost[i]) {
+      e.state = 'snapping';
+      slime.lead = 1 - i;
+    }
+  });
+}
+
 export class SkyStuff {
   constructor(level) {
     this.level = level;
@@ -331,6 +366,9 @@ export class SkyStuff {
     }));
     // What the slime is riding: { kind: 'balloon' | 'rainbow' | 'kite', index }.
     this.ride = null;
+    // Other moving things that can hold up a stuck end, like the haunted
+    // house's furniture: each is a function giving [end 0 held?, end 1 held?].
+    this.holders = [];
     this.time = 0;
     this.events = [];
   }
@@ -359,6 +397,7 @@ export class SkyStuff {
       pause: ISLAND_PAUSE,
       speed: def.speed || ISLAND_SPEED,
       elevator: !!def.elevator, // drawn as a space elevator, not an island
+      dumbwaiter: !!def.dumbwaiter, // drawn as a dumbwaiter (see hauntedView.js)
       under,
       cells: [],
     };
@@ -543,30 +582,20 @@ export class SkyStuff {
 
   /**
    * Like slime.checkSupport, but ends riding on top of a floating island
-   * count as held up (while it moves, its tiles can lag a little behind it).
+   * (or held by one of the `holders`) count as held up (while it moves, its
+   * tiles can lag a little behind it).
    */
   checkSupport(slime) {
     if (slime.isFalling || slime.frozen) {
       return;
     }
     const riding = this.ridersOf(slime);
-    const lost = slime.ends.map(
-      (e, i) => e.state === 'stuck' && !riding[i] && !isSupported(this.level, e, END_RADIUS, 6)
-    );
-    if (!lost[0] && !lost[1]) {
-      return;
+    for (const holder of this.holders) {
+      holder(slime).forEach((held, i) => {
+        riding[i] = riding[i] || held;
+      });
     }
-    const held = slime.heldIndex;
-    if (held >= 0 ? lost[1 - held] : lost[0] && lost[1]) {
-      slime.knockLoose(0, 0);
-      return;
-    }
-    slime.ends.forEach((e, i) => {
-      if (lost[i]) {
-        e.state = 'snapping';
-        slime.lead = 1 - i;
-      }
-    });
+    checkSupportWith(this.level, slime, riding);
   }
 
   // ----------------------------------------------------------- hot air balloons

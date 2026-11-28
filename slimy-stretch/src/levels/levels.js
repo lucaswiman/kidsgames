@@ -64,6 +64,21 @@
 //         'left', 'right', 'up-left', 'up-right', 'down-left' or 'down-right' (default 'up').
 // iceWalls: for King Claw, rectangles { from: [col, row], to: [col, row] } of walls that
 //         turn to slippery ice when his last phase starts.
+// furniture: haunted furniture { kind, at: [col, row], to: [col, row], speed, pause } that
+//         slides back and forth between `at` and `to` (its top-left tile), stopping for
+//         `pause` seconds at each end (default 2; speed default 80). kind is 'chair'
+//         (1 tile), 'table' (2 tiles wide) or 'wardrobe' (2 tiles tall). Its path must be
+//         empty. Bumping into you while it moves, it shoves you and knocks you loose (it
+//         never hurts); stick to it while it's stopped and it carries you along.
+// dumbwaiters: little elevators in the walls { col, from, to, width, speed } that go up
+//         and down a shaft between rows `from` and `to` (like space elevators, but 1 tile
+//         wide by default; speed default 60). Anything stuck on top rides along.
+// bookcases: pairs of secret bookcases { a: [col, row], b: [col, row] } (in empty cells
+//         on the floor; each is drawn 2 tiles tall, up from that cell). Touch one and it
+//         spins you around and out of the other one, like a teleporter.
+// chandeliers: chandeliers { at: [col, row], length } that hang from the top of the empty
+//         cell `at` (just under the ceiling), `length` tiles long. They swing just like
+//         vines: touch the bottom to grab on, drag sideways to swing, let go to fly off.
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
@@ -78,6 +93,7 @@ export const WORLDS = [
   { id: 'sky', name: 'Sky City', theme: 'sky' },
   { id: 'space', name: 'Outer Space', theme: 'space' },
   { id: 'candy', name: 'Candyland', theme: 'candy' },
+  { id: 'haunted', name: 'The Haunted House', theme: 'haunted' },
 ];
 
 export const LEVELS = [
@@ -1435,6 +1451,137 @@ export const LEVELS = [
       '#....................#',
       '#..S.y...........y...#',
       '######################',
+    ],
+  },
+  // ------------------------------------------------------------ THE HAUNTED HOUSE
+  {
+    id: '13-1',
+    world: 'haunted',
+    name: 'Creaky Floors',
+    type: 'normal',
+    hint: 'Creaky floorboards fall away soon after you touch them, so hop across quick! Bounce on the bed to get upstairs.',
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#................................#',
+      '#................................#',
+      '#.....[.....[...........[........#',
+      '#................................#',
+      '#...................T............#',
+      '#..E.............................#',
+      '#################//////##--#######',
+      '#IIIIIIIIIIIIIIIIIIIIIIII..IIIIII#',
+      '#................................#',
+      '#...[............[.......[.......#',
+      '#................................#',
+      '#....................T...........#',
+      '#.S......................44......#',
+      '######-##//////###################',
+      '#####............#################',
+      '#####............#################',
+      '#####......T.....#################',
+      '#####.4..........#################',
+      '##################################',
+    ],
+  },
+  {
+    id: '13-2',
+    world: 'haunted',
+    name: 'Moving Day',
+    type: 'normal',
+    hint: "Haunted furniture! It shoves you if it bumps you, but stick to it while it's stopped and it gives you a ride. The dumbwaiter goes upstairs.",
+    furniture: [
+      { kind: 'wardrobe', at: [30, 12], to: [24, 12] },
+      { kind: 'chair', at: [6, 6], to: [11, 6] },
+      { kind: 'table', at: [13, 6], to: [20, 6] },
+    ],
+    dumbwaiters: [{ col: 4, from: 13, to: 6 }],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#..................................#',
+      '#..................................#',
+      '#.......[..........[.........[.....#',
+      '#.................T................#',
+      '#..................................#',
+      '#..............................E...#',
+      '###I.I########I.......I#############',
+      '#III.IIIIIIIIII.......IIIIIIIIIIIII#',
+      '#..................................#',
+      '#....[..........T.........[.T......#',
+      '#..................................#',
+      '#..................................#',
+      '#................................S.#',
+      '####################################',
+      '####################################',
+    ],
+  },
+  {
+    id: '13-3',
+    world: 'haunted',
+    name: 'Web Site',
+    type: 'normal',
+    dark: true,
+    hint: 'Grab a chandelier, drag to swing, and let go to fly! Spider webs hold you for a moment, but they make good stepping stones.',
+    chandeliers: [
+      { at: [10, 1], length: 4 },
+      { at: [17, 1], length: 4 },
+      { at: [24, 1], length: 4 },
+    ],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#&.................................#',
+      '#.T................................#',
+      '#..[.......T.......................#',
+      '#................................E.#',
+      '#.............&......&.......I######',
+      '#.S..........................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######.....[.......[........I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######..........T...........I######',
+      '####################################',
+      '####################################',
+    ],
+  },
+  {
+    id: '13-4',
+    world: 'haunted',
+    name: 'Pumpkin Patch',
+    type: 'collect',
+    hint: 'Find all 4 glowing pumpkins! Touch a bookcase to spin through a secret passage.',
+    bookcases: [
+      { a: [20, 18], b: [23, 18] },
+      { a: [4, 18], b: [17, 8] },
+      { a: [42, 12], b: [23, 8] },
+    ],
+    chandeliers: [{ at: [11, 11], length: 2 }],
+    dumbwaiters: [{ col: 25, from: 18, to: 8 }],
+    furniture: [{ kind: 'table', at: [27, 8], to: [33, 8] }],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#.....................#....................#',
+      '#..[.......[......[...#...[......[......[..#',
+      '#.....................#....................#',
+      '#......T..............#........T...........#',
+      '#.....................#....................#',
+      '#.....................#....................#',
+      '#.....................#....................#',
+      '#.P...................#.................P..#',
+      '####//////##############I.III......I########',
+      '#III......IIIIIIIIIIII#II.III......IIIIIIII#',
+      '#.............P.......#....................#',
+      '#.............##......#.................P..#',
+      '#.....................#..............--I####',
+      '#..[........[.........#....[...........IIII#',
+      '#......&..............#...................I#',
+      '#...............T.....#.......T...........I#',
+      '#.....................#...................I#',
+      '#.S.......E...........#..............44...I#',
+      '############################################',
     ],
   },
 ];

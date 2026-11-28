@@ -59,6 +59,10 @@ import { TILE } from './constants.js';
 //   j  gumball machine (sticky; shoots gumballs at you)
 //   |  candy cane (swings back and forth from the top of its cell, and hurts)
 //   w  sour candy cloud (slippery; every few seconds it rains sour drops straight down)
+//   /  creaky floorboard (sticky; creaks after you stick to it, then vanishes for a while)
+//   &  spider web (not solid; stick to it and it holds you still for a few seconds)
+//   [  spooky painting (just decoration: its eyes follow you around, it never hurts)
+//   4  bouncy bed (sticky; bounces you up high, like a hammock)
 //   .  empty
 
 export const TileKind = {
@@ -94,7 +98,7 @@ export const TileKind = {
   STORM: 29,
   SLEEPY: 30,
   FLUFFY: 31,
-  SKY_ISLAND: 32, // a floating island's (or space elevator's) spot (never in a map)
+  SKY_ISLAND: 32, // a floating island's, space elevator's or dumbwaiter's spot (never in a map)
   MOON_ROCK: 33,
   CHOCOLATE: 34,
   CARAMEL: 35,
@@ -103,6 +107,10 @@ export const TileKind = {
   ICE_CREAM: 38,
   GUMBALL: 39,
   SOUR_CLOUD: 40,
+  FLOORBOARD: 41,
+  WEB: 42,
+  FURNITURE: 43, // a piece of haunted furniture's spot (never in a map)
+  BED: 44,
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -122,14 +130,26 @@ export function isPlatformKind(kind) {
   return PLATFORMS.has(kind);
 }
 
-/** Hammocks, bouncy flowers, moon rocks and gumdrops bounce you up high when you land on them. */
+/**
+ * Hammocks, bouncy flowers, moon rocks, gumdrops and beds bounce you up high
+ * when you land on them.
+ */
 export function isBouncyKind(kind) {
   return (
     kind === TileKind.HAMMOCK ||
     kind === TileKind.FLOWER ||
     kind === TileKind.MOON_ROCK ||
-    kind === TileKind.GUMDROP
+    kind === TileKind.GUMDROP ||
+    kind === TileKind.BED
   );
+}
+
+/**
+ * Spider webs catch a slime that falls or flies into them, even though
+ * they're not solid (you can stretch right through one).
+ */
+export function isCatchingKind(kind) {
+  return kind === TileKind.WEB;
 }
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
@@ -172,6 +192,9 @@ const SOLID = new Set([
   TileKind.MARSHMALLOW,
   TileKind.GUMBALL,
   TileKind.SOUR_CLOUD,
+  TileKind.FLOORBOARD,
+  TileKind.FURNITURE,
+  TileKind.BED,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -195,6 +218,11 @@ const STICKY = new Set([
   TileKind.GUMDROP,
   TileKind.MARSHMALLOW,
   TileKind.GUMBALL,
+  TileKind.FLOORBOARD,
+  TileKind.FURNITURE,
+  TileKind.BED,
+  // Webs are the only sticky thing that isn't solid.
+  TileKind.WEB,
 ]);
 
 export function isSolidKind(kind) {
@@ -272,6 +300,9 @@ export function parseLevel(def) {
     candyCanes: [],
     lollipops: [],
     ropes: [],
+    floorboards: [],
+    webs: [],
+    paintings: [],
     // Which way is down: 1 normally, -1 while a gravity switch has flipped it.
     gravity: 1,
     // Zero gravity zones, as pixel rectangles (see def.zeroG).
@@ -503,6 +534,20 @@ export function parseLevel(def) {
           break;
         case 'w':
           kind = TileKind.SOUR_CLOUD;
+          break;
+        case '/':
+          kind = TileKind.FLOORBOARD;
+          level.floorboards.push({ col, row });
+          break;
+        case '&':
+          kind = TileKind.WEB;
+          level.webs.push({ ...center, col, row });
+          break;
+        case '[':
+          level.paintings.push({ ...center, col, row });
+          break;
+        case '4':
+          kind = TileKind.BED;
           break;
         case '.':
           break;

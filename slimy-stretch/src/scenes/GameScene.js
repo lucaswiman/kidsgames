@@ -47,6 +47,7 @@ import { SkyStuff } from '../logic/sky.js';
 import { SpaceStuff } from '../logic/space.js';
 import { BigMachine } from '../logic/bigMachine.js';
 import { CandyStuff } from '../logic/candy.js';
+import { HauntedStuff } from '../logic/haunted.js';
 import { KingClaw } from '../logic/kingClaw.js';
 import { SuperStretch } from '../logic/superStretch.js';
 import { SAFE_TIME, SafeTrail, SPLIT_REACH, touching } from '../logic/split.js';
@@ -81,6 +82,7 @@ import { drawBigMachine, drawFactory } from '../render/factoryView.js';
 import { drawSky, drawSkyBehind, drawSkyTiles } from '../render/skyView.js';
 import { drawSpace, drawSpaceBehind, drawSpaceTiles, drawZeroGZones } from '../render/spaceView.js';
 import { drawCandy, drawCandyTiles, drawIcedWalls, drawKingClaw } from '../render/candyView.js';
+import { drawHauntedBehind, drawHauntedOver, drawHauntedTiles } from '../render/hauntedView.js';
 import { makeButton, makeIconButton, makeMuteButton, textStyle } from '../render/ui.js';
 
 // Add ?all to the address to unlock every level (and the tongue) for testing.
@@ -96,6 +98,7 @@ const PRIZES = {
   sky: { texture: 'star', name: 'star', label: 'Stars' },
   space: { texture: 'spacecrystal', name: 'space crystal', label: 'Crystals' },
   candy: { texture: 'candy', name: 'wrapped candy', label: 'Candies' },
+  haunted: { texture: 'pumpkin', name: 'pumpkin', label: 'Pumpkins' },
 };
 
 export default class GameScene extends Phaser.Scene {
@@ -125,6 +128,7 @@ export default class GameScene extends Phaser.Scene {
     this.sky = new SkyStuff(this.level);
     this.space = new SpaceStuff(this.level, this.sky);
     this.candy = new CandyStuff(this.level);
+    this.haunted = new HauntedStuff(this.level, this.sky);
     this.isBoss = this.def.type === 'boss';
 
     drawBackground(this, this.theme);
@@ -572,6 +576,7 @@ export default class GameScene extends Phaser.Scene {
       const skyHit = this.sky.update(dt, this.slime, this.shots.blobs, this.time_);
       const spaceHit = this.space.update(dt, this.slime, this.time_);
       const candyHit = this.candy.update(dt, this.slime, this.time_);
+      const hauntedHit = this.haunted.update(dt, this.slime);
       this.superStretch.update(dt, this.level, this.slime);
       this.updateSuperButton();
       if (this.kingClaw && this.kingClaw.catchBlobs(this.shots.blobs)) {
@@ -582,6 +587,7 @@ export default class GameScene extends Phaser.Scene {
       this.playSkySounds();
       this.playSpaceSounds();
       this.playCandySounds();
+      this.playHauntedSounds();
       this.updateBigMachine(dt);
       this.playIslandSounds();
       this.playJungleSounds();
@@ -605,6 +611,7 @@ export default class GameScene extends Phaser.Scene {
         skyHit ||
         spaceHit ||
         candyHit ||
+        hauntedHit ||
         this.bossHurtSlime;
       this.updateSplit(dt, !hurt);
       if (canyonHit === 'boulder') {
@@ -875,7 +882,11 @@ export default class GameScene extends Phaser.Scene {
         this.activePointer = null;
         this.pumping = false;
         if (e.type === 'vineGrab') {
-          sfx.vine();
+          if (e.chandelier) {
+            sfx.chandelier();
+          } else {
+            sfx.vine();
+          }
           this.hintOnce('vine', 'Drag sideways to swing higher. Let go to fly!', 2500);
         } else {
           sfx.zip();
@@ -1442,6 +1453,34 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  playHauntedSounds() {
+    for (const e of this.haunted.takeEvents()) {
+      if (e.type === 'creak') {
+        sfx.floorCreak();
+        this.hintOnce('creak', 'Creeeak! That floorboard is about to fall. Hop off quick!', 2000);
+      } else if (e.type === 'boardGone') {
+        sfx.boardBreak();
+      } else if (e.type === 'haunt') {
+        sfx.ghost();
+      } else if (e.type === 'shove') {
+        sfx.shove();
+        this.hintOnce('shove', 'Bump! The haunted furniture shoved you out of the way.', 2000);
+      } else if (e.type === 'web') {
+        sfx.web();
+        this.hintOnce('web', "A spider web! You're stuck for a moment...", 2000);
+      } else if (e.type === 'webFree') {
+        sfx.unstick();
+      } else if (e.type === 'bookcaseSpin') {
+        // The finger that touched it doesn't count as letting go.
+        this.activePointer = null;
+        sfx.bookcase();
+      } else if (e.type === 'bookcaseOut') {
+        sfx.whoosh();
+        this.hintOnce('bookcase', 'A secret passage!', 1600);
+      }
+    }
+  }
+
   playFactorySounds() {
     for (const e of this.factory.takeEvents()) {
       if (e.type === 'stomp') {
@@ -1602,6 +1641,7 @@ export default class GameScene extends Phaser.Scene {
     this.sky.resetAfterDeath();
     this.space.resetAfterDeath();
     this.candy.resetAfterDeath();
+    this.haunted.resetAfterDeath();
     this.superStretch.cancel();
     this.superArmed = false;
     if (this.superButton) {
@@ -1787,6 +1827,7 @@ export default class GameScene extends Phaser.Scene {
     drawSkyTiles(this.dynGfx, this.sky, this.clock);
     drawSpaceTiles(this.dynGfx, this.space, this.clock);
     drawCandyTiles(this.dynGfx, this.candy, this.clock);
+    drawHauntedTiles(this.dynGfx, this.haunted, this.clock);
     if (this.kingClaw) {
       drawIcedWalls(this.dynGfx, this.kingClaw);
     }
@@ -1799,6 +1840,7 @@ export default class GameScene extends Phaser.Scene {
     this.drawJungleBehind(fx);
     drawSkyBehind(fx, this.sky, this.clock);
     drawSpaceBehind(fx, this.space, this.clock);
+    drawHauntedBehind(fx, this.haunted, this.jungle, this.sky, this.clock);
     this.drawLasers(fx);
     this.drawGates(fx);
     this.drawTongue(fx);
@@ -1818,6 +1860,7 @@ export default class GameScene extends Phaser.Scene {
     drawSky(over, this.sky, this.clock);
     drawSpace(over, this.space, this.clock);
     drawCandy(over, this.candy, this.clock, this.slime);
+    drawHauntedOver(over, this.haunted, this.slime);
     if (this.kingClaw) {
       drawKingClaw(over, this.kingClaw, this.clock, this.bossBar);
     }
@@ -1836,8 +1879,10 @@ export default class GameScene extends Phaser.Scene {
 
     const visible = ['playing', 'won', 'won-wait', 'crushed'];
     // Inside a cannon the slime is hidden (the cannon draws a peek of it).
-    // Inside a seagull's tummy the slime is hidden too.
-    const hidden = this.warehouse.inCannon !== null || this.island.eaten;
+    // Inside a seagull's tummy the slime is hidden too, and so is a slime
+    // spinning around with a secret bookcase.
+    const hidden =
+      this.warehouse.inCannon !== null || this.island.eaten || this.haunted.spinning !== null;
     if (visible.includes(this.status) && !hidden) {
       const look = this.slime.heldEnd ? this.slime.finger : this.slime.ends[1 - this.slime.lead];
       const half = this.splitState === 'whole' ? 1 : 0.72;
@@ -2148,6 +2193,10 @@ export default class GameScene extends Phaser.Scene {
       g.lineBetween(zip.x - 16, zip.y + ZIP_GRIP, zip.x + 16, zip.y + ZIP_GRIP);
     }
     jungle.vines.forEach((vine, i) => {
+      if (vine.chandelier) {
+        // (Chandeliers are drawn by hauntedView.js.)
+        return;
+      }
       // An empty vine sways a little in the breeze.
       const riding = jungle.onVine === i;
       const sway = riding ? 0 : Math.sin(this.clock * 1.3 + i) * 0.05;

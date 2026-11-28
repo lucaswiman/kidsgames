@@ -1,6 +1,7 @@
 import { END_RADIUS, ITEM_RADIUS, MAX_STRETCH, STICK_SEARCH, TILE } from './constants.js';
 import {
   castCircle,
+  circleTouches,
   clampToRange,
   dist,
   findStickSpot,
@@ -20,6 +21,7 @@ import {
   logRange,
   logRideY,
   QUICKSAND_REACH,
+  swingingVines,
   touchingQuicksand,
   VINE_GRAB,
   vineLandings,
@@ -53,6 +55,7 @@ import {
   SWITCH_RADIUS,
 } from './space.js';
 import { MARSH_BOUNCE, ropeDrop, ROPE_GRAB } from './candy.js';
+import { BOOKCASE_RADIUS, furnitureCells, furnitureRides } from './haunted.js';
 
 const CANNON_ANGLES = 72;
 
@@ -74,7 +77,16 @@ const CANNON_ANGLES = 72;
  * gumdrops bounce you like hammocks, sitting on a marshmallow springs you up
  * a little, and touching a licorice rope slides you down to its bottom.
  * Gumball machines, candy canes and sour clouds are on timers, so they're
- * ignored, and so are lollipops (their longer stretch doesn't last).
+ * ignored, and so are lollipops (their longer stretch doesn't last). In the
+ * haunted house, creaky floorboards are solid, but from one you only get one
+ * more stretch (onto something that isn't a floorboard) before it vanishes,
+ * or you can wait and fall through it. Haunted furniture is solid where it
+ * starts, and you can ride it to either end of its path (its shoves are
+ * ignored: you can wait for it). Spider webs are sticky spots in the air (the
+ * real game physics catches a slime falling or flying into one); they only
+ * hold you still for a moment. Chandeliers are vines, dumbwaiters are
+ * elevators, beds bounce like hammocks, secret bookcases work like
+ * teleporters, and spooky paintings are just decoration.
  */
 
 const DIRECTIONS = 32;
@@ -187,8 +199,8 @@ function explore(level, seeds = null) {
       return { ...c, y, landing: simulateDrop(level, { x: (c.drop + 0.5) * TILE, y: y + 12 }) };
     });
 
-  // Vines: grab the bottom, swing and let go to fly somewhere new.
-  const vines = (level.def.vines || []).map(v => {
+  // Vines (and chandeliers): grab the bottom, swing and let go to fly somewhere new.
+  const vines = swingingVines(level.def).map(v => {
     const vine = { x: (v.at[0] + 0.5) * TILE, y: v.at[1] * TILE, length: v.length * TILE };
     return { tip: vineTip(vine, 0), vine, landings: null };
   });
@@ -253,9 +265,10 @@ function explore(level, seeds = null) {
     home: k,
     landings: null,
   }));
-  // Floating islands and space elevators: get on anywhere along the way and
-  // ride to either end.
-  const islands = floatingPlatforms(level.def).map(def => {
+  // Floating islands, space elevators, dumbwaiters and haunted furniture:
+  // get on anywhere along the way and ride to either end.
+  const platforms = [...floatingPlatforms(level.def), ...furnitureRides(level.def)];
+  const islands = platforms.map(def => {
     const { from, to } = islandEnds(def);
     const width = def.width || 3;
     const tops = at => {
@@ -276,14 +289,28 @@ function explore(level, seeds = null) {
     }
     return { along, ends: [...tops(from), ...tops(to)] };
   });
-  // Teleporters: touch one pad and you pop out of the other one.
+  // Teleporters (and secret bookcases): touch one and you pop out of the other one.
   const pads = [];
-  for (const t of level.def.teleporters || []) {
+  const pairs = [
+    ...(level.def.teleporters || []).map(t => ({ ...t, radius: PAD_RADIUS })),
+    ...(level.def.bookcases || []).map(t => ({ ...t, radius: BOOKCASE_RADIUS })),
+  ];
+  for (const t of pairs) {
     const a = padCenter(t.a);
     const b = padCenter(t.b);
-    pads.push({ pad: a, landing: simulateDrop(level, b) });
-    pads.push({ pad: b, landing: simulateDrop(level, a) });
+    pads.push({ pad: a, radius: t.radius, landing: simulateDrop(level, b) });
+    pads.push({ pad: b, radius: t.radius, landing: simulateDrop(level, a) });
   }
+  // Creaky floorboards: wait on one and it vanishes, and you fall through.
+  const isBoard = k => k === TileKind.FLOORBOARD;
+  const onBoard = p =>
+    level.floorboards.length > 0 && circleTouches(level, p, END_RADIUS + 6, isBoard);
+  const trapdoors = level.floorboards.map(b => {
+    const tiles = level.tiles.map(line => line.slice());
+    tiles[b.row][b.col] = TileKind.EMPTY;
+    const from = { x: (b.col + 0.5) * TILE, y: b.row * TILE - END_RADIUS - 1 };
+    return { ...from, landing: simulateDrop({ ...level, tiles }, from) };
+  });
   // Rocket boosters: touch one and it blasts you off its way.
   const boosters = level.boosters.map(b => ({ ...b, landing: simulateBooster(level, b) }));
   // Zero gravity: letting go of a stretch in the air floats you off.
@@ -310,7 +337,7 @@ function explore(level, seeds = null) {
       }
     }
     for (const t of pads) {
-      if (t.landing && canStretchTo(anchor, t.pad, PAD_RADIUS + END_RADIUS)) {
+      if (t.landing && canStretchTo(anchor, t.pad, t.radius + END_RADIUS)) {
         visit({ ...t.landing }, anchor.moves + 2);
       }
     }
@@ -387,6 +414,14 @@ function explore(level, seeds = null) {
         visit({ ...h.landing }, anchor.moves + 1);
       }
     }
+    for (const t of trapdoors) {
+      if (t.landing && Math.abs(anchor.x - t.x) < TILE / 2 + 2 && Math.abs(anchor.y - t.y) < 8) {
+        visit({ ...t.landing }, anchor.moves + 1);
+      }
+    }
+    // On a creaky floorboard there's only time for one more stretch, and it
+    // can't be onto another floorboard.
+    const creaky = onBoard(anchor);
     for (const claw of niceClaws) {
       if (!claw.landing || seen.has(key(claw.landing))) {
         continue;
@@ -413,6 +448,9 @@ function explore(level, seeds = null) {
           continue;
         }
         const spot = findStickSpot(level, tip, END_RADIUS, STICK_SEARCH, allowed);
+        if (spot && creaky && onBoard(spot)) {
+          continue;
+        }
         if (spot && !seen.has(key(spot))) {
           seen.add(key(spot));
           // Each new spot takes two drags: stretch out, then pull the tail over.
@@ -521,6 +559,7 @@ function exploreWithGravity(level) {
 /**
  * A copy of the level with eaten boxes removed and gates open or (deadly)
  * closed. Leafy traps are just holes: they break as soon as you touch them.
+ * Haunted furniture is where it starts out.
  */
 function levelView(level, eaten, openColors, powered = new Set(), woken = [], withered = null) {
   const tiles = level.tiles.map(row => row.map(k => (k === TileKind.LEAFY ? TileKind.EMPTY : k)));
@@ -557,6 +596,12 @@ function levelView(level, eaten, openColors, powered = new Set(), woken = [], wi
       tiles[b.row][b.col] = TileKind.EMPTY;
     }
   });
+  // Haunted furniture is solid where it starts out.
+  for (const f of level.def.furniture || []) {
+    for (const c of furnitureCells(f)) {
+      tiles[c.row][c.col] = TileKind.FURNITURE;
+    }
+  }
   for (const g of level.gates) {
     // A closed gate zaps you, which the checker treats like lava.
     tiles[g.row][g.col] = openColors.has(g.color) ? TileKind.EMPTY : TileKind.LAVA;
