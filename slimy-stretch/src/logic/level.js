@@ -63,6 +63,10 @@ import { TILE } from './constants.js';
 //   &  spider web (not solid; stick to it and it holds you still for a few seconds)
 //   [  spooky painting (just decoration: its eyes follow you around, it never hurts)
 //   4  bouncy bed (sticky; bounces you up high, like a hammock)
+//   } {  data stream flowing right / left (sticky; carries whatever is stuck to it, like a belt)
+//   ?  glitchy block (sticky; blinks off for a while on a timer, flickering first)
+//   e  computer virus (crawls along its floor or wall, chases you when you're near, and hurts)
+//   ;  electric circuit (a wire along the floor, wall or ceiling next to it; it zaps on a timer)
 //   .  empty
 
 export const TileKind = {
@@ -111,6 +115,10 @@ export const TileKind = {
   WEB: 42,
   FURNITURE: 43, // a piece of haunted furniture's spot (never in a map)
   BED: 44,
+  STREAM_RIGHT: 45,
+  STREAM_LEFT: 46,
+  GLITCH: 47,
+  POPUP: 48, // an open pop-up window's spot (never in a map)
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -195,6 +203,10 @@ const SOLID = new Set([
   TileKind.FLOORBOARD,
   TileKind.FURNITURE,
   TileKind.BED,
+  TileKind.STREAM_RIGHT,
+  TileKind.STREAM_LEFT,
+  TileKind.GLITCH,
+  TileKind.POPUP,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -221,6 +233,10 @@ const STICKY = new Set([
   TileKind.FLOORBOARD,
   TileKind.FURNITURE,
   TileKind.BED,
+  TileKind.STREAM_RIGHT,
+  TileKind.STREAM_LEFT,
+  TileKind.GLITCH,
+  TileKind.POPUP,
   // Webs are the only sticky thing that isn't solid.
   TileKind.WEB,
 ]);
@@ -303,6 +319,9 @@ export function parseLevel(def) {
     floorboards: [],
     webs: [],
     paintings: [],
+    glitches: [],
+    viruses: [],
+    circuitCells: [],
     // Which way is down: 1 normally, -1 while a gravity switch has flipped it.
     gravity: 1,
     // Zero gravity zones, as pixel rectangles (see def.zeroG).
@@ -548,6 +567,22 @@ export function parseLevel(def) {
           break;
         case '4':
           kind = TileKind.BED;
+          break;
+        case '}':
+          kind = TileKind.STREAM_RIGHT;
+          break;
+        case '{':
+          kind = TileKind.STREAM_LEFT;
+          break;
+        case '?':
+          kind = TileKind.GLITCH;
+          level.glitches.push({ col, row });
+          break;
+        case 'e':
+          level.viruses.push({ ...center, col, row });
+          break;
+        case ';':
+          level.circuitCells.push({ col, row });
           break;
         case '.':
           break;

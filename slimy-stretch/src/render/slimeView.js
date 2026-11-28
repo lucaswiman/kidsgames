@@ -17,12 +17,14 @@ export class SlimeView {
   }
 
   /**
-   * `size` shrinks the slime (1 = full size) when blobs are shot out;
-   * `glowing` adds a soft light around it.
+   * `size` shrinks the slime (1 = full size) when blobs are shot out, or
+   * grows it when it's double size; `glowing` adds a soft light around it;
+   * `faded` draws it see-through (a copy of you left behind by a copy-paste pad).
    */
-  draw(slime, dt, lookAt, size = 1, glowing = false) {
+  draw(slime, dt, lookAt, size = 1, glowing = false, faded = false) {
     const g = this.g;
     g.clear();
+    g.setAlpha(faded ? 0.45 : 1);
     this.wobble += dt;
     this.blinkTimer -= dt;
     if (this.blinkTimer <= 0) {
@@ -140,5 +142,9 @@ export class SlimeView {
 
   clear() {
     this.g.clear();
+  }
+
+  destroy() {
+    this.g.destroy();
   }
 }

@@ -8,7 +8,10 @@
 //                     button: [col, row] and crushers: [col, ...])
 // dark:   only the area around the slime and glowing crystals can be seen
 // hint:   text shown at the start of the level
-// chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball
+// chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball,
+//         'wall' = the computer's firewall, a wall of fire sweeping sideways across the
+//         whole level: { kind: 'wall', dir: 1, delay, speed } (dir 1 comes in from the
+//         left edge, -1 from the right; speed in pixels per second)
 // wind:   gusts that push the end you're dragging: { every, gust, strength, dir }
 //         (a gust every `every` seconds, lasting `gust` seconds; dir 1 = right, -1 = left).
 //         The wind also pulls kites (k) along; they sink slowly while it's calm.
@@ -79,6 +82,23 @@
 // chandeliers: chandeliers { at: [col, row], length } that hang from the top of the empty
 //         cell `at` (just under the ceiling), `length` tiles long. They swing just like
 //         vines: touch the bottom to grab on, drag sideways to swing, let go to fly off.
+// popups: pop-up windows { at: [col, row], width, open, closed, offset } inside the
+//         computer: a platform `width` tiles wide (default 3) starting at `at` that's open
+//         (solid and sticky) for `open` seconds (default 4, shaking for the last second),
+//         then closed for `closed` seconds (default 3). `offset` shifts its timer.
+// circuitTimings: how long each electric circuit (a run of ; cells side by side, in
+//         reading order) stays quiet between zaps: { quiet, offset } (default quiet 3;
+//         each circuit lights up for 1 second, then zaps for 1 second).
+// cables: { a: [col, row], b: [col, row], path: [[col, row], ...] } cables with a plug at
+//         each end (in empty cells). Touch either plug and you zoom along the cable,
+//         through its `path` bends, and drop out of the other plug.
+// cursors: giant mouse cursors { from: [col, row], to: [col, row], drop: [col, row],
+//         speed } whose tip swoops back and forth between `from` and `to`. Touch the tip
+//         and it grabs you and drags you to `drop` (like a nice crane claw).
+// copyPads: copy-paste pads { copy: [col, row], paste: [col, row] } (in empty cells on
+//         the floor). Touch the copy pad and a copy of you pops out of the paste pad: you
+//         move the copy, and the old you stays behind. Eat the old you with your tongue
+//         to grow double size (see logic/sizes.js). Each pair works once per life.
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
@@ -94,6 +114,7 @@ export const WORLDS = [
   { id: 'space', name: 'Outer Space', theme: 'space' },
   { id: 'candy', name: 'Candyland', theme: 'candy' },
   { id: 'haunted', name: 'The Haunted House', theme: 'haunted' },
+  { id: 'computer', name: 'Inside the Computer', theme: 'computer' },
 ];
 
 export const LEVELS = [
@@ -1582,6 +1603,145 @@ export const LEVELS = [
       '#.....................#...................I#',
       '#.S.......E...........#..............44...I#',
       '############################################',
+    ],
+  },
+  // ------------------------------------------------------- INSIDE THE COMPUTER
+  {
+    id: '14-1',
+    world: 'computer',
+    name: 'Boot Up',
+    type: 'normal',
+    hint: 'Data streams carry you along! Hop across the pop-up windows while they are open.',
+    popups: [
+      { at: [15, 13], width: 3 },
+      { at: [24, 11], width: 3, offset: 2 },
+    ],
+    map: [
+      '#############IIIIIIIIIIIIIIII###############',
+      '#..........................................#',
+      '#..........................................#',
+      '#..........................................#',
+      '#..........................................#',
+      '#..........................................#',
+      '#....................................T....E#',
+      '#.................................}}}}}}}}}#',
+      '#.....T....................................#',
+      '#...#####..................................#',
+      '#.............................C............#',
+      '#...................T........###############',
+      '#.........T.........##.......###############',
+      '#.S.........#.......##.......###############',
+      '#}}}}}}}}}}}}.......##.......###############',
+      '#############.......##.......###############',
+    ],
+  },
+  {
+    id: '14-2',
+    world: 'computer',
+    name: 'Bug Hunt',
+    type: 'normal',
+    hint: 'Viruses chase you: shoot them with a slime blob to delete them! Glitchy blocks blink on and off, and cables zoom you somewhere new.',
+    cables: [
+      {
+        a: [43, 11],
+        b: [30, 7],
+        path: [
+          [43, 9],
+          [30, 9],
+        ],
+      },
+    ],
+    map: [
+      '###############IIIIIIIIIIII###################',
+      '#..........................#.................#',
+      '#..........................#.................#',
+      '#..........................#.................#',
+      '#..........................#........T........#',
+      '#..........................#........##.......#',
+      '#..........................#........##e......#',
+      '#..........................#........##.....E.#',
+      '#..........................###################',
+      '#..........................###################',
+      '#......T...................#.................#',
+      '#...#######..................C...T..e........#',
+      '#....................T...?..##################',
+      '#....................##.....##################',
+      '#....................##.....##################',
+      '#...........T.....?..##.....##################',
+      '#.S......e...........##.....##################',
+      '###############......##.....##################',
+    ],
+  },
+  {
+    id: '14-3',
+    world: 'computer',
+    name: 'Copy That',
+    type: 'normal',
+    hint: 'Step on the copy pad to paste a copy of you past the laser. Eat the old you with your tongue to grow DOUBLE size!',
+    // The security laser is always on: the copy pad is the only way past it.
+    laserTimings: [{ on: 1, off: 0 }],
+    copyPads: [{ copy: [12, 15], paste: [17, 15] }],
+    cursors: [{ from: [19, 10], to: [24, 10], drop: [37, 10] }],
+    map: [
+      '##############d#######IIIIIIIIIIII############',
+      '#............................................#',
+      '#..........................................E.#',
+      '#........................................#####',
+      '#.......................................#....#',
+      '#.......................................#....#',
+      '#......................................;#....#',
+      '#....................................T.;#....#',
+      '#......................................;#....#',
+      '#...T..................................;#....#',
+      '#..####.................................#....#',
+      '#..................................C....#....#',
+      '#..................T..............############',
+      '#.........T.......................############',
+      '#.................................############',
+      '#.S..;;;;.........;;;.............############',
+      '######################............############',
+    ],
+  },
+  {
+    id: '14-4',
+    world: 'computer',
+    name: 'Firewall',
+    type: 'escape',
+    hint: 'The firewall is coming! Use everything you have learned to get to the door before it burns you.',
+    chaser: { kind: 'wall', dir: 1, delay: 5, speed: 34 },
+    laserTimings: [{ on: 1, off: 0 }],
+    popups: [{ at: [14, 15], width: 3, open: 5, closed: 2 }],
+    cables: [
+      {
+        a: [39, 6],
+        b: [43, 6],
+        path: [
+          [39, 2],
+          [43, 2],
+        ],
+      },
+    ],
+    cursors: [{ from: [44, 4], to: [47, 4], drop: [57, 6] }],
+    copyPads: [{ copy: [57, 7], paste: [62, 7] }],
+    map: [
+      '############IIIIIIIIIIIIIIIIIIII#########I######IIIIIII#####d#####',
+      '#........................................I.......................#',
+      '#........................................I.......................#',
+      '#........................................I...T...................#',
+      '#........................................I.......................#',
+      '#........................................I.......................#',
+      '#.................................C..e...I.....#.................#',
+      '#...............................#########I}}}}}}................E#',
+      '#............................?..I########I######.......###########',
+      '#.........................T.....I########I######.......###########',
+      '#........................---....I########I######.......###########',
+      '#...............................I########I######.......###########',
+      '#...............................I########I######.......###########',
+      '#......T.....................?..I########I######.......###########',
+      '#.....................e..;;.....I########I######.......###########',
+      '#...................############I########I######.......###########',
+      '#.S........#........############I########I######.......###########',
+      '#}}}}}}}}}}}........############I########I######.......###########',
     ],
   },
 ];

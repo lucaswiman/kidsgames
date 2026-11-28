@@ -29,6 +29,32 @@ describe('split', () => {
     expect(b).toEqual({ x: 5, y: 6 });
   });
 
+  it('finds more spots further and further back along the trail', () => {
+    const trail = new SafeTrail();
+    for (let i = 0; i < 12; i++) {
+      trail.record(0.5, slimeAt(TILE * (1 + i), TILE * 3), true);
+    }
+    const spots = trail.spotsAlong({ x: 0, y: 0 }, 4);
+    expect(spots).toHaveLength(4);
+    for (let i = 1; i < 4; i++) {
+      expect(spots[i - 1].x - spots[i].x).toBeGreaterThan(TILE * 2);
+    }
+    // The first two are where a split puts the two halves.
+    expect(spots.slice(0, 2)).toEqual(trail.splitSpots({ x: 0, y: 0 }));
+    // Once the trail runs out, the rest share the oldest spot.
+    const short = trail.spotsAlong({ x: 0, y: 0 }, 8);
+    expect(short[7]).toEqual(trail.spots[0]);
+  });
+
+  it('a cloned trail remembers the same spots', () => {
+    const trail = new SafeTrail();
+    trail.record(0.5, slimeAt(TILE, TILE), true);
+    const copy = trail.clone();
+    expect(copy.spots).toEqual(trail.spots);
+    copy.clear();
+    expect(trail.spots).toHaveLength(1);
+  });
+
   it('halves merge when they touch', () => {
     expect(touching(slimeAt(100, 100), slimeAt(120, 100))).toBe(true);
     expect(touching(slimeAt(100, 100), slimeAt(300, 100))).toBe(false);

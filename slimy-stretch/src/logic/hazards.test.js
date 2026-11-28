@@ -61,4 +61,22 @@ describe('chasers', () => {
     expect(findHazard(level, slime, [], 0, chaser)).toBe(null);
     expect(findHazard(level, slime, [], 1.6, chaser)).toBe('chaser');
   });
+
+  it('a firewall sweeps across the whole level and catches anything it reaches', () => {
+    const chaser = { kind: 'wall', dir: 1, delay: 2, speed: 48 };
+    expect(chaserPosition(chaser, level, 1).x).toBe(-48);
+    expect(chaserPosition(chaser, level, 4).x).toBe(48);
+    // Even high up, out of its way at the top of the level, it gets you.
+    const slime = slimeAt(3.5 * 48, 1.5 * 48);
+    expect(findHazard(level, slime, [], 5, chaser)).toBe(null);
+    expect(findHazard(level, slime, [], 6.5, chaser)).toBe('chaser');
+  });
+
+  it('a firewall can come from the right, too', () => {
+    const chaser = { kind: 'wall', dir: -1, delay: 0, speed: 48 };
+    expect(chaserPosition(chaser, level, 0).x).toBe(level.pixelWidth + 48);
+    const slime = slimeAt(7.5 * 48, 3.5 * 48);
+    expect(findHazard(level, slime, [], 1, chaser)).toBe(null);
+    expect(findHazard(level, slime, [], 3.6, chaser)).toBe('chaser');
+  });
 });

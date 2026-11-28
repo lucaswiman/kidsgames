@@ -56,6 +56,16 @@ import {
 } from './space.js';
 import { MARSH_BOUNCE, ropeDrop, ROPE_GRAB } from './candy.js';
 import { BOOKCASE_RADIUS, furnitureCells, furnitureRides } from './haunted.js';
+import {
+  CABLE_GRAB,
+  cablePath,
+  COPY_RADIUS,
+  CURSOR_GRAB,
+  CURSOR_HANG,
+  cursorPatrol,
+  popupCells,
+  popupWindows,
+} from './computer.js';
 
 const CANNON_ANGLES = 72;
 
@@ -86,7 +96,17 @@ const CANNON_ANGLES = 72;
  * real game physics catches a slime falling or flying into one); they only
  * hold you still for a moment. Chandeliers are vines, dumbwaiters are
  * elevators, beds bounce like hammocks, secret bookcases work like
- * teleporters, and spooky paintings are just decoration.
+ * teleporters, and spooky paintings are just decoration. Inside the computer,
+ * glitchy blocks and pop-up windows count as always there, but (like creaky
+ * floorboards) from one of them you only get one more stretch, onto something
+ * that doesn't blink on and off, or you can wait for it to vanish and fall.
+ * That way a level never needs perfect timing. Viruses and circuits are
+ * ignored (you can wait for a circuit, and a virus only crawls slowly, or you
+ * can delete it with a slime shot), data streams are just sticky floors, the
+ * firewall is a chaser, cables work like teleporters, a copy pad pops you out
+ * of its paste pad, and the mouse cursor is a nice crane claw: touch it
+ * anywhere it swoops and it drops you at its drop spot. Being double size
+ * (from eating a copy of yourself) is never needed: it doesn't last.
  */
 
 const DIRECTIONS = 32;
@@ -198,6 +218,21 @@ function explore(level, seeds = null) {
       const y = (c.row + 1) * TILE + CLAW_HANG;
       return { ...c, y, landing: simulateDrop(level, { x: (c.drop + 0.5) * TILE, y: y + 12 }) };
     });
+  // The computer's mouse cursor works like a nice claw that can swoop any way:
+  // touch its tip anywhere along the way and it drops you at its drop spot.
+  const cursors = (level.def.cursors || []).map(c => {
+    const { from, to } = cursorPatrol(c);
+    const steps = Math.max(1, Math.ceil(dist(from, to) / (TILE / 2)));
+    const along = [];
+    for (let k = 0; k <= steps; k++) {
+      along.push({
+        x: from.x + ((to.x - from.x) * k) / steps,
+        y: from.y + ((to.y - from.y) * k) / steps,
+      });
+    }
+    const drop = padCenter(c.drop);
+    return { along, landing: simulateDrop(level, { x: drop.x, y: drop.y + CURSOR_HANG }) };
+  });
 
   // Vines (and chandeliers): grab the bottom, swing and let go to fly somewhere new.
   const vines = swingingVines(level.def).map(v => {
@@ -289,7 +324,8 @@ function explore(level, seeds = null) {
     }
     return { along, ends: [...tops(from), ...tops(to)] };
   });
-  // Teleporters (and secret bookcases): touch one and you pop out of the other one.
+  // Teleporters (and secret bookcases, and cables): touch one and you pop out
+  // of the other one.
   const pads = [];
   const pairs = [
     ...(level.def.teleporters || []).map(t => ({ ...t, radius: PAD_RADIUS })),
@@ -301,15 +337,38 @@ function explore(level, seeds = null) {
     pads.push({ pad: a, radius: t.radius, landing: simulateDrop(level, b) });
     pads.push({ pad: b, radius: t.radius, landing: simulateDrop(level, a) });
   }
-  // Creaky floorboards: wait on one and it vanishes, and you fall through.
-  const isBoard = k => k === TileKind.FLOORBOARD;
-  const onBoard = p =>
-    level.floorboards.length > 0 && circleTouches(level, p, END_RADIUS + 6, isBoard);
-  const trapdoors = level.floorboards.map(b => {
+  for (const c of level.def.cables || []) {
+    const path = cablePath(c);
+    const [a, b] = [path[0], path[path.length - 1]];
+    pads.push({ pad: a, radius: CABLE_GRAB, landing: simulateDrop(level, b) });
+    pads.push({ pad: b, radius: CABLE_GRAB, landing: simulateDrop(level, a) });
+  }
+  // Copy pads only go one way: the copy of you pops out of the paste pad.
+  for (const c of level.def.copyPads || []) {
+    pads.push({
+      pad: padCenter(c.copy),
+      radius: COPY_RADIUS,
+      landing: simulateDrop(level, padCenter(c.paste)),
+    });
+  }
+  // Creaky floorboards (and glitchy blocks and pop-up windows): wait on one
+  // and it vanishes, and you fall through.
+  const timed = [
+    ...level.floorboards.map(b => [b]),
+    ...level.glitches.map(b => [b]),
+    ...popupWindows(level.def).map(popupCells),
+  ];
+  const isBoard = k => k === TileKind.FLOORBOARD || k === TileKind.GLITCH || k === TileKind.POPUP;
+  const onBoard = p => timed.length > 0 && circleTouches(level, p, END_RADIUS + 6, isBoard);
+  const trapdoors = timed.flatMap(cells => {
     const tiles = level.tiles.map(line => line.slice());
-    tiles[b.row][b.col] = TileKind.EMPTY;
-    const from = { x: (b.col + 0.5) * TILE, y: b.row * TILE - END_RADIUS - 1 };
-    return { ...from, landing: simulateDrop({ ...level, tiles }, from) };
+    for (const b of cells) {
+      tiles[b.row][b.col] = TileKind.EMPTY;
+    }
+    return cells.map(b => {
+      const from = { x: (b.col + 0.5) * TILE, y: b.row * TILE - END_RADIUS - 1 };
+      return { ...from, landing: simulateDrop({ ...level, tiles }, from) };
+    });
   });
   // Rocket boosters: touch one and it blasts you off its way.
   const boosters = level.boosters.map(b => ({ ...b, landing: simulateBooster(level, b) }));
@@ -431,6 +490,14 @@ function explore(level, seeds = null) {
           visit({ ...claw.landing }, anchor.moves + 2);
           break;
         }
+      }
+    }
+    for (const cursor of cursors) {
+      if (!cursor.landing || seen.has(key(cursor.landing))) {
+        continue;
+      }
+      if (cursor.along.some(p => canStretchTo(anchor, p, CURSOR_GRAB + END_RADIUS))) {
+        visit({ ...cursor.landing }, anchor.moves + 2);
       }
     }
     const reachHere = reachFrom(anchor);
@@ -559,7 +626,7 @@ function exploreWithGravity(level) {
 /**
  * A copy of the level with eaten boxes removed and gates open or (deadly)
  * closed. Leafy traps are just holes: they break as soon as you touch them.
- * Haunted furniture is where it starts out.
+ * Haunted furniture is where it starts out, and pop-up windows are open.
  */
 function levelView(level, eaten, openColors, powered = new Set(), woken = [], withered = null) {
   const tiles = level.tiles.map(row => row.map(k => (k === TileKind.LEAFY ? TileKind.EMPTY : k)));
@@ -600,6 +667,12 @@ function levelView(level, eaten, openColors, powered = new Set(), woken = [], wi
   for (const f of level.def.furniture || []) {
     for (const c of furnitureCells(f)) {
       tiles[c.row][c.col] = TileKind.FURNITURE;
+    }
+  }
+  // Pop-up windows count as open (see the "one more stretch" rule in explore).
+  for (const p of popupWindows(level.def)) {
+    for (const c of popupCells(p)) {
+      tiles[c.row][c.col] = TileKind.POPUP;
     }
   }
   for (const g of level.gates) {

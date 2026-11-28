@@ -3,6 +3,7 @@ import { LEVELS, WORLDS } from './levels.js';
 import { parseLevel, TileKind, tileAt } from '../logic/level.js';
 import { swingingVines, ZIP_HANG } from '../logic/jungle.js';
 import { furnitureSize } from '../logic/haunted.js';
+import { cablePath, CURSOR_HANG, popupCells, popupWindows } from '../logic/computer.js';
 import { canGetBackFrom, solveLevel } from '../logic/solver.js';
 import { END_RADIUS, ITEM_RADIUS, TILE } from '../logic/constants.js';
 import { chaserPosition } from '../logic/hazards.js';
@@ -220,6 +221,48 @@ describe('levels', () => {
         }
       });
 
+      it('has its computer things in sensible places', () => {
+        const empty = (col, row) => tileAt(level, col, row) === TileKind.EMPTY;
+        for (const popup of popupWindows(def)) {
+          // A pop-up window opens in empty space.
+          for (const c of popupCells(popup)) {
+            expect(empty(c.col, c.row)).toBe(true);
+          }
+        }
+        for (const cable of def.cables || []) {
+          // Each cable plug is in an empty cell, and drops you somewhere safe.
+          const path = cablePath(cable);
+          for (const [col, row] of [cable.a, cable.b]) {
+            expect(empty(col, row)).toBe(true);
+          }
+          expect(simulateDrop(level, path[0])).toBeTruthy();
+          expect(simulateDrop(level, path[path.length - 1])).toBeTruthy();
+        }
+        for (const cursor of def.cursors || []) {
+          // The mouse cursor drops you somewhere safe.
+          const drop = padCenter(cursor.drop);
+          expect(simulateDrop(level, { x: drop.x, y: drop.y + CURSOR_HANG })).toBeTruthy();
+        }
+        for (const pads of def.copyPads || []) {
+          // Copy-paste pads lie on the floor, and the copy of you lands safely.
+          for (const [col, row] of [pads.copy, pads.paste]) {
+            expect(empty(col, row)).toBe(true);
+            expect(isSolidKind(tileAt(level, col, row + 1))).toBe(true);
+          }
+          expect(simulateDrop(level, padCenter(pads.paste))).toBeTruthy();
+        }
+        for (const cell of [...level.viruses, ...level.circuitCells]) {
+          // Viruses crawl, and wires run, along a floor, wall or ceiling.
+          const next = [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+          ].some(([dc, dr]) => isSolidKind(tileAt(level, cell.col + dc, cell.row + dr)));
+          expect(next).toBe(true);
+        }
+      });
+
       it('never rains sour candy on ice cream (you have to stand on it)', () => {
         level.tiles.forEach((row, r) =>
           row.forEach((kind, col) => {
@@ -289,10 +332,15 @@ describe('levels', () => {
           let t = 0;
           while (t < 600) {
             const pos = chaserPosition(def.chaser, level, t);
-            const caught =
-              def.chaser.kind === 'rise'
-                ? pos.y < level.exit.y + 24
-                : pos.x + pos.radius > level.exit.x - 24;
+            let caught;
+            if (def.chaser.kind === 'rise') {
+              caught = pos.y < level.exit.y + 24;
+            } else if (def.chaser.kind === 'wall') {
+              // The firewall's front edge reaching the door.
+              caught = pos.dir > 0 ? pos.x > level.exit.x - 24 : pos.x < level.exit.x + 24;
+            } else {
+              caught = pos.x + pos.radius > level.exit.x - 24;
+            }
             if (caught) {
               break;
             }

@@ -376,6 +376,53 @@ export const sfx = {
       tone({ freq: f, dur: 0.15, vol: 0.08, type: 'sine', delay: i * 0.05 })
     );
   },
+  // Bleep bloop! A computer virus has spotted you.
+  virus: () => {
+    [880, 660, 880, 520].forEach((f, i) =>
+      tone({ freq: f, dur: 0.06, vol: 0.1, type: 'square', delay: i * 0.07 })
+    );
+  },
+  // A virus getting deleted: a falling chiptune "bwoop" and a crunch.
+  deleted: () => {
+    tone({ freq: 1200, to: 150, dur: 0.35, vol: 0.14, type: 'square' });
+    noise({ dur: 0.15, vol: 0.15, filter: 5000, to: 1500, delay: 0.25 });
+  },
+  // Crackly static: a glitchy block blinking out.
+  glitch: () => {
+    noise({ dur: 0.12, vol: 0.12, filter: 6000, to: 2000 });
+    tone({ freq: 300, to: 1800, dur: 0.08, vol: 0.06, type: 'square', delay: 0.05 });
+  },
+  // Ding! A pop-up window pops open...
+  popup: () => {
+    tone({ freq: 1320, dur: 0.08, vol: 0.12, type: 'triangle' });
+    tone({ freq: 1760, dur: 0.14, vol: 0.12, type: 'triangle', delay: 0.07 });
+  },
+  // ...and closes again.
+  popClose: () => tone({ freq: 700, to: 300, dur: 0.12, vol: 0.12, type: 'triangle' }),
+  // Power humming along a circuit, about to zap.
+  powerHum: () => tone({ freq: 110, to: 440, dur: 0.9, vol: 0.08, type: 'sawtooth' }),
+  // Zooooom through a cable.
+  cable: () => {
+    tone({ freq: 400, to: 2000, dur: 0.5, vol: 0.1, type: 'square' });
+    noise({ dur: 0.4, vol: 0.08, filter: 4000, to: 1200 });
+  },
+  // The mouse cursor clicking.
+  click: () => {
+    tone({ freq: 2400, dur: 0.03, vol: 0.18, type: 'square' });
+    tone({ freq: 1800, dur: 0.03, vol: 0.14, type: 'square', delay: 0.06 });
+  },
+  // Copy... paste!
+  copyPaste: () => {
+    [523, 784, 659, 1047].forEach((f, i) =>
+      tone({ freq: f, dur: 0.09, vol: 0.12, type: 'square', delay: i * 0.08 })
+    );
+  },
+  // A chiptune power-up: you grew to double size!
+  powerUp: () => {
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) =>
+      tone({ freq: f, dur: 0.08, vol: 0.12, type: 'square', delay: 0.15 + i * 0.06 })
+    );
+  },
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -508,6 +555,13 @@ const SONGS = {
     // A sneaky, tiptoeing tune with a silly spooky wobble: more fun than scary.
     lead: [12, null, 15, 19, 18, null, 15, null, 12, 13, 12, null, 10, null, 7, null],
     bass: [-12, null, -5, null, -12, null, -6, null, -14, null, -7, null, -13, null, -6, null],
+  },
+  computer: {
+    bpm: 138,
+    root: 60,
+    // A bleepy chiptune, like a video game running inside the computer.
+    lead: [12, 19, 24, 19, 15, 19, 22, null, 12, 19, 24, 27, 26, 24, 22, 19],
+    bass: [-12, -12, 0, -12, -16, -16, -4, -16, -14, -14, -2, -14, -9, -9, -7, -5],
   },
   boss: {
     bpm: 156,

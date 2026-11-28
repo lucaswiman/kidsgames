@@ -134,6 +134,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  computer: {
+    skyTop: 0x020a10,
+    skyBottom: 0x06222a,
+    grid: null,
+    wall: 0x14503a,
+    wallDark: 0x0a2e20,
+    wallLight: 0x2a8a5a,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -279,6 +290,8 @@ export function drawBackdrop(scene, level, theme, themeName) {
     drawCandyBackdrop(g, level);
   } else if (themeName === 'haunted') {
     drawHauntedBackdrop(g, level);
+  } else if (themeName === 'computer') {
+    drawComputerBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -668,6 +681,63 @@ function drawCornerWeb(g, x, y, dir) {
   }
 }
 
+/**
+ * Inside the computer: a dark circuit board with glowing traces running
+ * every which way, chips with shiny legs, and a faint pixel grid.
+ */
+function drawComputerBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  g.fillStyle(0x041a1c, 1);
+  g.fillRect(0, 0, w, h);
+  // A faint pixel grid.
+  g.lineStyle(1, 0x0a3a3a, 0.5);
+  for (let x = 0; x <= w; x += TILE / 2) {
+    g.lineBetween(x, 0, x, h);
+  }
+  for (let y = 0; y <= h; y += TILE / 2) {
+    g.lineBetween(0, y, w, y);
+  }
+  // Glowing traces: each goes along, turns a corner, and ends in a little pad.
+  for (let i = 0; i < (w * h) / 14000; i++) {
+    let x = Math.floor(hash(i, 1) * (w / 12)) * 12;
+    let y = Math.floor(hash(i, 2) * (h / 12)) * 12;
+    const color = hash(i, 3) > 0.5 ? 0x1ab07a : 0x1a7ab0;
+    g.lineStyle(2, color, 0.3);
+    g.fillStyle(color, 0.45);
+    g.fillCircle(x, y, 3);
+    for (let leg = 0; leg < 3; leg++) {
+      const len = (2 + Math.floor(hash(i, leg + 4) * 6)) * 12;
+      const across = (leg + Math.floor(hash(i, 9) * 2)) % 2 === 0;
+      const dir = hash(i, leg + 7) > 0.5 ? 1 : -1;
+      const nx = across ? x + len * dir : x;
+      const ny = across ? y : y + len * dir;
+      g.lineBetween(x, y, nx, ny);
+      x = nx;
+      y = ny;
+    }
+    g.strokeCircle(x, y, 4);
+  }
+  // Big chips with metal legs.
+  for (let x = 120; x < w - 80; x += 420) {
+    for (let y = 100; y < h - 80; y += 360) {
+      const cx = x + hash(x, y) * 120;
+      const cy = y + hash(y, x) * 100;
+      g.fillStyle(0x9aa4b0, 0.35);
+      for (let k = 0; k < 6; k++) {
+        g.fillRect(cx - 34 + k * 13, cy - 44, 5, 10);
+        g.fillRect(cx - 34 + k * 13, cy + 34, 5, 10);
+      }
+      g.fillStyle(0x0a1014, 0.85);
+      g.fillRoundedRect(cx - 42, cy - 34, 84, 68, 6);
+      g.lineStyle(2, 0x2a3a40, 0.9);
+      g.strokeRoundedRect(cx - 42, cy - 34, 84, 68, 6);
+      g.fillStyle(0x1ab07a, 0.25);
+      g.fillCircle(cx - 30, cy + 22, 4);
+    }
+  }
+}
+
 function isOpen(level, col, row) {
   const k = tileAt(level, col, row);
   return k !== TileKind.WALL && k !== TileKind.ICE && k !== TileKind.EMITTER;
@@ -689,6 +759,12 @@ export function drawTiles(scene, level, theme, themeName) {
           // Frosty ice, in the moonlight.
           g.fillStyle(0x2a1840, 0.35);
           g.fillRect(x, y, TILE, TILE);
+        } else if (themeName === 'computer') {
+          // Slippery glass, like a screen.
+          g.fillStyle(0x0a2a4a, 0.45);
+          g.fillRect(x, y, TILE, TILE);
+          g.lineStyle(2, 0x9ad8ff, 0.5);
+          g.lineBetween(x + 8, y + TILE - 10, x + TILE - 10, y + 8);
         }
       } else if (kind === TileKind.SPIKES) {
         drawSpikes(g, level, col, row, x, y);
@@ -876,6 +952,37 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
       }
       g.fillStyle(0xffd0e6, 1);
       g.fillRect(x, y, TILE, 3);
+    }
+  } else if (themeName === 'computer') {
+    // Circuit-board panels: green board with copper traces, solder pads and
+    // a bright edge where you can stick.
+    g.lineStyle(2, 0xc8a24a, 0.55);
+    const a = hash(col, row);
+    if (a > 0.5) {
+      g.lineBetween(x + 6, y + 14, x + 26, y + 14);
+      g.lineBetween(x + 26, y + 14, x + 34, y + 24);
+      g.lineBetween(x + 34, y + 24, x + TILE, y + 24);
+    } else {
+      g.lineBetween(x + 16, y + 6, x + 16, y + 30);
+      g.lineBetween(x + 16, y + 30, x + 40, y + 30);
+    }
+    g.fillStyle(0xd8b85a, 0.8);
+    g.fillCircle(x + (a > 0.5 ? 6 : 16), y + (a > 0.5 ? 14 : 6), 3);
+    g.fillCircle(x + 36 + hash(row, col) * 6, y + 38, 2.5);
+    if (hash(col + 5, row) > 0.8) {
+      // A tiny chip on the board.
+      g.fillStyle(0x0a1014, 1);
+      g.fillRect(x + 22, y + 32, 14, 10);
+    }
+    if (openUp) {
+      g.fillStyle(0x3affa0, 1);
+      g.fillRect(x, y, TILE, 4);
+      g.fillStyle(0x2a8a5a, 1);
+      g.fillRect(x, y + 4, TILE, 3);
+    }
+    if (openDown) {
+      g.fillStyle(0x062016, 1);
+      g.fillRect(x, y + TILE - 6, TILE, 6);
     }
   } else if (themeName === 'haunted') {
     // Old stone blocks, polished wooden floors on top and dark trim along

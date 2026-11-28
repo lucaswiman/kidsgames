@@ -63,6 +63,15 @@ Climb like an inchworm!
   paintings watch you with their eyes (that's all they do!). There are secret bookcases that spin
   you around into another room, chandeliers to swing on, dumbwaiters that carry you between
   floors, bouncy four-poster beds, and glowing pumpkins to collect
+- **Inside the Computer:** a glowing circuit board full of chips and blinking lights. Computer
+  viruses crawl along floors and walls and chase you when you get close (a slime shot deletes one
+  for good), glitchy blocks flicker and then blink out for a couple of seconds, electric circuits
+  light up as a pulse of power runs along them and then zap, and in the last level the
+  **firewall**, a wall of fire, sweeps across the whole level after you. But data streams of 1s
+  and 0s carry you along, pop-up windows pop open for a few seconds to stand on, cables zoom you
+  from one plug to the other, a giant mouse cursor grabs you and drags you somewhere useful, and
+  copy-paste pads paste a copy of you somewhere else. The old you stays behind: eat it with your
+  tongue and you grow to **double size**!
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -74,6 +83,15 @@ abilities:
 - The big machine gives you **split**: getting hurt splits you into two half-size slimes (half the
   reach each) instead of killing you. The exit door won't open until you bring the halves back
   together. If a half gets hurt it's gone; get hurt as a half-size slime and you really die.
+  Inside the computer this grows into the **size system**: every piece of slime is double size,
+  regular or half size, and reaches (and looks) that big. Getting hurt splits a piece into two
+  pieces of half its size: double into two regular slimes, regular into two halves, and a half
+  that's hurt is gone (if it was your last piece, you really die and start again as one regular
+  slime). You move whichever piece is nearest your finger, and pieces that touch merge back,
+  adding up their sizes (never bigger than double). The door opens when you're in one piece, or
+  when every piece is at least regular size: two regular slimes can finish a level, but not two
+  halves. Eating the old you a copy-paste pad left behind adds its size to yours, so a regular
+  slime becomes double size until it gets hurt. (The rules live in `src/logic/sizes.js`.)
 - King Claw gives you **super stretch**: tap 🎯, then tap a wall or ceiling the slime can see in a
   straight line (up to 14 tiles away). The slime stretches super far over to it and sticks there.
   Then it needs 20 seconds to rest.
@@ -171,6 +189,10 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `&`    | spider web (holds you still for 2.5 s)            |
 | `[`    | spooky painting (just watches you)                |
 | `4`    | bouncy bed (bounces you up high)                  |
+| `}`    | data stream flowing right (`{` flows left)        |
+| `?`    | glitchy block (blinks off for a while)            |
+| `e`    | computer virus (crawls along, chases you)         |
+| `;`    | electric circuit wire (zaps now and then)         |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -233,6 +255,22 @@ going up and down between rows 13 and 6, like a space elevator), secret bookcase
 2 tiles tall; touch one and it spins you out of the other) and chandeliers with
 `chandeliers: [{ at: [10, 1], length: 4 }]` (they hang from the ceiling and swing just like
 vines).
+
+Inside the Computer levels can have pop-up windows with
+`popups: [{ at: [15, 13], width: 3 }]` (a platform 3 tiles wide that's open for 4 seconds, shaking
+for the last one, then closed for 3; add `open`, `closed` or `offset` to change its timing), cables
+with `cables: [{ a: [43, 11], b: [30, 7], path: [[43, 9], [30, 9]] }]` (a plug at `a` and at `b`,
+in empty cells; touch one and you zoom along the cable through its `path` bends and out of the
+other), mouse cursors with `cursors: [{ from: [19, 10], to: [24, 10], drop: [37, 10] }]` (the tip
+swoops back and forth between `from` and `to`; touch it and it drags you to `drop`) and copy-paste
+pads with `copyPads: [{ copy: [12, 15], paste: [17, 15] }]` (both on the floor; each pair works
+once per life). Each run of electric circuit cells (`;`) side by side is one wire: it lights up
+for 1 second, zaps for 1 second, and stays quiet for 3 (change that with
+`circuitTimings: [{ quiet: 4, offset: 1 }]`, one for each wire in reading order). Glitchy blocks are there for 3 seconds
+(flickering for the last bit) and gone for 2, each column a little later than the one before.
+The firewall is an escape level's chaser: `chaser: { kind: 'wall', dir: 1, delay: 5, speed: 34 }`
+sweeps across from the left edge (`dir: -1` for the right edge). A laser with
+`laserTimings: [{ on: 1, off: 0 }]` is always on.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

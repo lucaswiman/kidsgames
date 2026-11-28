@@ -177,6 +177,32 @@ export default class BootScene extends Phaser.Scene {
       g.fillRect(26, 30, 4, 4);
     });
 
+    // Microchips are what you'd collect inside the computer.
+    make('microchip', 48, 40, g => {
+      g.fillStyle(0x5affb0, 0.25);
+      g.fillRoundedRect(2, 2, 44, 36, 10);
+      // Shiny metal legs on both sides.
+      g.fillStyle(0xd8dde4, 1);
+      for (let i = 0; i < 4; i++) {
+        g.fillRect(4, 9 + i * 7, 8, 3);
+        g.fillRect(36, 9 + i * 7, 8, 3);
+      }
+      g.fillStyle(0x1a1f2a, 1);
+      g.fillRoundedRect(10, 5, 28, 30, 4);
+      g.fillStyle(0x3a4250, 1);
+      g.fillRect(14, 9, 20, 4);
+      g.fillStyle(0x5affb0, 1);
+      g.fillCircle(16, 28, 3);
+      g.fillStyle(0xffd040, 1);
+      g.fillRect(22, 18, 10, 10);
+    });
+
+    // A square pixel, for little bursts of pixels inside the computer.
+    make('pixel', 6, 6, g => {
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(0, 0, 6, 6);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);
