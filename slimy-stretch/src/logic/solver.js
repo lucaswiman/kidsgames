@@ -66,6 +66,7 @@ import {
   popupCells,
   popupWindows,
 } from './computer.js';
+import { SPRING_ENTER, simulateSpring, TUBE_GRAB } from './robots.js';
 
 const CANNON_ANGLES = 72;
 
@@ -106,7 +107,13 @@ const CANNON_ANGLES = 72;
  * firewall is a chaser, cables work like teleporters, a copy pad pops you out
  * of its paste pad, and the mouse cursor is a nice crane claw: touch it
  * anywhere it swoops and it drops you at its drop spot. Being double size
- * (from eating a copy of yourself) is never needed: it doesn't last.
+ * (from eating a copy of yourself) is never needed: it doesn't last. In the
+ * robot factory, spring pads work like rocket boosters, pneumatic tubes like
+ * cables, and robot helpers and lifts like floating islands. Robot arms only
+ * toss you somewhere you can stick (a setback), welding torches and sniper
+ * robots are on timers, and patrol robots never hurt, so they're all
+ * ignored, and alarm doors count as open (you can wait for the alarm to
+ * stop). Boss fights and Mega Slime are never needed to reach anything.
  */
 
 const DIRECTIONS = 32;
@@ -337,11 +344,14 @@ function explore(level, seeds = null) {
     pads.push({ pad: a, radius: t.radius, landing: simulateDrop(level, b) });
     pads.push({ pad: b, radius: t.radius, landing: simulateDrop(level, a) });
   }
-  for (const c of level.def.cables || []) {
-    const path = cablePath(c);
-    const [a, b] = [path[0], path[path.length - 1]];
-    pads.push({ pad: a, radius: CABLE_GRAB, landing: simulateDrop(level, b) });
-    pads.push({ pad: b, radius: CABLE_GRAB, landing: simulateDrop(level, a) });
+  const tubes = [
+    ...(level.def.cables || []).map(c => ({ path: cablePath(c), radius: CABLE_GRAB })),
+    ...(level.def.tubes || []).map(t => ({ path: cablePath(t), radius: TUBE_GRAB })),
+  ];
+  for (const t of tubes) {
+    const [a, b] = [t.path[0], t.path[t.path.length - 1]];
+    pads.push({ pad: a, radius: t.radius, landing: simulateDrop(level, b) });
+    pads.push({ pad: b, radius: t.radius, landing: simulateDrop(level, a) });
   }
   // Copy pads only go one way: the copy of you pops out of the paste pad.
   for (const c of level.def.copyPads || []) {
@@ -370,8 +380,19 @@ function explore(level, seeds = null) {
       return { ...from, landing: simulateDrop({ ...level, tiles }, from) };
     });
   });
-  // Rocket boosters: touch one and it blasts you off its way.
-  const boosters = level.boosters.map(b => ({ ...b, landing: simulateBooster(level, b) }));
+  // Rocket boosters (and spring pads): touch one and it blasts you off its way.
+  const boosters = [
+    ...level.boosters.map(b => ({
+      ...b,
+      enter: BOOSTER_ENTER,
+      landing: simulateBooster(level, b),
+    })),
+    ...(level.springs || []).map(s => ({
+      ...s,
+      enter: SPRING_ENTER,
+      landing: simulateSpring(level, s),
+    })),
+  ];
   // Zero gravity: letting go of a stretch in the air floats you off.
   const flings = new Map();
   const flingFrom = (anchor, tip, angleIndex) => {
@@ -401,7 +422,7 @@ function explore(level, seeds = null) {
       }
     }
     for (const b of boosters) {
-      if (b.landing && canStretchTo(anchor, b, BOOSTER_ENTER)) {
+      if (b.landing && canStretchTo(anchor, b, b.enter)) {
         visit({ ...b.landing }, anchor.moves + 2);
       }
     }

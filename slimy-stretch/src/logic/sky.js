@@ -44,6 +44,8 @@ export const ISLAND_SPEED = 55;
 const ISLAND_PAUSE = 1; // an island waits this long at each end of its path
 export const ELEVATOR_SPEED = 70; // space elevators (see floatingPlatforms)
 export const DUMBWAITER_SPEED = 60; // the haunted house's dumbwaiters (see floatingPlatforms)
+export const LIFT_SPEED = 70; // the robot factory's lifts (see floatingPlatforms)
+export const HELPER_SPEED = 50; // the robot factory's robot helpers (see floatingPlatforms)
 
 export const KITE_STRING = 2.2 * TILE; // how far below the kite the end of its string hangs
 export const KITE_GRAB = 30;
@@ -159,11 +161,15 @@ export function rainbowArc(def) {
 
 /**
  * All the floating islands in a level (def.islands), plus Outer Space's
- * elevators (def.elevators) and the haunted house's dumbwaiters
- * (def.dumbwaiters), which are really just floating islands that go straight
- * up and down a shaft: { col, from, to, width, speed } goes between rows
- * `from` and `to` with its left tile in column `col`. (Elevators are 2 tiles
- * wide unless they say otherwise, dumbwaiters 1.)
+ * elevators (def.elevators), the haunted house's dumbwaiters
+ * (def.dumbwaiters) and the robot factory's lifts (def.lifts), which are
+ * really just floating islands that go straight up and down a shaft:
+ * { col, from, to, width, speed } goes between rows `from` and `to` with its
+ * left tile in column `col`. (Elevators and lifts are 2 tiles wide unless
+ * they say otherwise, dumbwaiters 1.) The robot factory's robot helpers
+ * (def.helpers) are floating islands 1 tile wide that walk back and forth
+ * along a floor: { at: [col, row], to, speed } walks between `at` and
+ * column `to`.
  */
 export function floatingPlatforms(def) {
   const shaft = (e, width, speed) => ({
@@ -180,7 +186,15 @@ export function floatingPlatforms(def) {
     ...shaft(e, 1, DUMBWAITER_SPEED),
     dumbwaiter: true,
   }));
-  return [...(def.islands || []), ...elevators, ...dumbwaiters];
+  const lifts = (def.lifts || []).map(e => ({ ...shaft(e, 2, LIFT_SPEED), lift: true }));
+  const helpers = (def.helpers || []).map(h => ({
+    from: h.at,
+    to: [h.to, h.at[1]],
+    width: 1,
+    speed: h.speed || HELPER_SPEED,
+    helper: true,
+  }));
+  return [...(def.islands || []), ...elevators, ...dumbwaiters, ...lifts, ...helpers];
 }
 
 /** The two ends of a floating island's path (top-left corners, in pixels). */
@@ -398,6 +412,8 @@ export class SkyStuff {
       speed: def.speed || ISLAND_SPEED,
       elevator: !!def.elevator, // drawn as a space elevator, not an island
       dumbwaiter: !!def.dumbwaiter, // drawn as a dumbwaiter (see hauntedView.js)
+      lift: !!def.lift, // drawn as a factory lift (see robotsView.js)
+      helper: !!def.helper, // drawn as a robot helper (see robotsView.js)
       under,
       cells: [],
     };

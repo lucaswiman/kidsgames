@@ -203,6 +203,29 @@ export default class BootScene extends Phaser.Scene {
       g.fillRect(0, 0, 6, 6);
     });
 
+    // Gears and nuts, for bursts of robot bits when something gets smashed.
+    make('gear', 16, 16, g => {
+      g.fillStyle(0xffffff, 1);
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.fillRect(8 + Math.cos(a) * 6 - 2, 8 + Math.sin(a) * 6 - 2, 4, 4);
+      }
+      g.fillCircle(8, 8, 5);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(8, 8, 2);
+    });
+    make('nut', 10, 10, g => {
+      g.fillStyle(0xffffff, 1);
+      const hex = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        hex.push({ x: 5 + Math.cos(a) * 5, y: 5 + Math.sin(a) * 5 });
+      }
+      g.fillPoints(hex, true);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(5, 5, 1.5);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

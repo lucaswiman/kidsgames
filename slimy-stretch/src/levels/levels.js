@@ -5,7 +5,12 @@
 //         'escape'  - something is chasing you; reach the exit before it gets you
 //         'boss'    - beat the boss (boss: 'crystal' for the crystal robot, 'machine'
 //                     for the factory's big machine: R marks its mouth, plus
-//                     button: [col, row] and crushers: [col, ...])
+//                     button: [col, row] and crushers: [col, ...]; 'boxer' for the
+//                     robot factory's Boxer Bot: R marks the middle of the giant box,
+//                     plus arena: { from: [col, row], to: [col, row] }, the rectangle he
+//                     walks around in). A boss level can also have power cores (P) and
+//                     an exit (E): then beating the boss gives you the last core, and
+//                     you win by walking out of the door with all of them.
 // dark:   only the area around the slime and glowing crystals can be seen
 // hint:   text shown at the start of the level
 // chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball,
@@ -99,6 +104,22 @@
 //         the floor). Touch the copy pad and a copy of you pops out of the paste pad: you
 //         move the copy, and the old you stays behind. Eat the old you with your tongue
 //         to grow double size (see logic/sizes.js). Each pair works once per life.
+// arms:   for each robot arm ((), in reading order, which way it tosses you:
+//         { toss: 'up-left', speed } (a direction like boosters use, default 'up';
+//         speed default 750). A toss must land you somewhere safe: it's a setback.
+// springs: which way each spring pad (,) points, in reading order, like boosters
+//         (default 'up').
+// sparkTimings: how long each welding torch (", in reading order) stays quiet between
+//         showers: { quiet, offset } (default quiet 2; each torch glows for 1 second,
+//         then showers sparks for 1.5 seconds).
+// tubes:  pneumatic tubes { a: [col, row], b: [col, row], path: [[col, row], ...] } with an
+//         open end at `a` and `b` (in empty cells). Touch either end and it sucks you in,
+//         whooshes you through its `path` bends and shoots you out of the other end.
+// lifts:  factory lifts { col, from, to, width, speed } that go up and down a shaft between
+//         rows `from` and `to`, like space elevators (2 tiles wide, speed 70 by default).
+// helpers: robot helpers { at: [col, row], to, speed } that walk back and forth along the
+//         floor between `at` and column `to` (speed default 50). Stick to the top of one and
+//         it carries you along. Their path must be empty, with a floor under it.
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
@@ -115,6 +136,7 @@ export const WORLDS = [
   { id: 'candy', name: 'Candyland', theme: 'candy' },
   { id: 'haunted', name: 'The Haunted House', theme: 'haunted' },
   { id: 'computer', name: 'Inside the Computer', theme: 'computer' },
+  { id: 'robots', name: 'The Robot Factory', theme: 'robots' },
 ];
 
 export const LEVELS = [
@@ -1742,6 +1764,134 @@ export const LEVELS = [
       '#...................############I########I######.......###########',
       '#.S........#........############I########I######.......###########',
       '#}}}}}}}}}}}........############I########I######.......###########',
+    ],
+  },
+  // ------------------------------------------------------- THE ROBOT FACTORY
+  {
+    id: '15-1',
+    world: 'robots',
+    name: 'Some Assembly Required',
+    type: 'normal',
+    hint: 'Robot arms grab you and toss you away, so sneak past while they rest! Touch a spring pad to go BOING.',
+    // The spring pad by the lava pit flies you over it; the one in the shaft goes straight up.
+    springs: ['up-left', 'up'],
+    // The arm upstairs tosses you up (you land back on the belt); the one downstairs, back left.
+    arms: [{ toss: 'up' }, { toss: 'left' }],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#....................................I',
+      '#....................................I',
+      '#..........T.........................I',
+      '#....................................I',
+      '#................................####I',
+      '#.E.....(.................,..........I',
+      '#<<<<<<<<<<<<LLLLLLLLLLLL########I...I',
+      '#################################I...I',
+      '#################################I...I',
+      '#IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII...I',
+      '#....................................I',
+      '#..............T.....................I',
+      '#.S...................(...........,..I',
+      '#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>####I',
+      '######################################',
+    ],
+  },
+  {
+    id: '15-2',
+    world: 'robots',
+    name: 'Spark Plug',
+    type: 'normal',
+    hint: 'Welding torches glow, then shower sparks: wait for them! Ride the lift up, then whoosh through the tube.',
+    // The only way up the slippery shaft...
+    lifts: [{ col: 18, from: 14, to: 5 }],
+    // ...and the only way into the room with the door.
+    tubes: [
+      {
+        a: [2, 4],
+        b: [24, 14],
+        path: [
+          [2, 2],
+          [21, 2],
+          [21, 13],
+          [24, 13],
+        ],
+      },
+    ],
+    map: [
+      'IIIIII"IIIIII"IIIIIIII"IIIIIIIIIIIIIII"III',
+      '#...................I#...................#',
+      '#...................I#...................#',
+      '#.......T...........I#............T......#',
+      '#...................I#..................E#',
+      '#################I..I#................####',
+      '#################I..I#...................#',
+      '#################I..I#.........####......#',
+      '#################I..I#...................#',
+      '#################I..I#...................#',
+      '#######"####"####I..I#...####............#',
+      '#................I..I#...................#',
+      '#................I..I#...........T.......#',
+      '#..........T........I#...................#',
+      '#.S.................I#...................#',
+      '##########################################',
+    ],
+  },
+  {
+    id: '15-3',
+    world: 'robots',
+    name: 'Security Breach',
+    type: 'normal',
+    hint: "If a patrol robot's searchlight spots you, the alarm doors slam shut for a while. Sniper robots shoot where you were, so keep moving! Ride the robot helper across the slippery floor.",
+    // The only way across the slippery floor.
+    helpers: [{ at: [17, 14], to: 30 }],
+    map: [
+      '############################################',
+      '#.....#...............................T....#',
+      '#.....#....................................#',
+      '#..T..#....................................#',
+      '#.....#..................T.................#',
+      '#.....#......6.............................#',
+      '#.....#......#.............................#',
+      '#.....]....................................#',
+      '#.....]....................................#',
+      '#.E...]...............5....................#',
+      '###############################............#',
+      '#################IIIIIIIIIIIIII............#',
+      '#...............]...................T......#',
+      '#..........T....]..........................#',
+      '#.S.....5.......]..........................#',
+      '#################IIIIIIIIIIIIII#############',
+      '############################################',
+    ],
+  },
+  {
+    id: '15-4',
+    world: 'robots',
+    name: 'Boxing Match',
+    type: 'boss',
+    boss: 'boxer',
+    hint: "Collect the power cores, then lick the giant box... Trick Boxer Bot into punching a metal box, then lick him while he's dizzy!",
+    springs: ['up'],
+    // Boxer Bot walks around the arena under the lava ceiling. Beat him for the last power core.
+    arena: { from: [19, 7], to: [44, 15] },
+    map: [
+      '##############################################',
+      '#................#############################',
+      '#.P..............#############################',
+      '#####.........T..#############################',
+      '#IIII............#############################',
+      '#............P...#############################',
+      '#.......#######..##LLLLLLLLLLLLLLLLLLLLLLLLLL#',
+      '#................##...#....#.....#.....#...#.#',
+      '#....T...........##..........................#',
+      '#.........P......##..........................#',
+      '#IIIIIIIIIII.....##..........................#',
+      'I................##..----..............----..#',
+      'I............................................#',
+      'I............................................#',
+      'I.S..........,.C.......M.......R.......M....E#',
+      '#>>>>>>>>>>>>######....M...............M.....#',
+      '##############################################',
     ],
   },
 ];

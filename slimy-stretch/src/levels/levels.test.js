@@ -11,6 +11,7 @@ import { simulateDrop } from '../logic/warehouse.js';
 import { ASTEROID_WARN, padCenter, simulateBooster } from '../logic/space.js';
 import { CANE_LENGTH, CANE_THICK, caneShape, rainBottom, ropeDrop } from '../logic/candy.js';
 import { isSolidKind } from '../logic/level.js';
+import { armSwingSpot, armToss, simulateSpring, simulateToss } from '../logic/robots.js';
 import {
   balloonPath,
   BASKET_SIT,
@@ -55,7 +56,9 @@ describe('levels', () => {
       const level = parseLevel(def);
 
       it('has what its type needs', () => {
-        if (def.type === 'collect') {
+        // A boss level with an exit also has power cores to collect (beating
+        // the boss gives you the last one).
+        if (def.type === 'collect' || (def.type === 'boss' && level.exit)) {
           expect(level.cores.length).toBeGreaterThan(0);
         } else {
           expect(level.cores.length).toBe(0);
@@ -260,6 +263,69 @@ describe('levels', () => {
             [-1, 0],
           ].some(([dc, dr]) => isSolidKind(tileAt(level, cell.col + dc, cell.row + dr)));
           expect(next).toBe(true);
+        }
+      });
+
+      it('has its robot factory things in sensible places', () => {
+        const empty = (col, row) => tileAt(level, col, row) === TileKind.EMPTY;
+        const solidUnder = (col, row) => isSolidKind(tileAt(level, col, row + 1));
+        // Each robot arm tosses you somewhere you can stick: it's only a setback.
+        expect((def.arms || []).length).toBeLessThanOrEqual(level.robotArms.length);
+        level.robotArms.forEach((arm, i) => {
+          const toss = armToss(level, i);
+          expect(simulateToss(level, armSwingSpot(level, arm, toss), toss)).toBeTruthy();
+        });
+        // Each spring pad launches you somewhere you stick, safely.
+        expect((def.springs || []).length).toBe(level.springs.length);
+        for (const s of level.springs) {
+          expect(simulateSpring(level, s)).toBeTruthy();
+        }
+        for (const tube of def.tubes || []) {
+          // Each end of a pneumatic tube is in an empty cell, and shoots you out somewhere safe.
+          const path = cablePath(tube);
+          expect(empty(...tube.a)).toBe(true);
+          expect(empty(...tube.b)).toBe(true);
+          expect(simulateDrop(level, path[0])).toBeTruthy();
+          expect(simulateDrop(level, path[path.length - 1])).toBeTruthy();
+        }
+        for (const lift of def.lifts || []) {
+          // A lift's shaft is open.
+          const [r0, r1] = [lift.from, lift.to].sort((a, b) => a - b);
+          for (let row = r0; row <= r1; row++) {
+            for (let col = lift.col; col < lift.col + (lift.width || 2); col++) {
+              expect(empty(col, row)).toBe(true);
+            }
+          }
+        }
+        for (const h of def.helpers || []) {
+          // A robot helper walks along a floor, through open space.
+          const [row, c0, c1] = [h.at[1], ...[h.at[0], h.to].sort((a, b) => a - b)];
+          for (let col = c0; col <= c1; col++) {
+            expect(empty(col, row)).toBe(true);
+            expect(solidUnder(col, row)).toBe(true);
+          }
+        }
+        for (const t of level.torches) {
+          // Welding torches hang from the ceiling, with room under them for the sparks.
+          expect(empty(t.col, t.row + 1)).toBe(true);
+        }
+        for (const p of level.patrols) {
+          // Patrol robots walk on a floor.
+          expect(solidUnder(p.col, p.row)).toBe(true);
+        }
+        if (level.alarmDoors.length) {
+          // Alarm doors only slam shut when a patrol robot spots you.
+          expect(level.patrols.length).toBeGreaterThan(0);
+        }
+        if (def.boss === 'boxer') {
+          // Boxer Bot needs an arena to walk around in, and starts inside it.
+          const { from, to } = def.arena;
+          const col = Math.floor(level.robot.x / TILE);
+          const row = Math.floor(level.robot.y / TILE);
+          expect(col).toBeGreaterThanOrEqual(Math.min(from[0], to[0]));
+          expect(col).toBeLessThanOrEqual(Math.max(from[0], to[0]));
+          expect(row).toBeGreaterThanOrEqual(Math.min(from[1], to[1]));
+          expect(row).toBeLessThanOrEqual(Math.max(from[1], to[1]));
         }
       });
 

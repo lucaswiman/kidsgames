@@ -67,6 +67,12 @@ import { TILE } from './constants.js';
 //   ?  glitchy block (sticky; blinks off for a while on a timer, flickering first)
 //   e  computer virus (crawls along its floor or wall, chases you when you're near, and hurts)
 //   ;  electric circuit (a wire along the floor, wall or ceiling next to it; it zaps on a timer)
+//   (  robot arm (grabs you when you come near and tosses you; def.arms says which way)
+//   "  welding torch (on a ceiling; every few seconds it glows, then showers sparks straight down)
+//   5  patrol robot (walks along its floor; if its searchlight spots you, the alarm goes off)
+//   ]  alarm door (open, but slams shut for a while when the alarm goes off)
+//   6  sniper robot (puts a red dot on you, then fires a laser bolt where you were)
+//   ,  spring pad (launches you like a catapult; def.springs says which way each one points)
 //   .  empty
 
 export const TileKind = {
@@ -119,6 +125,7 @@ export const TileKind = {
   STREAM_LEFT: 46,
   GLITCH: 47,
   POPUP: 48, // an open pop-up window's spot (never in a map)
+  ALARM_DOOR: 49, // a slammed-shut alarm door (never in a map: they start open)
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -207,6 +214,7 @@ const SOLID = new Set([
   TileKind.STREAM_LEFT,
   TileKind.GLITCH,
   TileKind.POPUP,
+  TileKind.ALARM_DOOR,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -322,6 +330,12 @@ export function parseLevel(def) {
     glitches: [],
     viruses: [],
     circuitCells: [],
+    robotArms: [],
+    torches: [],
+    patrols: [],
+    alarmDoors: [],
+    snipers: [],
+    springs: [],
     // Which way is down: 1 normally, -1 while a gravity switch has flipped it.
     gravity: 1,
     // Zero gravity zones, as pixel rectangles (see def.zeroG).
@@ -584,6 +598,25 @@ export function parseLevel(def) {
         case ';':
           level.circuitCells.push({ col, row });
           break;
+        case '(':
+          level.robotArms.push({ ...center, col, row });
+          break;
+        case '"':
+          kind = TileKind.WALL;
+          level.torches.push({ ...center, col, row });
+          break;
+        case '5':
+          level.patrols.push({ ...center, col, row });
+          break;
+        case ']':
+          level.alarmDoors.push({ col, row });
+          break;
+        case '6':
+          level.snipers.push({ ...center, col, row });
+          break;
+        case ',':
+          level.springs.push({ ...center, col, row });
+          break;
         case '.':
           break;
         default:
@@ -600,6 +633,7 @@ export function parseLevel(def) {
   placeBoxItems(level);
   findCartTracks(level);
   aimBoosters(level);
+  aimSprings(level);
   findRopes(level);
   if (!level.exit && def.type !== 'boss') {
     throw new Error(`${def.id}: map has no exit (E)`);
@@ -662,6 +696,25 @@ function aimBoosters(level) {
     }
     b.dir = dir;
     b.angle = Math.atan2(BOOSTER_DIRS[dir].y, BOOSTER_DIRS[dir].x);
+  });
+}
+
+/**
+ * `def.springs[i]` says which way the i-th spring pad (in reading order)
+ * points, just like rocket boosters (default 'up').
+ */
+function aimSprings(level) {
+  const dirs = level.def.springs || [];
+  if (dirs.length > level.springs.length) {
+    throw new Error(`${level.def.id}: springs lists more directions than there are spring pads`);
+  }
+  level.springs.forEach((s, i) => {
+    const dir = dirs[i] || 'up';
+    if (!BOOSTER_DIRS[dir]) {
+      throw new Error(`${level.def.id}: unknown spring direction '${dir}'`);
+    }
+    s.dir = dir;
+    s.angle = Math.atan2(BOOSTER_DIRS[dir].y, BOOSTER_DIRS[dir].x);
   });
 }
 

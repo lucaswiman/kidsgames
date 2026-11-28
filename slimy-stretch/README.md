@@ -72,6 +72,20 @@ Climb like an inchworm!
   from one plug to the other, a giant mouse cursor grabs you and drags you somewhere useful, and
   copy-paste pads paste a copy of you somewhere else. The old you stays behind: eat it with your
   tongue and you grow to **double size**!
+- **The Robot Factory:** a shiny robot assembly plant with steel girders and orange robot arms
+  building robots. Robot arms grab you when you come near (after a whirr and a blinking light)
+  and toss you away, welding torches glow and then shower sparks straight down, patrol robots
+  sweep their searchlights around (if one spots you, the alarm goes off and the alarm doors slam
+  shut for 8 seconds), and sniper robots put a red dot on you and fire a laser bolt where you were
+  (keep moving!). But spring pads launch you like a catapult, pneumatic tubes suck you in at one
+  end and whoosh you out of the other, friendly robot helpers give you a ride on their heads,
+  lifts go up and down, and conveyor belts and lasers are back. Power cores to collect, too. The
+  boss is **Boxer Bot**: he looks like a giant metal box until you try to eat him. Trick him into
+  punching one of the metal boxes in his arena, and while he's dizzy, lick him with your tongue.
+  After the first hit he squeezes you if you get too close (and you fly up toward the lava
+  ceiling!), and after the second his fists glow every 20 seconds: glowing punches never make him
+  dizzy. Beat him, eat the crate he leaves behind to get the last power core, and walk out the
+  door to win
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -95,6 +109,15 @@ abilities:
 - King Claw gives you **super stretch**: tap 🎯, then tap a wall or ceiling the slime can see in a
   straight line (up to 14 tiles away). The slime stretches super far over to it and sticks there.
   Then it needs 20 seconds to rest.
+- Boxer Bot gives you **Mega Slime**: tap 💪 and you turn into a giant slime person for 12
+  seconds (then it needs 60 seconds to rest). Walk with the big ◀ ▶ buttons and jump with ⬆ (or
+  the arrow keys): the jump is about 16 tiles high, enough to clear a whole flooding level in one
+  go! Nothing can hurt you, not even lava (walk and swim right through it), but water, chocolate
+  and other liquids still get you. Walking or jumping into metal boxes, crumbling rocks, creaky
+  floorboards, leafy traps or sleeping clouds smashes them (walls and ice never break), and
+  bumping into crabs, monkeys, computer viruses, alien plants, robot arms, patrol robots or sniper
+  robots smashes them for good (bosses are too tough). When it wears off you're a **double size**
+  slime until you get hurt. (The rules live in `src/logic/megaSlime.js`.)
 
 ## Running it
 
@@ -193,6 +216,12 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `?`    | glitchy block (blinks off for a while)            |
 | `e`    | computer virus (crawls along, chases you)         |
 | `;`    | electric circuit wire (zaps now and then)         |
+| `(`    | robot arm (grabs you and tosses you away)         |
+| `"`    | welding torch (on a ceiling; showers sparks)      |
+| `5`    | patrol robot (its searchlight sets off the alarm) |
+| `]`    | alarm door (slams shut while the alarm is on)     |
+| `6`    | sniper robot (fires a laser bolt where you were)  |
+| `,`    | spring pad (launches you like a catapult)         |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -271,6 +300,20 @@ for 1 second, zaps for 1 second, and stays quiet for 3 (change that with
 The firewall is an escape level's chaser: `chaser: { kind: 'wall', dir: 1, delay: 5, speed: 34 }`
 sweeps across from the left edge (`dir: -1` for the right edge). A laser with
 `laserTimings: [{ on: 1, off: 0 }]` is always on.
+
+Robot Factory levels can have robot arms with `arms: [{ toss: 'up-left' }]` (which way each `(`
+tosses you, in reading order, like booster directions; default `up`, add `speed` to change how
+hard; a toss has to land you somewhere safe) and spring pads with `springs: ['up', 'up-right']`
+(which way each `,` points, in reading order). Welding torches are quiet for 2 seconds, glow for
+1 and shower sparks for 1.5 (change that with `sparkTimings: [{ quiet: 3, offset: 1 }]`).
+Pneumatic tubes work like cables: `tubes: [{ a: [2, 4], b: [24, 14], path: [[2, 2], [21, 2]] }]`.
+Lifts work like space elevators: `lifts: [{ col: 18, from: 14, to: 5 }]` (2 tiles wide). Robot
+helpers walk back and forth along a floor: `helpers: [{ at: [17, 14], to: 30 }]` (from `at` to
+column `to`; its path must be empty, with a floor under it). Boxer Bot is `boss: 'boxer'`, with
+`R` in the middle of the giant box and `arena: { from: [19, 7], to: [44, 15] }`, the rectangle he
+walks around in (its empty metal boxes come back after they're broken). A boss level can also
+have power cores and an exit door: then beating the boss gives you the last core, and you win by
+walking out of the door.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

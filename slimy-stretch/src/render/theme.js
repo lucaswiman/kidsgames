@@ -145,6 +145,17 @@ export const THEMES = {
     fluidTop: 0x9fd2ff,
     text: '#ffffff',
   },
+  robots: {
+    skyTop: 0x0e1622,
+    skyBottom: 0x24384c,
+    grid: null,
+    wall: 0x9aa6b4,
+    wallDark: 0x5a6674,
+    wallLight: 0xdde6f0,
+    fluid: 0xff5a00,
+    fluidTop: 0xffd040,
+    text: '#ffffff',
+  },
   canyon: {
     skyTop: 0x5fa8e0,
     skyBottom: 0xf6c98a,
@@ -292,6 +303,8 @@ export function drawBackdrop(scene, level, theme, themeName) {
     drawHauntedBackdrop(g, level);
   } else if (themeName === 'computer') {
     drawComputerBackdrop(g, level);
+  } else if (themeName === 'robots') {
+    drawRobotsBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -738,6 +751,68 @@ function drawComputerBackdrop(g, level) {
   }
 }
 
+/**
+ * The robot factory: a shiny assembly plant. Steel girders with criss-cross
+ * bracing, big orange robot arms building things on a far-away assembly
+ * line, and control panels on the walls (their lights blink, see robotsView.js).
+ */
+function drawRobotsBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  // Light from the big windows up top.
+  g.fillStyle(0x5ad2ff, 0.06);
+  g.fillRect(0, 0, w, h * 0.4);
+  // Steel girders, with criss-cross bracing between them.
+  for (let x = 120; x < w; x += 320) {
+    g.fillStyle(0x34424f, 0.9);
+    g.fillRect(x, 0, 18, h);
+    g.fillStyle(0x4a5a6a, 0.9);
+    g.fillRect(x + 3, 0, 4, h);
+    g.lineStyle(4, 0x34424f, 0.7);
+    for (let y = 0; y < h; y += 160) {
+      g.lineBetween(x + 18, y, x + 160, y + 160);
+      g.lineBetween(x + 160, y, x + 18, y + 160);
+    }
+  }
+  for (let y = 140; y < h; y += 300) {
+    g.fillStyle(0x34424f, 0.9);
+    g.fillRect(0, y, w, 14);
+    g.fillStyle(0x4a5a6a, 0.9);
+    g.fillRect(0, y + 2, w, 3);
+  }
+  // Orange robot arms on a far-away assembly line, building robots.
+  const lineY = h - 2.2 * TILE;
+  g.fillStyle(0x1e2a36, 0.8);
+  g.fillRect(0, lineY, w, 18);
+  for (let x = 200; x < w; x += 420) {
+    const lean = (hash(x, 1) - 0.5) * 1.2;
+    const elbow = { x: x + 40 + lean * 40, y: lineY - 110 };
+    const hand = { x: x + 90 + lean * 30, y: lineY - 50 };
+    g.fillStyle(0x6a3a14, 0.55);
+    g.fillRect(x - 20, lineY - 18, 40, 18);
+    g.lineStyle(16, 0xc8661a, 0.4);
+    g.lineBetween(x, lineY - 18, elbow.x, elbow.y);
+    g.lineBetween(elbow.x, elbow.y, hand.x, hand.y);
+    g.fillStyle(0x6a7480, 0.45);
+    g.fillCircle(elbow.x, elbow.y, 10);
+    g.fillCircle(hand.x, hand.y + 10, 8);
+    // A half-built robot on the line.
+    g.fillStyle(0x6a7480, 0.35);
+    g.fillRoundedRect(hand.x - 18, lineY - 34, 36, 34, 6);
+    g.fillCircle(hand.x, lineY - 42, 10);
+  }
+  // Control panels on the walls.
+  for (let x = 60; x < w - 60; x += 260) {
+    const y = 60 + hash(x, 5) * (h - 220);
+    g.fillStyle(0x1a242e, 0.85);
+    g.fillRoundedRect(x, y, 70, 50, 6);
+    g.lineStyle(2, 0x5a6674, 0.8);
+    g.strokeRoundedRect(x, y, 70, 50, 6);
+    g.fillStyle(0x3affa0, 0.25);
+    g.fillRect(x + 8, y + 8, 36, 16);
+  }
+}
+
 function isOpen(level, col, row) {
   const k = tileAt(level, col, row);
   return k !== TileKind.WALL && k !== TileKind.ICE && k !== TileKind.EMITTER;
@@ -759,6 +834,12 @@ export function drawTiles(scene, level, theme, themeName) {
           // Frosty ice, in the moonlight.
           g.fillStyle(0x2a1840, 0.35);
           g.fillRect(x, y, TILE, TILE);
+        } else if (themeName === 'robots') {
+          // Polished chrome, too shiny to stick to.
+          g.fillStyle(0xc8d4e0, 0.55);
+          g.fillRect(x, y, TILE, TILE);
+          g.lineStyle(3, 0xffffff, 0.7);
+          g.lineBetween(x + 6, y + TILE - 12, x + TILE - 12, y + 6);
         } else if (themeName === 'computer') {
           // Slippery glass, like a screen.
           g.fillStyle(0x0a2a4a, 0.45);
@@ -983,6 +1064,26 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
     if (openDown) {
       g.fillStyle(0x062016, 1);
       g.fillRect(x, y + TILE - 6, TILE, 6);
+    }
+  } else if (themeName === 'robots') {
+    // Shiny brushed-steel panels with bolts, a gleam across them, and a
+    // glowing blue guide light along every floor.
+    g.lineStyle(2, theme.wallDark, 0.6);
+    g.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
+    g.lineStyle(3, 0xffffff, 0.25);
+    g.lineBetween(x + 8, y + TILE - 8, x + TILE - 8, y + 8);
+    g.fillStyle(theme.wallDark, 1);
+    g.fillCircle(x + 7, y + 7, 2);
+    g.fillCircle(x + TILE - 7, y + TILE - 7, 2);
+    if (hash(col, row) > 0.85) {
+      g.fillStyle(0x34424f, 1);
+      g.fillRect(x + 14, y + 18, 20, 4);
+    }
+    if (openUp) {
+      g.fillStyle(0x4a5a6a, 1);
+      g.fillRect(x, y, TILE, 6);
+      g.fillStyle(0x5ad2ff, 1);
+      g.fillRect(x + 4, y + 2, TILE - 8, 2);
     }
   } else if (themeName === 'haunted') {
     // Old stone blocks, polished wooden floors on top and dark trim along

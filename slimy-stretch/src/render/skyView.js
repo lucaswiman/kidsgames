@@ -79,10 +79,10 @@ export function drawSkyTiles(g, sky, clock) {
     }
   }
   // Floating islands: grass on top, rock and roots dangling underneath.
-  // (Space elevators and dumbwaiters are floating islands too, but spaceView
-  // and hauntedView draw them.)
+  // (Space elevators, dumbwaiters, lifts and robot helpers are floating
+  // islands too, but spaceView, hauntedView and robotsView draw them.)
   for (const island of sky.islands) {
-    if (!island.elevator && !island.dumbwaiter) {
+    if (!island.elevator && !island.dumbwaiter && !island.lift && !island.helper) {
       drawIsland(g, island.x, island.y, island.width * TILE, island.width);
     }
   }

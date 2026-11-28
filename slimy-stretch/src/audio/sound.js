@@ -423,6 +423,84 @@ export const sfx = {
       tone({ freq: f, dur: 0.08, vol: 0.12, type: 'square', delay: 0.15 + i * 0.06 })
     );
   },
+  // Whirr! A robot arm's motors winding up.
+  servo: () => {
+    tone({ freq: 180, to: 420, dur: 0.45, vol: 0.1, type: 'sawtooth' });
+    tone({ freq: 360, to: 840, dur: 0.45, vol: 0.05, type: 'square' });
+  },
+  // Crackle! A shower of welding sparks.
+  sparks: () => {
+    noise({ dur: 0.5, vol: 0.14, filter: 7000, to: 3000 });
+    noise({ dur: 0.4, vol: 0.1, filter: 5000, to: 2500, delay: 0.5 });
+  },
+  // A welding torch heating up.
+  sparkWarn: () => tone({ freq: 600, to: 1400, dur: 0.6, vol: 0.06, type: 'sawtooth' }),
+  // WEE-OO WEE-OO! The alarm.
+  siren: () => {
+    for (let i = 0; i < 3; i++) {
+      tone({ freq: 700, to: 1100, dur: 0.3, vol: 0.12, type: 'square', delay: i * 0.6 });
+      tone({ freq: 1100, to: 700, dur: 0.3, vol: 0.12, type: 'square', delay: i * 0.6 + 0.3 });
+    }
+  },
+  // A heavy steel door slamming shut...
+  slam: () => {
+    tone({ freq: 90, to: 40, dur: 0.3, vol: 0.35, type: 'square' });
+    noise({ dur: 0.2, vol: 0.2, filter: 1500, to: 300 });
+  },
+  // ...and sliding open again.
+  doorOpen: () => tone({ freq: 200, to: 500, dur: 0.5, vol: 0.12, type: 'triangle' }),
+  // A sniper robot charging up its laser...
+  sniperCharge: () => tone({ freq: 300, to: 2400, dur: 1.2, vol: 0.06, type: 'sine' }),
+  // ...and ZAP!
+  sniperZap: () => {
+    tone({ freq: 2200, to: 300, dur: 0.18, vol: 0.16, type: 'square' });
+    noise({ dur: 0.12, vol: 0.1, filter: 6000, to: 2000 });
+  },
+  // BOING! A spring pad.
+  springBoing: () => {
+    tone({ freq: 150, to: 900, dur: 0.25, vol: 0.22, type: 'triangle' });
+    tone({ freq: 900, to: 600, dur: 0.2, vol: 0.1, type: 'sine', delay: 0.22 });
+  },
+  // Fwoosh through a pneumatic tube.
+  tube: () => {
+    noise({ dur: 0.6, vol: 0.18, filter: 2500, to: 600 });
+    tone({ freq: 300, to: 900, dur: 0.5, vol: 0.06, type: 'sine' });
+  },
+  // Foomp! Out of the other end.
+  tubeOut: () => tone({ freq: 500, to: 150, dur: 0.15, vol: 0.2, type: 'triangle' }),
+  // POW! A boxing glove.
+  punch: () => {
+    noise({ dur: 0.12, vol: 0.3, filter: 2000, to: 400 });
+    tone({ freq: 160, to: 60, dur: 0.18, vol: 0.3, type: 'square' });
+  },
+  // Clank-clank! Legs and arms popping out of a box.
+  boxerWake: () => {
+    [200, 300, 250, 400].forEach((f, i) =>
+      tone({ freq: f, dur: 0.08, vol: 0.16, type: 'square', delay: i * 0.12 })
+    );
+  },
+  // Dizzy birdies tweeting.
+  dizzy: () => {
+    [1600, 2000, 1600, 2000].forEach((f, i) =>
+      tone({ freq: f, to: f * 1.1, dur: 0.08, vol: 0.06, type: 'sine', delay: i * 0.15 })
+    );
+  },
+  // MEGA SLIME! A big rising power chord.
+  mega: () => {
+    [131, 165, 196, 262, 330, 392, 523].forEach((f, i) =>
+      tone({ freq: f, dur: 0.3, vol: 0.14, type: 'sawtooth', delay: i * 0.07 })
+    );
+    noise({ dur: 0.6, vol: 0.12, filter: 1200, to: 4000 });
+  },
+  // A giant jump.
+  megaJump: () => tone({ freq: 120, to: 700, dur: 0.4, vol: 0.2, type: 'square' }),
+  // Crunch! Something smashed.
+  smash: () => {
+    noise({ dur: 0.25, vol: 0.28, filter: 3000, to: 300 });
+    tone({ freq: 120, to: 50, dur: 0.2, vol: 0.2, type: 'square' });
+  },
+  // Shrinking back down.
+  shrink: () => tone({ freq: 800, to: 200, dur: 0.5, vol: 0.14, type: 'triangle' }),
 };
 
 // Each world has its own little looping tune. Notes are semitones above the
@@ -562,6 +640,13 @@ const SONGS = {
     // A bleepy chiptune, like a video game running inside the computer.
     lead: [12, 19, 24, 19, 15, 19, 22, null, 12, 19, 24, 27, 26, 24, 22, 19],
     bass: [-12, -12, 0, -12, -16, -16, -4, -16, -14, -14, -2, -14, -9, -9, -7, -5],
+  },
+  robots: {
+    bpm: 128,
+    root: 55,
+    // A clanky robot march, with a bleepy beep-boop melody on top.
+    lead: [0, 12, 7, 12, 3, 12, 7, null, 0, 12, 10, 12, 7, 5, 3, null],
+    bass: [-12, null, -12, -12, -9, null, -9, -9, -14, null, -14, -14, -7, null, -10, -11],
   },
   boss: {
     bpm: 156,
