@@ -5,9 +5,11 @@ import { Slime } from './slime.js';
 
 // Things that first show up in the Warehouse: conveyor belts, slime cannons
 // and crane claws. (Bomb boxes and one-way platforms live with the other
-// box and tile code.)
+// box and tile code.) The computer world's data streams are conveyor belts
+// too, just faster.
 
 export const BELT_SPEED = 80;
+export const STREAM_SPEED = 120;
 export const CANNON_SPEED = 1050;
 export const CANNON_ENTER = END_RADIUS + 22; // how close an end has to get to climb in
 export const CLAW_RADIUS = 24;
@@ -63,15 +65,22 @@ export function simulateDrop(level, from, maxTime = 4) {
   return null;
 }
 
-/** Which way a belt touching this end is moving (1 right, -1 left, 0 no belt). */
-function beltDirAt(level, end) {
+// How fast each kind of belt carries things (pixels per second; minus is left).
+const BELT_SPEEDS = [
+  [TileKind.BELT_RIGHT, BELT_SPEED],
+  [TileKind.BELT_LEFT, -BELT_SPEED],
+  [TileKind.STREAM_RIGHT, STREAM_SPEED],
+  [TileKind.STREAM_LEFT, -STREAM_SPEED],
+];
+
+/** How fast a belt (or data stream) touching this end is moving it (0 for no belt). */
+export function beltSpeedAt(level, end) {
   // Keep pushing until the end is all the way off the belt, so a belt can
   // carry you right off its edge.
-  if (circleTouches(level, end, END_RADIUS + 8, k => k === TileKind.BELT_RIGHT)) {
-    return 1;
-  }
-  if (circleTouches(level, end, END_RADIUS + 8, k => k === TileKind.BELT_LEFT)) {
-    return -1;
+  for (const [kind, speed] of BELT_SPEEDS) {
+    if (circleTouches(level, end, END_RADIUS + 8, k => k === kind)) {
+      return speed;
+    }
   }
   return 0;
 }
@@ -104,7 +113,7 @@ export class WarehouseStuff {
 
   moveBelts(dt, slime) {
     const moves = slime.ends.map(end =>
-      end.state === 'stuck' ? beltDirAt(this.level, end) * BELT_SPEED * dt : 0
+      end.state === 'stuck' ? beltSpeedAt(this.level, end) * dt : 0
     );
     if (!moves[0] && !moves[1]) {
       return;

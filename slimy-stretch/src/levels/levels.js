@@ -5,10 +5,18 @@
 //         'escape'  - something is chasing you; reach the exit before it gets you
 //         'boss'    - beat the boss (boss: 'crystal' for the crystal robot, 'machine'
 //                     for the factory's big machine: R marks its mouth, plus
-//                     button: [col, row] and crushers: [col, ...])
+//                     button: [col, row] and crushers: [col, ...]; 'boxer' for the
+//                     robot factory's Boxer Bot: R marks the middle of the giant box,
+//                     plus arena: { from: [col, row], to: [col, row] }, the rectangle he
+//                     walks around in). A boss level can also have power cores (P) and
+//                     an exit (E): then beating the boss gives you the last core, and
+//                     you win by walking out of the door with all of them.
 // dark:   only the area around the slime and glowing crystals can be seen
 // hint:   text shown at the start of the level
-// chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball
+// chaser: for escape levels. kind 'rise' = rising water/lava, 'roll' = rolling snowball,
+//         'wall' = the computer's firewall, a wall of fire sweeping sideways across the
+//         whole level: { kind: 'wall', dir: 1, delay, speed } (dir 1 comes in from the
+//         left edge, -1 from the right; speed in pixels per second)
 // wind:   gusts that push the end you're dragging: { every, gust, strength, dir }
 //         (a gust every `every` seconds, lasting `gust` seconds; dir 1 = right, -1 = left).
 //         The wind also pulls kites (k) along; they sink slowly while it's calm.
@@ -64,6 +72,54 @@
 //         'left', 'right', 'up-left', 'up-right', 'down-left' or 'down-right' (default 'up').
 // iceWalls: for King Claw, rectangles { from: [col, row], to: [col, row] } of walls that
 //         turn to slippery ice when his last phase starts.
+// furniture: haunted furniture { kind, at: [col, row], to: [col, row], speed, pause } that
+//         slides back and forth between `at` and `to` (its top-left tile), stopping for
+//         `pause` seconds at each end (default 2; speed default 80). kind is 'chair'
+//         (1 tile), 'table' (2 tiles wide) or 'wardrobe' (2 tiles tall). Its path must be
+//         empty. Bumping into you while it moves, it shoves you and knocks you loose (it
+//         never hurts); stick to it while it's stopped and it carries you along.
+// dumbwaiters: little elevators in the walls { col, from, to, width, speed } that go up
+//         and down a shaft between rows `from` and `to` (like space elevators, but 1 tile
+//         wide by default; speed default 60). Anything stuck on top rides along.
+// bookcases: pairs of secret bookcases { a: [col, row], b: [col, row] } (in empty cells
+//         on the floor; each is drawn 2 tiles tall, up from that cell). Touch one and it
+//         spins you around and out of the other one, like a teleporter.
+// chandeliers: chandeliers { at: [col, row], length } that hang from the top of the empty
+//         cell `at` (just under the ceiling), `length` tiles long. They swing just like
+//         vines: touch the bottom to grab on, drag sideways to swing, let go to fly off.
+// popups: pop-up windows { at: [col, row], width, open, closed, offset } inside the
+//         computer: a platform `width` tiles wide (default 3) starting at `at` that's open
+//         (solid and sticky) for `open` seconds (default 4, shaking for the last second),
+//         then closed for `closed` seconds (default 3). `offset` shifts its timer.
+// circuitTimings: how long each electric circuit (a run of ; cells side by side, in
+//         reading order) stays quiet between zaps: { quiet, offset } (default quiet 3;
+//         each circuit lights up for 1 second, then zaps for 1 second).
+// cables: { a: [col, row], b: [col, row], path: [[col, row], ...] } cables with a plug at
+//         each end (in empty cells). Touch either plug and you zoom along the cable,
+//         through its `path` bends, and drop out of the other plug.
+// cursors: giant mouse cursors { from: [col, row], to: [col, row], drop: [col, row],
+//         speed } whose tip swoops back and forth between `from` and `to`. Touch the tip
+//         and it grabs you and drags you to `drop` (like a nice crane claw).
+// copyPads: copy-paste pads { copy: [col, row], paste: [col, row] } (in empty cells on
+//         the floor). Touch the copy pad and a copy of you pops out of the paste pad: you
+//         move the copy, and the old you stays behind. Eat the old you with your tongue
+//         to grow double size (see logic/sizes.js). Each pair works once per life.
+// arms:   for each robot arm ((), in reading order, which way it tosses you:
+//         { toss: 'up-left', speed } (a direction like boosters use, default 'up';
+//         speed default 750). A toss must land you somewhere safe: it's a setback.
+// springs: which way each spring pad (,) points, in reading order, like boosters
+//         (default 'up').
+// sparkTimings: how long each welding torch (", in reading order) stays quiet between
+//         showers: { quiet, offset } (default quiet 2; each torch glows for 1 second,
+//         then showers sparks for 1.5 seconds).
+// tubes:  pneumatic tubes { a: [col, row], b: [col, row], path: [[col, row], ...] } with an
+//         open end at `a` and `b` (in empty cells). Touch either end and it sucks you in,
+//         whooshes you through its `path` bends and shoots you out of the other end.
+// lifts:  factory lifts { col, from, to, width, speed } that go up and down a shaft between
+//         rows `from` and `to`, like space elevators (2 tiles wide, speed 70 by default).
+// helpers: robot helpers { at: [col, row], to, speed } that walk back and forth along the
+//         floor between `at` and column `to` (speed default 50). Stick to the top of one and
+//         it carries you along. Their path must be empty, with a floor under it.
 
 export const WORLDS = [
   { id: 'lab', name: 'The Lab', theme: 'lab' },
@@ -78,6 +134,9 @@ export const WORLDS = [
   { id: 'sky', name: 'Sky City', theme: 'sky' },
   { id: 'space', name: 'Outer Space', theme: 'space' },
   { id: 'candy', name: 'Candyland', theme: 'candy' },
+  { id: 'haunted', name: 'The Haunted House', theme: 'haunted' },
+  { id: 'computer', name: 'Inside the Computer', theme: 'computer' },
+  { id: 'robots', name: 'The Robot Factory', theme: 'robots' },
 ];
 
 export const LEVELS = [
@@ -1435,6 +1494,404 @@ export const LEVELS = [
       '#....................#',
       '#..S.y...........y...#',
       '######################',
+    ],
+  },
+  // ------------------------------------------------------------ THE HAUNTED HOUSE
+  {
+    id: '13-1',
+    world: 'haunted',
+    name: 'Creaky Floors',
+    type: 'normal',
+    hint: 'Creaky floorboards fall away soon after you touch them, so hop across quick! Bounce on the bed to get upstairs.',
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#................................#',
+      '#................................#',
+      '#.....[.....[...........[........#',
+      '#................................#',
+      '#...................T............#',
+      '#..E.............................#',
+      '#################//////##--#######',
+      '#IIIIIIIIIIIIIIIIIIIIIIII..IIIIII#',
+      '#................................#',
+      '#...[............[.......[.......#',
+      '#................................#',
+      '#....................T...........#',
+      '#.S......................44......#',
+      '######-##//////###################',
+      '#####............#################',
+      '#####............#################',
+      '#####......T.....#################',
+      '#####.4..........#################',
+      '##################################',
+    ],
+  },
+  {
+    id: '13-2',
+    world: 'haunted',
+    name: 'Moving Day',
+    type: 'normal',
+    hint: "Haunted furniture! It shoves you if it bumps you, but stick to it while it's stopped and it gives you a ride. The dumbwaiter goes upstairs.",
+    furniture: [
+      { kind: 'wardrobe', at: [30, 12], to: [24, 12] },
+      { kind: 'chair', at: [6, 6], to: [11, 6] },
+      { kind: 'table', at: [13, 6], to: [20, 6] },
+    ],
+    dumbwaiters: [{ col: 4, from: 13, to: 6 }],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#..................................#',
+      '#..................................#',
+      '#.......[..........[.........[.....#',
+      '#.................T................#',
+      '#..................................#',
+      '#..............................E...#',
+      '###I.I########I.......I#############',
+      '#III.IIIIIIIIII.......IIIIIIIIIIIII#',
+      '#..................................#',
+      '#....[..........T.........[.T......#',
+      '#..................................#',
+      '#..................................#',
+      '#................................S.#',
+      '####################################',
+      '####################################',
+    ],
+  },
+  {
+    id: '13-3',
+    world: 'haunted',
+    name: 'Web Site',
+    type: 'normal',
+    dark: true,
+    hint: 'Grab a chandelier, drag to swing, and let go to fly! Spider webs hold you for a moment, but they make good stepping stones.',
+    chandeliers: [
+      { at: [10, 1], length: 4 },
+      { at: [17, 1], length: 4 },
+      { at: [24, 1], length: 4 },
+    ],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#&.................................#',
+      '#.T................................#',
+      '#..[.......T.......................#',
+      '#................................E.#',
+      '#.............&......&.......I######',
+      '#.S..........................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######.....[.......[........I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######......................I######',
+      '#######..........T...........I######',
+      '####################################',
+      '####################################',
+    ],
+  },
+  {
+    id: '13-4',
+    world: 'haunted',
+    name: 'Pumpkin Patch',
+    type: 'collect',
+    hint: 'Find all 4 glowing pumpkins! Touch a bookcase to spin through a secret passage.',
+    bookcases: [
+      { a: [20, 18], b: [23, 18] },
+      { a: [4, 18], b: [17, 8] },
+      { a: [42, 12], b: [23, 8] },
+    ],
+    chandeliers: [{ at: [11, 11], length: 2 }],
+    dumbwaiters: [{ col: 25, from: 18, to: 8 }],
+    furniture: [{ kind: 'table', at: [27, 8], to: [33, 8] }],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#.....................#....................#',
+      '#..[.......[......[...#...[......[......[..#',
+      '#.....................#....................#',
+      '#......T..............#........T...........#',
+      '#.....................#....................#',
+      '#.....................#....................#',
+      '#.....................#....................#',
+      '#.P...................#.................P..#',
+      '####//////##############I.III......I########',
+      '#III......IIIIIIIIIIII#II.III......IIIIIIII#',
+      '#.............P.......#....................#',
+      '#.............##......#.................P..#',
+      '#.....................#..............--I####',
+      '#..[........[.........#....[...........IIII#',
+      '#......&..............#...................I#',
+      '#...............T.....#.......T...........I#',
+      '#.....................#...................I#',
+      '#.S.......E...........#..............44...I#',
+      '############################################',
+    ],
+  },
+  // ------------------------------------------------------- INSIDE THE COMPUTER
+  {
+    id: '14-1',
+    world: 'computer',
+    name: 'Boot Up',
+    type: 'normal',
+    hint: 'Data streams carry you along! Hop across the pop-up windows while they are open.',
+    popups: [
+      { at: [15, 13], width: 3 },
+      { at: [24, 11], width: 3, offset: 2 },
+    ],
+    map: [
+      '#############IIIIIIIIIIIIIIII###############',
+      '#..........................................#',
+      '#..........................................#',
+      '#..........................................#',
+      '#..........................................#',
+      '#..........................................#',
+      '#....................................T....E#',
+      '#.................................}}}}}}}}}#',
+      '#.....T....................................#',
+      '#...#####..................................#',
+      '#.............................C............#',
+      '#...................T........###############',
+      '#.........T.........##.......###############',
+      '#.S.........#.......##.......###############',
+      '#}}}}}}}}}}}}.......##.......###############',
+      '#############.......##.......###############',
+    ],
+  },
+  {
+    id: '14-2',
+    world: 'computer',
+    name: 'Bug Hunt',
+    type: 'normal',
+    hint: 'Viruses chase you: shoot them with a slime blob to delete them! Glitchy blocks blink on and off, and cables zoom you somewhere new.',
+    cables: [
+      {
+        a: [43, 11],
+        b: [30, 7],
+        path: [
+          [43, 9],
+          [30, 9],
+        ],
+      },
+    ],
+    map: [
+      '###############IIIIIIIIIIII###################',
+      '#..........................#.................#',
+      '#..........................#.................#',
+      '#..........................#.................#',
+      '#..........................#........T........#',
+      '#..........................#........##.......#',
+      '#..........................#........##e......#',
+      '#..........................#........##.....E.#',
+      '#..........................###################',
+      '#..........................###################',
+      '#......T...................#.................#',
+      '#...#######..................C...T..e........#',
+      '#....................T...?..##################',
+      '#....................##.....##################',
+      '#....................##.....##################',
+      '#...........T.....?..##.....##################',
+      '#.S......e...........##.....##################',
+      '###############......##.....##################',
+    ],
+  },
+  {
+    id: '14-3',
+    world: 'computer',
+    name: 'Copy That',
+    type: 'normal',
+    hint: 'Step on the copy pad to paste a copy of you past the laser. Eat the old you with your tongue to grow DOUBLE size!',
+    // The security laser is always on: the copy pad is the only way past it.
+    laserTimings: [{ on: 1, off: 0 }],
+    copyPads: [{ copy: [12, 15], paste: [17, 15] }],
+    cursors: [{ from: [19, 10], to: [24, 10], drop: [37, 10] }],
+    map: [
+      '##############d#######IIIIIIIIIIII############',
+      '#............................................#',
+      '#..........................................E.#',
+      '#........................................#####',
+      '#.......................................#....#',
+      '#.......................................#....#',
+      '#......................................;#....#',
+      '#....................................T.;#....#',
+      '#......................................;#....#',
+      '#...T..................................;#....#',
+      '#..####.................................#....#',
+      '#..................................C....#....#',
+      '#..................T..............############',
+      '#.........T.......................############',
+      '#.................................############',
+      '#.S..;;;;.........;;;.............############',
+      '######################............############',
+    ],
+  },
+  {
+    id: '14-4',
+    world: 'computer',
+    name: 'Firewall',
+    type: 'escape',
+    hint: 'The firewall is coming! Use everything you have learned to get to the door before it burns you.',
+    chaser: { kind: 'wall', dir: 1, delay: 5, speed: 34 },
+    laserTimings: [{ on: 1, off: 0 }],
+    popups: [{ at: [14, 15], width: 3, open: 5, closed: 2 }],
+    cables: [
+      {
+        a: [39, 6],
+        b: [43, 6],
+        path: [
+          [39, 2],
+          [43, 2],
+        ],
+      },
+    ],
+    cursors: [{ from: [44, 4], to: [47, 4], drop: [57, 6] }],
+    copyPads: [{ copy: [57, 7], paste: [62, 7] }],
+    map: [
+      '############IIIIIIIIIIIIIIIIIIII#########I######IIIIIII#####d#####',
+      '#........................................I.......................#',
+      '#........................................I.......................#',
+      '#........................................I...T...................#',
+      '#........................................I.......................#',
+      '#........................................I.......................#',
+      '#.................................C..e...I.....#.................#',
+      '#...............................#########I}}}}}}................E#',
+      '#............................?..I########I######.......###########',
+      '#.........................T.....I########I######.......###########',
+      '#........................---....I########I######.......###########',
+      '#...............................I########I######.......###########',
+      '#...............................I########I######.......###########',
+      '#......T.....................?..I########I######.......###########',
+      '#.....................e..;;.....I########I######.......###########',
+      '#...................############I########I######.......###########',
+      '#.S........#........############I########I######.......###########',
+      '#}}}}}}}}}}}........############I########I######.......###########',
+    ],
+  },
+  // ------------------------------------------------------- THE ROBOT FACTORY
+  {
+    id: '15-1',
+    world: 'robots',
+    name: 'Some Assembly Required',
+    type: 'normal',
+    hint: 'Robot arms grab you and toss you away, so sneak past while they rest! Touch a spring pad to go BOING.',
+    // The spring pad by the lava pit flies you over it; the one in the shaft goes straight up.
+    springs: ['up-left', 'up'],
+    // The arm upstairs tosses you up (you land back on the belt); the one downstairs, back left.
+    arms: [{ toss: 'up' }, { toss: 'left' }],
+    map: [
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+      '#....................................I',
+      '#....................................I',
+      '#..........T.........................I',
+      '#....................................I',
+      '#................................####I',
+      '#.E.....(.................,..........I',
+      '#<<<<<<<<<<<<LLLLLLLLLLLL########I...I',
+      '#################################I...I',
+      '#################################I...I',
+      '#IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII...I',
+      '#....................................I',
+      '#..............T.....................I',
+      '#.S...................(...........,..I',
+      '#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>####I',
+      '######################################',
+    ],
+  },
+  {
+    id: '15-2',
+    world: 'robots',
+    name: 'Spark Plug',
+    type: 'normal',
+    hint: 'Welding torches glow, then shower sparks: wait for them! Ride the lift up, then whoosh through the tube.',
+    // The only way up the slippery shaft...
+    lifts: [{ col: 18, from: 14, to: 5 }],
+    // ...and the only way into the room with the door.
+    tubes: [
+      {
+        a: [2, 4],
+        b: [24, 14],
+        path: [
+          [2, 2],
+          [21, 2],
+          [21, 13],
+          [24, 13],
+        ],
+      },
+    ],
+    map: [
+      'IIIIII"IIIIII"IIIIIIII"IIIIIIIIIIIIIII"III',
+      '#...................I#...................#',
+      '#...................I#...................#',
+      '#.......T...........I#............T......#',
+      '#...................I#..................E#',
+      '#################I..I#................####',
+      '#################I..I#...................#',
+      '#################I..I#.........####......#',
+      '#################I..I#...................#',
+      '#################I..I#...................#',
+      '#######"####"####I..I#...####............#',
+      '#................I..I#...................#',
+      '#................I..I#...........T.......#',
+      '#..........T........I#...................#',
+      '#.S.................I#...................#',
+      '##########################################',
+    ],
+  },
+  {
+    id: '15-3',
+    world: 'robots',
+    name: 'Security Breach',
+    type: 'normal',
+    hint: "If a patrol robot's searchlight spots you, the alarm doors slam shut for a while. Sniper robots shoot where you were, so keep moving! Ride the robot helper across the slippery floor.",
+    // The only way across the slippery floor.
+    helpers: [{ at: [17, 14], to: 30 }],
+    map: [
+      '############################################',
+      '#.....#...............................T....#',
+      '#.....#....................................#',
+      '#..T..#....................................#',
+      '#.....#..................T.................#',
+      '#.....#......6.............................#',
+      '#.....#......#.............................#',
+      '#.....]....................................#',
+      '#.....]....................................#',
+      '#.E...]...............5....................#',
+      '###############################............#',
+      '#################IIIIIIIIIIIIII............#',
+      '#...............]...................T......#',
+      '#..........T....]..........................#',
+      '#.S.....5.......]..........................#',
+      '#################IIIIIIIIIIIIII#############',
+      '############################################',
+    ],
+  },
+  {
+    id: '15-4',
+    world: 'robots',
+    name: 'Boxing Match',
+    type: 'boss',
+    boss: 'boxer',
+    hint: "Collect the power cores, then lick the giant box... Trick Boxer Bot into punching a metal box, then lick him while he's dizzy!",
+    springs: ['up'],
+    // Boxer Bot walks around the arena under the lava ceiling. Beat him for the last power core.
+    arena: { from: [19, 7], to: [44, 15] },
+    map: [
+      '##############################################',
+      '#................#############################',
+      '#.P..............#############################',
+      '#####.........T..#############################',
+      '#IIII............#############################',
+      '#............P...#############################',
+      '#.......#######..##LLLLLLLLLLLLLLLLLLLLLLLLLL#',
+      '#................##...#....#.....#.....#...#.#',
+      '#....T...........##..........................#',
+      '#.........P......##..........................#',
+      '#IIIIIIIIIII.....##..........................#',
+      'I................##..----..............----..#',
+      'I............................................#',
+      'I............................................#',
+      'I.S..........,.C.......M.......R.......M....E#',
+      '#>>>>>>>>>>>>######....M...............M.....#',
+      '##############################################',
     ],
   },
 ];

@@ -13,6 +13,7 @@ import {
 } from './constants.js';
 import { gravityDir, inZeroG } from './level.js';
 import {
+  circleCaught,
   circleHitsSolid,
   clampToRange,
   dist,
@@ -25,6 +26,9 @@ import {
 
 // How close to something solid a stuck end has to be to stay stuck.
 const SUPPORT_MARGIN = 6;
+
+// A spider web catches you once this much of an end's radius is in it.
+const WEB_CATCH = 0.6;
 
 /**
  * Can one end be at `p` while the other end is at `anchor`? It has to be
@@ -362,6 +366,10 @@ export class Slime {
         f.vy = 0;
       } else {
         f.y = ny;
+      }
+      // Falling or flying into a spider web, you get caught in it.
+      if (!landed && circleCaught(level, f, END_RADIUS * WEB_CATCH)) {
+        landed = true;
       }
     }
     for (const end of this.ends) {

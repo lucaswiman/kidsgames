@@ -65,3 +65,8 @@ export function hasSplit(progress) {
 export function hasSuperStretch(progress) {
   return !!progress.superStretch || !!progress.best['12-4'];
 }
+
+/** Mega Slime is the reward for beating Boxer Bot. */
+export function hasMegaSlime(progress) {
+  return !!progress.megaSlime || !!progress.best['15-4'];
+}

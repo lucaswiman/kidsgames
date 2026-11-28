@@ -152,6 +152,80 @@ export default class BootScene extends Phaser.Scene {
       g.fillCircle(22, 13, 3);
     });
 
+    // Glowing pumpkins are what you collect in the haunted house.
+    make('pumpkin', 48, 48, g => {
+      g.fillStyle(0xffb030, 0.3);
+      g.fillCircle(24, 26, 22);
+      // The stem and a curly leaf.
+      g.fillStyle(0x4a7a2a, 1);
+      g.fillRect(22, 4, 5, 9);
+      g.fillStyle(0x6aaa3a, 1);
+      g.fillEllipse(32, 9, 12, 6);
+      // A round, ridged pumpkin.
+      g.fillStyle(0xd8601a, 1);
+      g.fillEllipse(15, 28, 18, 28);
+      g.fillEllipse(33, 28, 18, 28);
+      g.fillStyle(0xf07a22, 1);
+      g.fillEllipse(24, 28, 22, 30);
+      // A friendly glowing face.
+      g.fillStyle(0xfff07a, 1);
+      g.fillTriangle(14, 25, 20, 25, 17, 19);
+      g.fillTriangle(28, 25, 34, 25, 31, 19);
+      g.fillTriangle(13, 31, 35, 31, 24, 40);
+      g.fillStyle(0xf07a22, 1);
+      g.fillRect(19, 30, 4, 4);
+      g.fillRect(26, 30, 4, 4);
+    });
+
+    // Microchips are what you'd collect inside the computer.
+    make('microchip', 48, 40, g => {
+      g.fillStyle(0x5affb0, 0.25);
+      g.fillRoundedRect(2, 2, 44, 36, 10);
+      // Shiny metal legs on both sides.
+      g.fillStyle(0xd8dde4, 1);
+      for (let i = 0; i < 4; i++) {
+        g.fillRect(4, 9 + i * 7, 8, 3);
+        g.fillRect(36, 9 + i * 7, 8, 3);
+      }
+      g.fillStyle(0x1a1f2a, 1);
+      g.fillRoundedRect(10, 5, 28, 30, 4);
+      g.fillStyle(0x3a4250, 1);
+      g.fillRect(14, 9, 20, 4);
+      g.fillStyle(0x5affb0, 1);
+      g.fillCircle(16, 28, 3);
+      g.fillStyle(0xffd040, 1);
+      g.fillRect(22, 18, 10, 10);
+    });
+
+    // A square pixel, for little bursts of pixels inside the computer.
+    make('pixel', 6, 6, g => {
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(0, 0, 6, 6);
+    });
+
+    // Gears and nuts, for bursts of robot bits when something gets smashed.
+    make('gear', 16, 16, g => {
+      g.fillStyle(0xffffff, 1);
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.fillRect(8 + Math.cos(a) * 6 - 2, 8 + Math.sin(a) * 6 - 2, 4, 4);
+      }
+      g.fillCircle(8, 8, 5);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(8, 8, 2);
+    });
+    make('nut', 10, 10, g => {
+      g.fillStyle(0xffffff, 1);
+      const hex = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        hex.push({ x: 5 + Math.cos(a) * 5, y: 5 + Math.sin(a) * 5 });
+      }
+      g.fillPoints(hex, true);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(5, 5, 1.5);
+    });
+
     make('chest', 44, 36, g => {
       g.fillStyle(0x6b3e1c, 1);
       g.fillRoundedRect(2, 4, 40, 30, 6);

@@ -23,9 +23,10 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     this.add.text(GAME_WIDTH / 2, 48, 'Pick a Level', textStyle(52, '#7dff7a')).setOrigin(0.5);
 
-    // Fit all the worlds on one screen: in two columns once there are lots.
-    // (Up to 12 worlds fit, in 6 rows, with buttons still big enough to tap.)
-    const columns = WORLDS.length > 6 ? 2 : 1;
+    // Fit all the worlds on one screen: in two columns once there are lots,
+    // and three once there are more than 12. (Up to 18 worlds fit, in 6 rows,
+    // with buttons still big enough to tap.)
+    const columns = WORLDS.length > 12 ? 3 : WORLDS.length > 6 ? 2 : 1;
     const rows = Math.ceil(WORLDS.length / columns);
     const firstTop = 96;
     const rowHeight = (GAME_HEIGHT - firstTop - 6) / rows;
@@ -35,7 +36,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     const perWorld = WORLDS.map(w => LEVELS.filter(l => l.world === w.id).length);
     const slot = (bandWidth - 48) / Math.max(...perWorld);
     const buttonWidth = Math.min(140, slot - (columns > 1 ? 10 : 50));
-    const titleSize = rowHeight < 120 ? 22 : 26;
+    const titleSize = columns > 2 ? 19 : rowHeight < 120 ? 22 : 26;
     const buttonHeight = Math.min(60, rowHeight - 66);
     WORLDS.forEach((world, w) => {
       const left = 40 + Math.floor(w / rows) * (bandWidth + gap);
@@ -61,7 +62,8 @@ export default class LevelSelectScene extends Phaser.Scene {
         const x = left + 24 + slot * (k + 0.5);
         const unlocked = UNLOCK_ALL || level.index < progress.unlocked;
         const best = progress.best[level.id];
-        const bossIcon = { crystal: '💎', machine: '🏭', kingclaw: '👑' }[level.boss] || '🤖';
+        const bossIcon =
+          { crystal: '💎', machine: '🏭', kingclaw: '👑', boxer: '🥊' }[level.boss] || '🤖';
         const label = unlocked ? (level.type === 'boss' ? bossIcon : level.id) : '🔒';
         makeButton(
           this,
@@ -76,7 +78,7 @@ export default class LevelSelectScene extends Phaser.Scene {
           {
             width: buttonWidth,
             height: buttonHeight,
-            fontSize: 26,
+            fontSize: columns > 2 ? 22 : 26,
             color: unlocked ? 0x2fae4a : 0x555a66,
           }
         );

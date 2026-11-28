@@ -67,3 +67,14 @@ describe('super stretch', () => {
     expect(hasSuperStretch({ ...emptyProgress(), superStretch: true })).toBe(true);
   });
 });
+
+describe('mega slime', () => {
+  it('is unlocked by beating Boxer Bot', async () => {
+    const { hasMegaSlime } = await import('./progress.js');
+    const p = emptyProgress();
+    expect(hasMegaSlime(p)).toBe(false);
+    p.best['15-4'] = { score: 1000, tokens: 0 };
+    expect(hasMegaSlime(p)).toBe(true);
+    expect(hasMegaSlime({ ...emptyProgress(), megaSlime: true })).toBe(true);
+  });
+});

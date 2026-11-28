@@ -12,7 +12,8 @@ import { Slime } from './slime.js';
 // Things in the Jungle: quicksand, monkeys that throw bananas, snakes that
 // snap down from branches, leafy traps over snake pits, swinging vines,
 // floating logs, ziplines and big leaves that tip over. (Bouncy flowers work
-// just like the island's hammocks, see island.js.)
+// just like the island's hammocks, see island.js, and the haunted house's
+// chandeliers swing just like vines, see swingingVines.)
 
 export const QUICKSAND_REACH = 0.45; // stuck in quicksand, you can only stretch this much
 export const QUICKSAND_SINK_TIME = 3; // seconds in quicksand before it swallows you
@@ -72,6 +73,16 @@ function circleTouchesTile(p, r, col, row) {
 /** True if an end stuck at `e` is sinking into quicksand. */
 export function touchingQuicksand(level, e) {
   return circleTouches(level, e, END_RADIUS + 4, isQuicksand);
+}
+
+/**
+ * Everything you can swing on: the jungle's vines (def.vines) and the haunted
+ * house's chandeliers (def.chandeliers), which swing exactly like vines (only
+ * they're drawn as a chandelier on a chain): { at: [col, row], length }.
+ */
+export function swingingVines(def) {
+  const chandeliers = (def.chandeliers || []).map(c => ({ ...c, chandelier: true }));
+  return [...(def.vines || []), ...chandeliers];
 }
 
 /** Where the bottom of a vine is when it's swung out to `angle` (0 = straight down). */
@@ -188,13 +199,14 @@ export class JungleStuff {
     });
     this.traps = level.leafyTraps.map(t => ({ ...t, state: 'solid', timer: 0 }));
     this.leaves = findLeaves(level);
-    this.vines = (level.def.vines || []).map(v => ({
+    this.vines = swingingVines(level.def).map(v => ({
       x: (v.at[0] + 0.5) * TILE,
       y: v.at[1] * TILE,
       length: v.length * TILE,
       angle: 0,
       omega: 0,
       cooldown: 0,
+      chandelier: !!v.chandelier,
     }));
     this.ziplines = (level.def.ziplines || []).map(z => {
       const from = { x: (z.from[0] + 0.5) * TILE, y: (z.from[1] + 0.5) * TILE };
@@ -600,7 +612,7 @@ export class JungleStuff {
       if (free && vine.cooldown <= 0 && slime.ends.some(e => dist(e, tip) < VINE_GRAB)) {
         this.onVine = i;
         slime.holdAt(tip.x, tip.y + VINE_HANG);
-        this.events.push({ type: 'vineGrab', x: tip.x, y: tip.y });
+        this.events.push({ type: 'vineGrab', x: tip.x, y: tip.y, chandelier: vine.chandelier });
       }
     });
   }
@@ -641,7 +653,7 @@ export class JungleStuff {
     slime.launch(tip.x, tip.y + VINE_HANG, vx, -v * Math.sin(vine.angle), VINE_GRIP);
     vine.cooldown = VINE_REGRAB;
     this.onVine = null;
-    this.events.push({ type: 'vineLetGo', x: tip.x, y: tip.y });
+    this.events.push({ type: 'vineLetGo', x: tip.x, y: tip.y, chandelier: vine.chandelier });
     return true;
   }
 

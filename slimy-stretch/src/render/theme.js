@@ -1,5 +1,5 @@
 import { GAME_HEIGHT, GAME_WIDTH, TILE } from '../logic/constants.js';
-import { TileKind, tileAt } from '../logic/level.js';
+import { isSolidKind, TileKind, tileAt } from '../logic/level.js';
 
 export const THEMES = {
   lab: {
@@ -121,6 +121,39 @@ export const THEMES = {
     wallLight: 0xf6c99a,
     fluid: 0x6b3a1e,
     fluidTop: 0xa0603a,
+    text: '#ffffff',
+  },
+  haunted: {
+    skyTop: 0x0d0a1c,
+    skyBottom: 0x2a1840,
+    grid: null,
+    wall: 0x4a3e58,
+    wallDark: 0x2c2436,
+    wallLight: 0x6d5f80,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
+  computer: {
+    skyTop: 0x020a10,
+    skyBottom: 0x06222a,
+    grid: null,
+    wall: 0x14503a,
+    wallDark: 0x0a2e20,
+    wallLight: 0x2a8a5a,
+    fluid: 0x2f8fff,
+    fluidTop: 0x9fd2ff,
+    text: '#ffffff',
+  },
+  robots: {
+    skyTop: 0x0e1622,
+    skyBottom: 0x24384c,
+    grid: null,
+    wall: 0x9aa6b4,
+    wallDark: 0x5a6674,
+    wallLight: 0xdde6f0,
+    fluid: 0xff5a00,
+    fluidTop: 0xffd040,
     text: '#ffffff',
   },
   canyon: {
@@ -266,6 +299,12 @@ export function drawBackdrop(scene, level, theme, themeName) {
     drawSpaceBackdrop(g, level);
   } else if (themeName === 'candy') {
     drawCandyBackdrop(g, level);
+  } else if (themeName === 'haunted') {
+    drawHauntedBackdrop(g, level);
+  } else if (themeName === 'computer') {
+    drawComputerBackdrop(g, level);
+  } else if (themeName === 'robots') {
+    drawRobotsBackdrop(g, level);
   } else if (themeName === 'canyon') {
     // Far-away flat-topped mesas.
     g.fillStyle(0xb85a36, 0.35);
@@ -520,6 +559,260 @@ function drawCandyBackdrop(g, level) {
   }
 }
 
+/**
+ * Inside the haunted house: striped purple wallpaper, wooden panels along the
+ * bottom of each room, tall moonlit windows and dusty cobwebs in the corners.
+ */
+function drawHauntedBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  // (Furniture and dumbwaiters move around, so they don't count here.)
+  const moving = kind => kind === TileKind.FURNITURE || kind === TileKind.SKY_ISLAND;
+  const empty = (col, row) => {
+    const kind = tileAt(level, col, row);
+    return kind === TileKind.EMPTY || moving(kind);
+  };
+  const solid = (col, row) => {
+    const kind = tileAt(level, col, row);
+    return isSolidKind(kind) && !moving(kind);
+  };
+  g.fillStyle(0x2b1a3c, 1);
+  g.fillRect(0, 0, w, h);
+  // Wallpaper stripes, with a little diamond pattern.
+  g.fillStyle(0x352148, 1);
+  for (let x = 0; x < w; x += 32) {
+    g.fillRect(x, 0, 14, h);
+  }
+  g.fillStyle(0x4a2e5e, 0.6);
+  for (let x = 23; x < w; x += 32) {
+    for (let y = 16 + ((x / 32) % 2) * 24; y < h; y += 48) {
+      g.fillTriangle(x, y - 5, x + 4, y, x, y + 5);
+      g.fillTriangle(x, y - 5, x - 4, y, x, y + 5);
+    }
+  }
+  // Wooden panels along the bottom of the wall, just above each floor.
+  for (let row = 0; row < level.height; row++) {
+    for (let col = 0; col < level.width; col++) {
+      if (empty(col, row) && solid(col, row + 1)) {
+        const x = col * TILE;
+        const y = row * TILE;
+        g.fillStyle(0x3d2a22, 1);
+        g.fillRect(x, y + 20, TILE, TILE - 20);
+        g.fillStyle(0x553a2c, 1);
+        g.fillRect(x, y + 18, TILE, 4);
+        g.lineStyle(2, 0x2c1e18, 1);
+        g.strokeRect(x + 6, y + 27, TILE - 12, TILE - 32);
+      }
+    }
+  }
+  // Tall arched windows with the full moon shining in, wherever there's room.
+  const taken = new Set(level.paintings.map(p => `${p.col},${p.row}`));
+  const fits = (col, row) => {
+    for (let r = row; r < row + 3; r++) {
+      for (let c = col; c < col + 2; c++) {
+        if (!empty(c, r) || taken.has(`${c},${r}`)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+  for (let col = 3; col < level.width - 3; col += 9) {
+    for (let band = 1; band < level.height - 3; band += 9) {
+      for (let row = band; row < band + 5; row++) {
+        if (fits(col, row)) {
+          drawMoonWindow(g, col * TILE + 8, row * TILE + 8, hash(col, row) > 0.5);
+          break;
+        }
+      }
+    }
+  }
+  // Dusty cobwebs in the top corners of the rooms.
+  g.lineStyle(1.5, 0xc8c0d8, 0.35);
+  for (let row = 0; row < level.height; row++) {
+    for (let col = 0; col < level.width; col++) {
+      if (!empty(col, row) || !solid(col, row - 1)) {
+        continue;
+      }
+      for (const side of [-1, 1]) {
+        if (solid(col + side, row)) {
+          drawCornerWeb(g, side < 0 ? col * TILE : (col + 1) * TILE, row * TILE, -side);
+        }
+      }
+    }
+  }
+}
+
+/** A tall arched window with moonlight coming in (and sometimes the moon itself). */
+function drawMoonWindow(g, x, y, moon) {
+  const ww = 2 * TILE - 16;
+  const wh = 3 * TILE - 16;
+  // A soft beam of moonlight down the wall.
+  g.fillStyle(0x9fe8c8, 0.05);
+  g.fillTriangle(x, y + wh, x + ww, y + wh, x + ww + 40, y + wh + 90);
+  g.fillTriangle(x, y + wh, x + ww + 40, y + wh + 90, x - 20, y + wh + 90);
+  g.fillStyle(0x1a1028, 1);
+  g.fillRect(x - 5, y + ww / 2 - 5, ww + 10, wh - ww / 2 + 10);
+  g.fillCircle(x + ww / 2, y + ww / 2, ww / 2 + 5);
+  // Night sky glass, glowing green and purple.
+  g.fillGradientStyle(0x3a2a6a, 0x3a2a6a, 0x2a6a5a, 0x2a6a5a, 1);
+  g.fillRect(x, y + ww / 2, ww, wh - ww / 2);
+  g.fillStyle(0x3a2a6a, 1);
+  g.fillCircle(x + ww / 2, y + ww / 2, ww / 2);
+  if (moon) {
+    g.fillStyle(0xf4f0c8, 0.95);
+    g.fillCircle(x + ww * 0.62, y + ww * 0.55, 13);
+    g.fillStyle(0xd8d4a8, 0.9);
+    g.fillCircle(x + ww * 0.56, y + ww * 0.5, 3);
+    g.fillCircle(x + ww * 0.68, y + ww * 0.64, 2);
+  } else {
+    g.fillStyle(0xffffff, 0.8);
+    g.fillCircle(x + 14, y + 30, 1.5);
+    g.fillCircle(x + 52, y + 50, 1.5);
+    g.fillCircle(x + 30, y + 80, 1.2);
+  }
+  // Window frame bars.
+  g.lineStyle(4, 0x1a1028, 1);
+  g.lineBetween(x + ww / 2, y, x + ww / 2, y + wh);
+  g.lineBetween(x, y + wh * 0.55, x + ww, y + wh * 0.55);
+  g.fillStyle(0x553a2c, 1);
+  g.fillRect(x - 8, y + wh, ww + 16, 7);
+}
+
+/** A dusty cobweb in the corner at (x, y), spreading out toward `dir` (1 = right). */
+function drawCornerWeb(g, x, y, dir) {
+  const size = 26;
+  const spokes = [0, 0.35, 0.75, 1.15, 1.5707];
+  for (const a of spokes) {
+    g.lineBetween(x, y, x + Math.cos(a) * size * dir, y + Math.sin(a) * size);
+  }
+  for (const r of [9, 17, 25]) {
+    const pts = spokes.map(a => ({ x: x + Math.cos(a) * r * dir, y: y + Math.sin(a) * r }));
+    for (let i = 0; i < pts.length - 1; i++) {
+      g.lineBetween(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+    }
+  }
+}
+
+/**
+ * Inside the computer: a dark circuit board with glowing traces running
+ * every which way, chips with shiny legs, and a faint pixel grid.
+ */
+function drawComputerBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  g.fillStyle(0x041a1c, 1);
+  g.fillRect(0, 0, w, h);
+  // A faint pixel grid.
+  g.lineStyle(1, 0x0a3a3a, 0.5);
+  for (let x = 0; x <= w; x += TILE / 2) {
+    g.lineBetween(x, 0, x, h);
+  }
+  for (let y = 0; y <= h; y += TILE / 2) {
+    g.lineBetween(0, y, w, y);
+  }
+  // Glowing traces: each goes along, turns a corner, and ends in a little pad.
+  for (let i = 0; i < (w * h) / 14000; i++) {
+    let x = Math.floor(hash(i, 1) * (w / 12)) * 12;
+    let y = Math.floor(hash(i, 2) * (h / 12)) * 12;
+    const color = hash(i, 3) > 0.5 ? 0x1ab07a : 0x1a7ab0;
+    g.lineStyle(2, color, 0.3);
+    g.fillStyle(color, 0.45);
+    g.fillCircle(x, y, 3);
+    for (let leg = 0; leg < 3; leg++) {
+      const len = (2 + Math.floor(hash(i, leg + 4) * 6)) * 12;
+      const across = (leg + Math.floor(hash(i, 9) * 2)) % 2 === 0;
+      const dir = hash(i, leg + 7) > 0.5 ? 1 : -1;
+      const nx = across ? x + len * dir : x;
+      const ny = across ? y : y + len * dir;
+      g.lineBetween(x, y, nx, ny);
+      x = nx;
+      y = ny;
+    }
+    g.strokeCircle(x, y, 4);
+  }
+  // Big chips with metal legs.
+  for (let x = 120; x < w - 80; x += 420) {
+    for (let y = 100; y < h - 80; y += 360) {
+      const cx = x + hash(x, y) * 120;
+      const cy = y + hash(y, x) * 100;
+      g.fillStyle(0x9aa4b0, 0.35);
+      for (let k = 0; k < 6; k++) {
+        g.fillRect(cx - 34 + k * 13, cy - 44, 5, 10);
+        g.fillRect(cx - 34 + k * 13, cy + 34, 5, 10);
+      }
+      g.fillStyle(0x0a1014, 0.85);
+      g.fillRoundedRect(cx - 42, cy - 34, 84, 68, 6);
+      g.lineStyle(2, 0x2a3a40, 0.9);
+      g.strokeRoundedRect(cx - 42, cy - 34, 84, 68, 6);
+      g.fillStyle(0x1ab07a, 0.25);
+      g.fillCircle(cx - 30, cy + 22, 4);
+    }
+  }
+}
+
+/**
+ * The robot factory: a shiny assembly plant. Steel girders with criss-cross
+ * bracing, big orange robot arms building things on a far-away assembly
+ * line, and control panels on the walls (their lights blink, see robotsView.js).
+ */
+function drawRobotsBackdrop(g, level) {
+  const w = level.pixelWidth;
+  const h = level.pixelHeight;
+  // Light from the big windows up top.
+  g.fillStyle(0x5ad2ff, 0.06);
+  g.fillRect(0, 0, w, h * 0.4);
+  // Steel girders, with criss-cross bracing between them.
+  for (let x = 120; x < w; x += 320) {
+    g.fillStyle(0x34424f, 0.9);
+    g.fillRect(x, 0, 18, h);
+    g.fillStyle(0x4a5a6a, 0.9);
+    g.fillRect(x + 3, 0, 4, h);
+    g.lineStyle(4, 0x34424f, 0.7);
+    for (let y = 0; y < h; y += 160) {
+      g.lineBetween(x + 18, y, x + 160, y + 160);
+      g.lineBetween(x + 160, y, x + 18, y + 160);
+    }
+  }
+  for (let y = 140; y < h; y += 300) {
+    g.fillStyle(0x34424f, 0.9);
+    g.fillRect(0, y, w, 14);
+    g.fillStyle(0x4a5a6a, 0.9);
+    g.fillRect(0, y + 2, w, 3);
+  }
+  // Orange robot arms on a far-away assembly line, building robots.
+  const lineY = h - 2.2 * TILE;
+  g.fillStyle(0x1e2a36, 0.8);
+  g.fillRect(0, lineY, w, 18);
+  for (let x = 200; x < w; x += 420) {
+    const lean = (hash(x, 1) - 0.5) * 1.2;
+    const elbow = { x: x + 40 + lean * 40, y: lineY - 110 };
+    const hand = { x: x + 90 + lean * 30, y: lineY - 50 };
+    g.fillStyle(0x6a3a14, 0.55);
+    g.fillRect(x - 20, lineY - 18, 40, 18);
+    g.lineStyle(16, 0xc8661a, 0.4);
+    g.lineBetween(x, lineY - 18, elbow.x, elbow.y);
+    g.lineBetween(elbow.x, elbow.y, hand.x, hand.y);
+    g.fillStyle(0x6a7480, 0.45);
+    g.fillCircle(elbow.x, elbow.y, 10);
+    g.fillCircle(hand.x, hand.y + 10, 8);
+    // A half-built robot on the line.
+    g.fillStyle(0x6a7480, 0.35);
+    g.fillRoundedRect(hand.x - 18, lineY - 34, 36, 34, 6);
+    g.fillCircle(hand.x, lineY - 42, 10);
+  }
+  // Control panels on the walls.
+  for (let x = 60; x < w - 60; x += 260) {
+    const y = 60 + hash(x, 5) * (h - 220);
+    g.fillStyle(0x1a242e, 0.85);
+    g.fillRoundedRect(x, y, 70, 50, 6);
+    g.lineStyle(2, 0x5a6674, 0.8);
+    g.strokeRoundedRect(x, y, 70, 50, 6);
+    g.fillStyle(0x3affa0, 0.25);
+    g.fillRect(x + 8, y + 8, 36, 16);
+  }
+}
+
 function isOpen(level, col, row) {
   const k = tileAt(level, col, row);
   return k !== TileKind.WALL && k !== TileKind.ICE && k !== TileKind.EMITTER;
@@ -537,6 +830,23 @@ export function drawTiles(scene, level, theme, themeName) {
         drawWall(g, level, theme, themeName, col, row, x, y);
       } else if (kind === TileKind.ICE) {
         drawIce(g, x, y);
+        if (themeName === 'haunted') {
+          // Frosty ice, in the moonlight.
+          g.fillStyle(0x2a1840, 0.35);
+          g.fillRect(x, y, TILE, TILE);
+        } else if (themeName === 'robots') {
+          // Polished chrome, too shiny to stick to.
+          g.fillStyle(0xc8d4e0, 0.55);
+          g.fillRect(x, y, TILE, TILE);
+          g.lineStyle(3, 0xffffff, 0.7);
+          g.lineBetween(x + 6, y + TILE - 12, x + TILE - 12, y + 6);
+        } else if (themeName === 'computer') {
+          // Slippery glass, like a screen.
+          g.fillStyle(0x0a2a4a, 0.45);
+          g.fillRect(x, y, TILE, TILE);
+          g.lineStyle(2, 0x9ad8ff, 0.5);
+          g.lineBetween(x + 8, y + TILE - 10, x + TILE - 10, y + 8);
+        }
       } else if (kind === TileKind.SPIKES) {
         drawSpikes(g, level, col, row, x, y);
       } else if (kind === TileKind.PLATFORM) {
@@ -723,6 +1033,90 @@ function drawWall(g, level, theme, themeName, col, row, x, y) {
       }
       g.fillStyle(0xffd0e6, 1);
       g.fillRect(x, y, TILE, 3);
+    }
+  } else if (themeName === 'computer') {
+    // Circuit-board panels: green board with copper traces, solder pads and
+    // a bright edge where you can stick.
+    g.lineStyle(2, 0xc8a24a, 0.55);
+    const a = hash(col, row);
+    if (a > 0.5) {
+      g.lineBetween(x + 6, y + 14, x + 26, y + 14);
+      g.lineBetween(x + 26, y + 14, x + 34, y + 24);
+      g.lineBetween(x + 34, y + 24, x + TILE, y + 24);
+    } else {
+      g.lineBetween(x + 16, y + 6, x + 16, y + 30);
+      g.lineBetween(x + 16, y + 30, x + 40, y + 30);
+    }
+    g.fillStyle(0xd8b85a, 0.8);
+    g.fillCircle(x + (a > 0.5 ? 6 : 16), y + (a > 0.5 ? 14 : 6), 3);
+    g.fillCircle(x + 36 + hash(row, col) * 6, y + 38, 2.5);
+    if (hash(col + 5, row) > 0.8) {
+      // A tiny chip on the board.
+      g.fillStyle(0x0a1014, 1);
+      g.fillRect(x + 22, y + 32, 14, 10);
+    }
+    if (openUp) {
+      g.fillStyle(0x3affa0, 1);
+      g.fillRect(x, y, TILE, 4);
+      g.fillStyle(0x2a8a5a, 1);
+      g.fillRect(x, y + 4, TILE, 3);
+    }
+    if (openDown) {
+      g.fillStyle(0x062016, 1);
+      g.fillRect(x, y + TILE - 6, TILE, 6);
+    }
+  } else if (themeName === 'robots') {
+    // Shiny brushed-steel panels with bolts, a gleam across them, and a
+    // glowing blue guide light along every floor.
+    g.lineStyle(2, theme.wallDark, 0.6);
+    g.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
+    g.lineStyle(3, 0xffffff, 0.25);
+    g.lineBetween(x + 8, y + TILE - 8, x + TILE - 8, y + 8);
+    g.fillStyle(theme.wallDark, 1);
+    g.fillCircle(x + 7, y + 7, 2);
+    g.fillCircle(x + TILE - 7, y + TILE - 7, 2);
+    if (hash(col, row) > 0.85) {
+      g.fillStyle(0x34424f, 1);
+      g.fillRect(x + 14, y + 18, 20, 4);
+    }
+    if (openUp) {
+      g.fillStyle(0x4a5a6a, 1);
+      g.fillRect(x, y, TILE, 6);
+      g.fillStyle(0x5ad2ff, 1);
+      g.fillRect(x + 4, y + 2, TILE - 8, 2);
+    }
+  } else if (themeName === 'haunted') {
+    // Old stone blocks, polished wooden floors on top and dark trim along
+    // the ceilings.
+    g.lineStyle(2, theme.wallDark, 0.6);
+    const offset = row % 2 ? TILE / 2 : 0;
+    g.lineBetween(x, y + TILE / 2, x + TILE, y + TILE / 2);
+    g.lineBetween(x + offset + 4, y, x + offset + 4, y + TILE / 2);
+    g.lineBetween(
+      x + ((offset + TILE / 2) % TILE) + 4,
+      y + TILE / 2,
+      x + ((offset + TILE / 2) % TILE) + 4,
+      y + TILE
+    );
+    if (hash(col, row) > 0.75) {
+      g.fillStyle(0x6a8a5a, 0.35);
+      g.fillCircle(x + 10 + hash(row, col) * 28, y + 12 + hash(col + 3, row) * 24, 4);
+    }
+    if (openDown) {
+      g.fillStyle(0x24182c, 1);
+      g.fillRect(x, y + TILE - 8, TILE, 8);
+      g.fillStyle(0x7a5a8a, 1);
+      g.fillRect(x, y + TILE - 9, TILE, 2);
+    }
+    if (openUp) {
+      g.fillStyle(0x7a5232, 1);
+      g.fillRect(x, y, TILE, 10);
+      g.fillStyle(0xa87448, 1);
+      g.fillRect(x, y, TILE, 3);
+      g.fillStyle(0x4a3020, 1);
+      const seam = ((col * 19) % 3) * 12 + 10;
+      g.fillRect(x + seam, y + 3, 2, 7);
+      g.fillRect(x, y + 9, TILE, 2);
     }
   } else if (themeName === 'canyon') {
     if (openUp) {

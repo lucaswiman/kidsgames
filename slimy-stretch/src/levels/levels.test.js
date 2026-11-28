@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS, WORLDS } from './levels.js';
 import { parseLevel, TileKind, tileAt } from '../logic/level.js';
-import { ZIP_HANG } from '../logic/jungle.js';
+import { swingingVines, ZIP_HANG } from '../logic/jungle.js';
+import { furnitureSize } from '../logic/haunted.js';
+import { cablePath, CURSOR_HANG, popupCells, popupWindows } from '../logic/computer.js';
 import { canGetBackFrom, solveLevel } from '../logic/solver.js';
 import { END_RADIUS, ITEM_RADIUS, TILE } from '../logic/constants.js';
 import { chaserPosition } from '../logic/hazards.js';
@@ -9,6 +11,7 @@ import { simulateDrop } from '../logic/warehouse.js';
 import { ASTEROID_WARN, padCenter, simulateBooster } from '../logic/space.js';
 import { CANE_LENGTH, CANE_THICK, caneShape, rainBottom, ropeDrop } from '../logic/candy.js';
 import { isSolidKind } from '../logic/level.js';
+import { armSwingSpot, armToss, simulateSpring, simulateToss } from '../logic/robots.js';
 import {
   balloonPath,
   BASKET_SIT,
@@ -53,7 +56,9 @@ describe('levels', () => {
       const level = parseLevel(def);
 
       it('has what its type needs', () => {
-        if (def.type === 'collect') {
+        // A boss level with an exit also has power cores to collect (beating
+        // the boss gives you the last one).
+        if (def.type === 'collect' || (def.type === 'boss' && level.exit)) {
           expect(level.cores.length).toBeGreaterThan(0);
         } else {
           expect(level.cores.length).toBe(0);
@@ -64,8 +69,8 @@ describe('levels', () => {
       });
 
       it('has its vines, ziplines and logs in sensible places', () => {
-        for (const vine of def.vines || []) {
-          // A vine hangs from a branch (or a wall).
+        for (const vine of swingingVines(def)) {
+          // A vine hangs from a branch (or a wall), and a chandelier from the ceiling.
           const [col, row] = vine.at;
           expect(tileAt(level, col, row - 1)).not.toBe(TileKind.EMPTY);
           expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
@@ -185,6 +190,145 @@ describe('levels', () => {
         }
       });
 
+      it('has its haunted things in sensible places', () => {
+        for (const f of def.furniture || []) {
+          // Haunted furniture slides through open space, and nothing to collect is in its way.
+          const { w, h } = furnitureSize(f);
+          const [c0, c1] = [f.at[0], f.to[0]].sort((a, b) => a - b);
+          const [r0, r1] = [f.at[1], f.to[1]].sort((a, b) => a - b);
+          for (let row = r0; row < r1 + h; row++) {
+            for (let col = c0; col < c1 + w; col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+              const inside = p => Math.floor(p.x / TILE) === col && Math.floor(p.y / TILE) === row;
+              expect([...level.tokens, ...level.cores].some(inside)).toBe(false);
+            }
+          }
+        }
+        for (const lift of def.dumbwaiters || []) {
+          // A dumbwaiter's shaft is open.
+          const [r0, r1] = [lift.from, lift.to].sort((a, b) => a - b);
+          for (let row = r0; row <= r1; row++) {
+            for (let col = lift.col; col < lift.col + (lift.width || 1); col++) {
+              expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+            }
+          }
+        }
+        for (const pair of def.bookcases || []) {
+          // Each bookcase stands on the floor and spins you out safely by the other one.
+          for (const [col, row] of [pair.a, pair.b]) {
+            expect(tileAt(level, col, row)).toBe(TileKind.EMPTY);
+            expect(tileAt(level, col, row - 1)).toBe(TileKind.EMPTY);
+            expect(isSolidKind(tileAt(level, col, row + 1))).toBe(true);
+            expect(simulateDrop(level, padCenter([col, row]))).toBeTruthy();
+          }
+        }
+      });
+
+      it('has its computer things in sensible places', () => {
+        const empty = (col, row) => tileAt(level, col, row) === TileKind.EMPTY;
+        for (const popup of popupWindows(def)) {
+          // A pop-up window opens in empty space.
+          for (const c of popupCells(popup)) {
+            expect(empty(c.col, c.row)).toBe(true);
+          }
+        }
+        for (const cable of def.cables || []) {
+          // Each cable plug is in an empty cell, and drops you somewhere safe.
+          const path = cablePath(cable);
+          for (const [col, row] of [cable.a, cable.b]) {
+            expect(empty(col, row)).toBe(true);
+          }
+          expect(simulateDrop(level, path[0])).toBeTruthy();
+          expect(simulateDrop(level, path[path.length - 1])).toBeTruthy();
+        }
+        for (const cursor of def.cursors || []) {
+          // The mouse cursor drops you somewhere safe.
+          const drop = padCenter(cursor.drop);
+          expect(simulateDrop(level, { x: drop.x, y: drop.y + CURSOR_HANG })).toBeTruthy();
+        }
+        for (const pads of def.copyPads || []) {
+          // Copy-paste pads lie on the floor, and the copy of you lands safely.
+          for (const [col, row] of [pads.copy, pads.paste]) {
+            expect(empty(col, row)).toBe(true);
+            expect(isSolidKind(tileAt(level, col, row + 1))).toBe(true);
+          }
+          expect(simulateDrop(level, padCenter(pads.paste))).toBeTruthy();
+        }
+        for (const cell of [...level.viruses, ...level.circuitCells]) {
+          // Viruses crawl, and wires run, along a floor, wall or ceiling.
+          const next = [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+          ].some(([dc, dr]) => isSolidKind(tileAt(level, cell.col + dc, cell.row + dr)));
+          expect(next).toBe(true);
+        }
+      });
+
+      it('has its robot factory things in sensible places', () => {
+        const empty = (col, row) => tileAt(level, col, row) === TileKind.EMPTY;
+        const solidUnder = (col, row) => isSolidKind(tileAt(level, col, row + 1));
+        // Each robot arm tosses you somewhere you can stick: it's only a setback.
+        expect((def.arms || []).length).toBeLessThanOrEqual(level.robotArms.length);
+        level.robotArms.forEach((arm, i) => {
+          const toss = armToss(level, i);
+          expect(simulateToss(level, armSwingSpot(level, arm, toss), toss)).toBeTruthy();
+        });
+        // Each spring pad launches you somewhere you stick, safely.
+        expect((def.springs || []).length).toBe(level.springs.length);
+        for (const s of level.springs) {
+          expect(simulateSpring(level, s)).toBeTruthy();
+        }
+        for (const tube of def.tubes || []) {
+          // Each end of a pneumatic tube is in an empty cell, and shoots you out somewhere safe.
+          const path = cablePath(tube);
+          expect(empty(...tube.a)).toBe(true);
+          expect(empty(...tube.b)).toBe(true);
+          expect(simulateDrop(level, path[0])).toBeTruthy();
+          expect(simulateDrop(level, path[path.length - 1])).toBeTruthy();
+        }
+        for (const lift of def.lifts || []) {
+          // A lift's shaft is open.
+          const [r0, r1] = [lift.from, lift.to].sort((a, b) => a - b);
+          for (let row = r0; row <= r1; row++) {
+            for (let col = lift.col; col < lift.col + (lift.width || 2); col++) {
+              expect(empty(col, row)).toBe(true);
+            }
+          }
+        }
+        for (const h of def.helpers || []) {
+          // A robot helper walks along a floor, through open space.
+          const [row, c0, c1] = [h.at[1], ...[h.at[0], h.to].sort((a, b) => a - b)];
+          for (let col = c0; col <= c1; col++) {
+            expect(empty(col, row)).toBe(true);
+            expect(solidUnder(col, row)).toBe(true);
+          }
+        }
+        for (const t of level.torches) {
+          // Welding torches hang from the ceiling, with room under them for the sparks.
+          expect(empty(t.col, t.row + 1)).toBe(true);
+        }
+        for (const p of level.patrols) {
+          // Patrol robots walk on a floor.
+          expect(solidUnder(p.col, p.row)).toBe(true);
+        }
+        if (level.alarmDoors.length) {
+          // Alarm doors only slam shut when a patrol robot spots you.
+          expect(level.patrols.length).toBeGreaterThan(0);
+        }
+        if (def.boss === 'boxer') {
+          // Boxer Bot needs an arena to walk around in, and starts inside it.
+          const { from, to } = def.arena;
+          const col = Math.floor(level.robot.x / TILE);
+          const row = Math.floor(level.robot.y / TILE);
+          expect(col).toBeGreaterThanOrEqual(Math.min(from[0], to[0]));
+          expect(col).toBeLessThanOrEqual(Math.max(from[0], to[0]));
+          expect(row).toBeGreaterThanOrEqual(Math.min(from[1], to[1]));
+          expect(row).toBeLessThanOrEqual(Math.max(from[1], to[1]));
+        }
+      });
+
       it('never rains sour candy on ice cream (you have to stand on it)', () => {
         level.tiles.forEach((row, r) =>
           row.forEach((kind, col) => {
@@ -254,10 +398,15 @@ describe('levels', () => {
           let t = 0;
           while (t < 600) {
             const pos = chaserPosition(def.chaser, level, t);
-            const caught =
-              def.chaser.kind === 'rise'
-                ? pos.y < level.exit.y + 24
-                : pos.x + pos.radius > level.exit.x - 24;
+            let caught;
+            if (def.chaser.kind === 'rise') {
+              caught = pos.y < level.exit.y + 24;
+            } else if (def.chaser.kind === 'wall') {
+              // The firewall's front edge reaching the door.
+              caught = pos.dir > 0 ? pos.x > level.exit.x - 24 : pos.x < level.exit.x + 24;
+            } else {
+              caught = pos.x + pos.radius > level.exit.x - 24;
+            }
             if (caught) {
               break;
             }

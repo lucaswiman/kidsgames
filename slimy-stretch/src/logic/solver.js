@@ -1,6 +1,7 @@
 import { END_RADIUS, ITEM_RADIUS, MAX_STRETCH, STICK_SEARCH, TILE } from './constants.js';
 import {
   castCircle,
+  circleTouches,
   clampToRange,
   dist,
   findStickSpot,
@@ -20,6 +21,7 @@ import {
   logRange,
   logRideY,
   QUICKSAND_REACH,
+  swingingVines,
   touchingQuicksand,
   VINE_GRAB,
   vineLandings,
@@ -53,6 +55,18 @@ import {
   SWITCH_RADIUS,
 } from './space.js';
 import { MARSH_BOUNCE, ropeDrop, ROPE_GRAB } from './candy.js';
+import { BOOKCASE_RADIUS, furnitureCells, furnitureRides } from './haunted.js';
+import {
+  CABLE_GRAB,
+  cablePath,
+  COPY_RADIUS,
+  CURSOR_GRAB,
+  CURSOR_HANG,
+  cursorPatrol,
+  popupCells,
+  popupWindows,
+} from './computer.js';
+import { SPRING_ENTER, simulateSpring, TUBE_GRAB } from './robots.js';
 
 const CANNON_ANGLES = 72;
 
@@ -74,7 +88,32 @@ const CANNON_ANGLES = 72;
  * gumdrops bounce you like hammocks, sitting on a marshmallow springs you up
  * a little, and touching a licorice rope slides you down to its bottom.
  * Gumball machines, candy canes and sour clouds are on timers, so they're
- * ignored, and so are lollipops (their longer stretch doesn't last).
+ * ignored, and so are lollipops (their longer stretch doesn't last). In the
+ * haunted house, creaky floorboards are solid, but from one you only get one
+ * more stretch (onto something that isn't a floorboard) before it vanishes,
+ * or you can wait and fall through it. Haunted furniture is solid where it
+ * starts, and you can ride it to either end of its path (its shoves are
+ * ignored: you can wait for it). Spider webs are sticky spots in the air (the
+ * real game physics catches a slime falling or flying into one); they only
+ * hold you still for a moment. Chandeliers are vines, dumbwaiters are
+ * elevators, beds bounce like hammocks, secret bookcases work like
+ * teleporters, and spooky paintings are just decoration. Inside the computer,
+ * glitchy blocks and pop-up windows count as always there, but (like creaky
+ * floorboards) from one of them you only get one more stretch, onto something
+ * that doesn't blink on and off, or you can wait for it to vanish and fall.
+ * That way a level never needs perfect timing. Viruses and circuits are
+ * ignored (you can wait for a circuit, and a virus only crawls slowly, or you
+ * can delete it with a slime shot), data streams are just sticky floors, the
+ * firewall is a chaser, cables work like teleporters, a copy pad pops you out
+ * of its paste pad, and the mouse cursor is a nice crane claw: touch it
+ * anywhere it swoops and it drops you at its drop spot. Being double size
+ * (from eating a copy of yourself) is never needed: it doesn't last. In the
+ * robot factory, spring pads work like rocket boosters, pneumatic tubes like
+ * cables, and robot helpers and lifts like floating islands. Robot arms only
+ * toss you somewhere you can stick (a setback), welding torches and sniper
+ * robots are on timers, and patrol robots never hurt, so they're all
+ * ignored, and alarm doors count as open (you can wait for the alarm to
+ * stop). Boss fights and Mega Slime are never needed to reach anything.
  */
 
 const DIRECTIONS = 32;
@@ -186,9 +225,24 @@ function explore(level, seeds = null) {
       const y = (c.row + 1) * TILE + CLAW_HANG;
       return { ...c, y, landing: simulateDrop(level, { x: (c.drop + 0.5) * TILE, y: y + 12 }) };
     });
+  // The computer's mouse cursor works like a nice claw that can swoop any way:
+  // touch its tip anywhere along the way and it drops you at its drop spot.
+  const cursors = (level.def.cursors || []).map(c => {
+    const { from, to } = cursorPatrol(c);
+    const steps = Math.max(1, Math.ceil(dist(from, to) / (TILE / 2)));
+    const along = [];
+    for (let k = 0; k <= steps; k++) {
+      along.push({
+        x: from.x + ((to.x - from.x) * k) / steps,
+        y: from.y + ((to.y - from.y) * k) / steps,
+      });
+    }
+    const drop = padCenter(c.drop);
+    return { along, landing: simulateDrop(level, { x: drop.x, y: drop.y + CURSOR_HANG }) };
+  });
 
-  // Vines: grab the bottom, swing and let go to fly somewhere new.
-  const vines = (level.def.vines || []).map(v => {
+  // Vines (and chandeliers): grab the bottom, swing and let go to fly somewhere new.
+  const vines = swingingVines(level.def).map(v => {
     const vine = { x: (v.at[0] + 0.5) * TILE, y: v.at[1] * TILE, length: v.length * TILE };
     return { tip: vineTip(vine, 0), vine, landings: null };
   });
@@ -253,9 +307,10 @@ function explore(level, seeds = null) {
     home: k,
     landings: null,
   }));
-  // Floating islands and space elevators: get on anywhere along the way and
-  // ride to either end.
-  const islands = floatingPlatforms(level.def).map(def => {
+  // Floating islands, space elevators, dumbwaiters and haunted furniture:
+  // get on anywhere along the way and ride to either end.
+  const platforms = [...floatingPlatforms(level.def), ...furnitureRides(level.def)];
+  const islands = platforms.map(def => {
     const { from, to } = islandEnds(def);
     const width = def.width || 3;
     const tops = at => {
@@ -276,16 +331,68 @@ function explore(level, seeds = null) {
     }
     return { along, ends: [...tops(from), ...tops(to)] };
   });
-  // Teleporters: touch one pad and you pop out of the other one.
+  // Teleporters (and secret bookcases, and cables): touch one and you pop out
+  // of the other one.
   const pads = [];
-  for (const t of level.def.teleporters || []) {
+  const pairs = [
+    ...(level.def.teleporters || []).map(t => ({ ...t, radius: PAD_RADIUS })),
+    ...(level.def.bookcases || []).map(t => ({ ...t, radius: BOOKCASE_RADIUS })),
+  ];
+  for (const t of pairs) {
     const a = padCenter(t.a);
     const b = padCenter(t.b);
-    pads.push({ pad: a, landing: simulateDrop(level, b) });
-    pads.push({ pad: b, landing: simulateDrop(level, a) });
+    pads.push({ pad: a, radius: t.radius, landing: simulateDrop(level, b) });
+    pads.push({ pad: b, radius: t.radius, landing: simulateDrop(level, a) });
   }
-  // Rocket boosters: touch one and it blasts you off its way.
-  const boosters = level.boosters.map(b => ({ ...b, landing: simulateBooster(level, b) }));
+  const tubes = [
+    ...(level.def.cables || []).map(c => ({ path: cablePath(c), radius: CABLE_GRAB })),
+    ...(level.def.tubes || []).map(t => ({ path: cablePath(t), radius: TUBE_GRAB })),
+  ];
+  for (const t of tubes) {
+    const [a, b] = [t.path[0], t.path[t.path.length - 1]];
+    pads.push({ pad: a, radius: t.radius, landing: simulateDrop(level, b) });
+    pads.push({ pad: b, radius: t.radius, landing: simulateDrop(level, a) });
+  }
+  // Copy pads only go one way: the copy of you pops out of the paste pad.
+  for (const c of level.def.copyPads || []) {
+    pads.push({
+      pad: padCenter(c.copy),
+      radius: COPY_RADIUS,
+      landing: simulateDrop(level, padCenter(c.paste)),
+    });
+  }
+  // Creaky floorboards (and glitchy blocks and pop-up windows): wait on one
+  // and it vanishes, and you fall through.
+  const timed = [
+    ...level.floorboards.map(b => [b]),
+    ...level.glitches.map(b => [b]),
+    ...popupWindows(level.def).map(popupCells),
+  ];
+  const isBoard = k => k === TileKind.FLOORBOARD || k === TileKind.GLITCH || k === TileKind.POPUP;
+  const onBoard = p => timed.length > 0 && circleTouches(level, p, END_RADIUS + 6, isBoard);
+  const trapdoors = timed.flatMap(cells => {
+    const tiles = level.tiles.map(line => line.slice());
+    for (const b of cells) {
+      tiles[b.row][b.col] = TileKind.EMPTY;
+    }
+    return cells.map(b => {
+      const from = { x: (b.col + 0.5) * TILE, y: b.row * TILE - END_RADIUS - 1 };
+      return { ...from, landing: simulateDrop({ ...level, tiles }, from) };
+    });
+  });
+  // Rocket boosters (and spring pads): touch one and it blasts you off its way.
+  const boosters = [
+    ...level.boosters.map(b => ({
+      ...b,
+      enter: BOOSTER_ENTER,
+      landing: simulateBooster(level, b),
+    })),
+    ...(level.springs || []).map(s => ({
+      ...s,
+      enter: SPRING_ENTER,
+      landing: simulateSpring(level, s),
+    })),
+  ];
   // Zero gravity: letting go of a stretch in the air floats you off.
   const flings = new Map();
   const flingFrom = (anchor, tip, angleIndex) => {
@@ -310,12 +417,12 @@ function explore(level, seeds = null) {
       }
     }
     for (const t of pads) {
-      if (t.landing && canStretchTo(anchor, t.pad, PAD_RADIUS + END_RADIUS)) {
+      if (t.landing && canStretchTo(anchor, t.pad, t.radius + END_RADIUS)) {
         visit({ ...t.landing }, anchor.moves + 2);
       }
     }
     for (const b of boosters) {
-      if (b.landing && canStretchTo(anchor, b, BOOSTER_ENTER)) {
+      if (b.landing && canStretchTo(anchor, b, b.enter)) {
         visit({ ...b.landing }, anchor.moves + 2);
       }
     }
@@ -387,6 +494,14 @@ function explore(level, seeds = null) {
         visit({ ...h.landing }, anchor.moves + 1);
       }
     }
+    for (const t of trapdoors) {
+      if (t.landing && Math.abs(anchor.x - t.x) < TILE / 2 + 2 && Math.abs(anchor.y - t.y) < 8) {
+        visit({ ...t.landing }, anchor.moves + 1);
+      }
+    }
+    // On a creaky floorboard there's only time for one more stretch, and it
+    // can't be onto another floorboard.
+    const creaky = onBoard(anchor);
     for (const claw of niceClaws) {
       if (!claw.landing || seen.has(key(claw.landing))) {
         continue;
@@ -396,6 +511,14 @@ function explore(level, seeds = null) {
           visit({ ...claw.landing }, anchor.moves + 2);
           break;
         }
+      }
+    }
+    for (const cursor of cursors) {
+      if (!cursor.landing || seen.has(key(cursor.landing))) {
+        continue;
+      }
+      if (cursor.along.some(p => canStretchTo(anchor, p, CURSOR_GRAB + END_RADIUS))) {
+        visit({ ...cursor.landing }, anchor.moves + 2);
       }
     }
     const reachHere = reachFrom(anchor);
@@ -413,6 +536,9 @@ function explore(level, seeds = null) {
           continue;
         }
         const spot = findStickSpot(level, tip, END_RADIUS, STICK_SEARCH, allowed);
+        if (spot && creaky && onBoard(spot)) {
+          continue;
+        }
         if (spot && !seen.has(key(spot))) {
           seen.add(key(spot));
           // Each new spot takes two drags: stretch out, then pull the tail over.
@@ -521,6 +647,7 @@ function exploreWithGravity(level) {
 /**
  * A copy of the level with eaten boxes removed and gates open or (deadly)
  * closed. Leafy traps are just holes: they break as soon as you touch them.
+ * Haunted furniture is where it starts out, and pop-up windows are open.
  */
 function levelView(level, eaten, openColors, powered = new Set(), woken = [], withered = null) {
   const tiles = level.tiles.map(row => row.map(k => (k === TileKind.LEAFY ? TileKind.EMPTY : k)));
@@ -557,6 +684,18 @@ function levelView(level, eaten, openColors, powered = new Set(), woken = [], wi
       tiles[b.row][b.col] = TileKind.EMPTY;
     }
   });
+  // Haunted furniture is solid where it starts out.
+  for (const f of level.def.furniture || []) {
+    for (const c of furnitureCells(f)) {
+      tiles[c.row][c.col] = TileKind.FURNITURE;
+    }
+  }
+  // Pop-up windows count as open (see the "one more stretch" rule in explore).
+  for (const p of popupWindows(level.def)) {
+    for (const c of popupCells(p)) {
+      tiles[c.row][c.col] = TileKind.POPUP;
+    }
+  }
   for (const g of level.gates) {
     // A closed gate zaps you, which the checker treats like lava.
     tiles[g.row][g.col] = openColors.has(g.color) ? TileKind.EMPTY : TileKind.LAVA;

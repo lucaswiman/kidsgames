@@ -1,5 +1,6 @@
 import { TILE } from './constants.js';
 import {
+  isCatchingKind,
   isDeadlyKind,
   isPlatformKind,
   isSolidKind,
@@ -100,9 +101,24 @@ export function isTouchingSticky(level, p, r, margin = 4) {
   );
 }
 
-/** True if something (a wall, ice, a platform top) is holding up a circle at `p`. */
+/**
+ * True if something (a wall, ice, a platform top, a spider web) is holding up
+ * a circle at `p`.
+ */
 export function isSupported(level, p, r, margin = 6) {
-  return circleHitsSolid(level, p, r + margin) || platformTopBelow(level, p, r, margin) !== null;
+  return (
+    circleHitsSolid(level, p, r + margin) ||
+    platformTopBelow(level, p, r, margin) !== null ||
+    circleTouches(level, p, r + margin, isStickyKind)
+  );
+}
+
+/** True if a circle at `p` is caught in a spider web (see isCatchingKind). */
+export function circleCaught(level, p, r) {
+  // Most levels have no webs, so don't bother looking.
+  return (
+    level.webs !== undefined && level.webs.length > 0 && circleTouches(level, p, r, isCatchingKind)
+  );
 }
 
 /** Spots on top of nearby one-way platforms that an end let go at `p` could snap to. */

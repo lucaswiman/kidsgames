@@ -55,6 +55,14 @@ export function chaserPosition(chaser, level, time) {
     const startY = level.pixelHeight + TILE;
     return { y: Math.max(chaser.stopY ?? -Infinity, startY - chaser.speed * t) };
   }
+  if (chaser.kind === 'wall') {
+    // A wall of fire (the computer's firewall) sweeping sideways across the
+    // whole level, from the left edge (dir 1) or the right edge (dir -1).
+    // `x` is its front edge.
+    const dir = chaser.dir || 1;
+    const startX = dir > 0 ? -TILE : level.pixelWidth + TILE;
+    return { x: startX + dir * chaser.speed * t, dir };
+  }
   // A rolling ball moving right along row `row`.
   const radius = chaser.radius * TILE;
   return { x: -radius + chaser.speed * t, y: (chaser.row + 1) * TILE - radius, radius };
@@ -63,6 +71,9 @@ export function chaserPosition(chaser, level, time) {
 function pointHitByChaser(chaser, pos, p) {
   if (chaser.kind === 'rise') {
     return p.y + END_RADIUS * 0.5 > pos.y;
+  }
+  if (chaser.kind === 'wall') {
+    return pos.dir > 0 ? p.x - END_RADIUS * 0.5 < pos.x : p.x + END_RADIUS * 0.5 > pos.x;
   }
   return dist(p, pos) < pos.radius + END_RADIUS * 0.6;
 }

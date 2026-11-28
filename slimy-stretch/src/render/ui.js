@@ -82,3 +82,47 @@ export function makeMuteButton(scene, x, y) {
   });
   return button;
 }
+
+/**
+ * A big round button you hold down, like the ◀ ▶ buttons for walking around
+ * as Mega Slime. `onChange(true)` when it's pressed, `onChange(false)` when
+ * it's let go.
+ */
+export function makeHoldButton(scene, x, y, label, onChange, size = 120) {
+  const container = scene.add.container(x, y).setDepth(210).setScrollFactor(0);
+  const bg = scene.add.graphics();
+  const draw = pressed => {
+    bg.clear();
+    bg.fillStyle(0x000000, 0.3);
+    bg.fillCircle(0, 5, size / 2);
+    bg.fillStyle(pressed ? 0x55e05a : 0x24304a, 0.85);
+    bg.fillCircle(0, pressed ? 4 : 0, size / 2);
+    bg.lineStyle(5, 0xffffff, 0.8);
+    bg.strokeCircle(0, pressed ? 4 : 0, size / 2);
+  };
+  draw(false);
+  const text = scene.add.text(0, 0, label, textStyle(Math.round(size * 0.4))).setOrigin(0.5);
+  container.add([bg, text]);
+  container.setSize(size, size);
+  container.setInteractive({ useHandCursor: true });
+  container.pressed = false;
+  const press = down => {
+    if (container.pressed !== down) {
+      container.pressed = down;
+      draw(down);
+      onChange(down);
+    }
+  };
+  container.on('pointerdown', (pointer, lx, ly, event) => {
+    unlockAudio();
+    press(true);
+    if (event) {
+      event.stopPropagation();
+    }
+  });
+  container.on('pointerup', () => press(false));
+  container.on('pointerout', () => press(false));
+  container.release = () => press(false);
+  container.label = text;
+  return container;
+}

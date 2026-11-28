@@ -59,6 +59,20 @@ import { TILE } from './constants.js';
 //   j  gumball machine (sticky; shoots gumballs at you)
 //   |  candy cane (swings back and forth from the top of its cell, and hurts)
 //   w  sour candy cloud (slippery; every few seconds it rains sour drops straight down)
+//   /  creaky floorboard (sticky; creaks after you stick to it, then vanishes for a while)
+//   &  spider web (not solid; stick to it and it holds you still for a few seconds)
+//   [  spooky painting (just decoration: its eyes follow you around, it never hurts)
+//   4  bouncy bed (sticky; bounces you up high, like a hammock)
+//   } {  data stream flowing right / left (sticky; carries whatever is stuck to it, like a belt)
+//   ?  glitchy block (sticky; blinks off for a while on a timer, flickering first)
+//   e  computer virus (crawls along its floor or wall, chases you when you're near, and hurts)
+//   ;  electric circuit (a wire along the floor, wall or ceiling next to it; it zaps on a timer)
+//   (  robot arm (grabs you when you come near and tosses you; def.arms says which way)
+//   "  welding torch (on a ceiling; every few seconds it glows, then showers sparks straight down)
+//   5  patrol robot (walks along its floor; if its searchlight spots you, the alarm goes off)
+//   ]  alarm door (open, but slams shut for a while when the alarm goes off)
+//   6  sniper robot (puts a red dot on you, then fires a laser bolt where you were)
+//   ,  spring pad (launches you like a catapult; def.springs says which way each one points)
 //   .  empty
 
 export const TileKind = {
@@ -94,7 +108,7 @@ export const TileKind = {
   STORM: 29,
   SLEEPY: 30,
   FLUFFY: 31,
-  SKY_ISLAND: 32, // a floating island's (or space elevator's) spot (never in a map)
+  SKY_ISLAND: 32, // a floating island's, space elevator's or dumbwaiter's spot (never in a map)
   MOON_ROCK: 33,
   CHOCOLATE: 34,
   CARAMEL: 35,
@@ -103,6 +117,15 @@ export const TileKind = {
   ICE_CREAM: 38,
   GUMBALL: 39,
   SOUR_CLOUD: 40,
+  FLOORBOARD: 41,
+  WEB: 42,
+  FURNITURE: 43, // a piece of haunted furniture's spot (never in a map)
+  BED: 44,
+  STREAM_RIGHT: 45,
+  STREAM_LEFT: 46,
+  GLITCH: 47,
+  POPUP: 48, // an open pop-up window's spot (never in a map)
+  ALARM_DOOR: 49, // a slammed-shut alarm door (never in a map: they start open)
 };
 
 // Tiles that work like one-way platforms: stretch up through them from
@@ -122,14 +145,26 @@ export function isPlatformKind(kind) {
   return PLATFORMS.has(kind);
 }
 
-/** Hammocks, bouncy flowers, moon rocks and gumdrops bounce you up high when you land on them. */
+/**
+ * Hammocks, bouncy flowers, moon rocks, gumdrops and beds bounce you up high
+ * when you land on them.
+ */
 export function isBouncyKind(kind) {
   return (
     kind === TileKind.HAMMOCK ||
     kind === TileKind.FLOWER ||
     kind === TileKind.MOON_ROCK ||
-    kind === TileKind.GUMDROP
+    kind === TileKind.GUMDROP ||
+    kind === TileKind.BED
   );
+}
+
+/**
+ * Spider webs catch a slime that falls or flies into them, even though
+ * they're not solid (you can stretch right through one).
+ */
+export function isCatchingKind(kind) {
+  return kind === TileKind.WEB;
 }
 
 export const KEY_COLORS = ['red', 'blue', 'yellow'];
@@ -172,6 +207,14 @@ const SOLID = new Set([
   TileKind.MARSHMALLOW,
   TileKind.GUMBALL,
   TileKind.SOUR_CLOUD,
+  TileKind.FLOORBOARD,
+  TileKind.FURNITURE,
+  TileKind.BED,
+  TileKind.STREAM_RIGHT,
+  TileKind.STREAM_LEFT,
+  TileKind.GLITCH,
+  TileKind.POPUP,
+  TileKind.ALARM_DOOR,
 ]);
 const STICKY = new Set([
   TileKind.WALL,
@@ -195,6 +238,15 @@ const STICKY = new Set([
   TileKind.GUMDROP,
   TileKind.MARSHMALLOW,
   TileKind.GUMBALL,
+  TileKind.FLOORBOARD,
+  TileKind.FURNITURE,
+  TileKind.BED,
+  TileKind.STREAM_RIGHT,
+  TileKind.STREAM_LEFT,
+  TileKind.GLITCH,
+  TileKind.POPUP,
+  // Webs are the only sticky thing that isn't solid.
+  TileKind.WEB,
 ]);
 
 export function isSolidKind(kind) {
@@ -272,6 +324,18 @@ export function parseLevel(def) {
     candyCanes: [],
     lollipops: [],
     ropes: [],
+    floorboards: [],
+    webs: [],
+    paintings: [],
+    glitches: [],
+    viruses: [],
+    circuitCells: [],
+    robotArms: [],
+    torches: [],
+    patrols: [],
+    alarmDoors: [],
+    snipers: [],
+    springs: [],
     // Which way is down: 1 normally, -1 while a gravity switch has flipped it.
     gravity: 1,
     // Zero gravity zones, as pixel rectangles (see def.zeroG).
@@ -504,6 +568,55 @@ export function parseLevel(def) {
         case 'w':
           kind = TileKind.SOUR_CLOUD;
           break;
+        case '/':
+          kind = TileKind.FLOORBOARD;
+          level.floorboards.push({ col, row });
+          break;
+        case '&':
+          kind = TileKind.WEB;
+          level.webs.push({ ...center, col, row });
+          break;
+        case '[':
+          level.paintings.push({ ...center, col, row });
+          break;
+        case '4':
+          kind = TileKind.BED;
+          break;
+        case '}':
+          kind = TileKind.STREAM_RIGHT;
+          break;
+        case '{':
+          kind = TileKind.STREAM_LEFT;
+          break;
+        case '?':
+          kind = TileKind.GLITCH;
+          level.glitches.push({ col, row });
+          break;
+        case 'e':
+          level.viruses.push({ ...center, col, row });
+          break;
+        case ';':
+          level.circuitCells.push({ col, row });
+          break;
+        case '(':
+          level.robotArms.push({ ...center, col, row });
+          break;
+        case '"':
+          kind = TileKind.WALL;
+          level.torches.push({ ...center, col, row });
+          break;
+        case '5':
+          level.patrols.push({ ...center, col, row });
+          break;
+        case ']':
+          level.alarmDoors.push({ col, row });
+          break;
+        case '6':
+          level.snipers.push({ ...center, col, row });
+          break;
+        case ',':
+          level.springs.push({ ...center, col, row });
+          break;
         case '.':
           break;
         default:
@@ -520,6 +633,7 @@ export function parseLevel(def) {
   placeBoxItems(level);
   findCartTracks(level);
   aimBoosters(level);
+  aimSprings(level);
   findRopes(level);
   if (!level.exit && def.type !== 'boss') {
     throw new Error(`${def.id}: map has no exit (E)`);
@@ -582,6 +696,25 @@ function aimBoosters(level) {
     }
     b.dir = dir;
     b.angle = Math.atan2(BOOSTER_DIRS[dir].y, BOOSTER_DIRS[dir].x);
+  });
+}
+
+/**
+ * `def.springs[i]` says which way the i-th spring pad (in reading order)
+ * points, just like rocket boosters (default 'up').
+ */
+function aimSprings(level) {
+  const dirs = level.def.springs || [];
+  if (dirs.length > level.springs.length) {
+    throw new Error(`${level.def.id}: springs lists more directions than there are spring pads`);
+  }
+  level.springs.forEach((s, i) => {
+    const dir = dirs[i] || 'up';
+    if (!BOOSTER_DIRS[dir]) {
+      throw new Error(`${level.def.id}: unknown spring direction '${dir}'`);
+    }
+    s.dir = dir;
+    s.angle = Math.atan2(BOOSTER_DIRS[dir].y, BOOSTER_DIRS[dir].x);
   });
 }
 

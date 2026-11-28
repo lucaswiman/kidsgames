@@ -55,6 +55,37 @@ Climb like an inchworm!
   his giant claw hands miss, eat them with your tongue while they're stuck, then shoot a slime
   blob into his mouth when his head falls down. He gets one more hand each time, drops bombs, and
   in the end turns the walls to ice
+- **The Haunted House:** a creaky old mansion at night, spooky but nothing in it hurts you.
+  Creaky floorboards creak when you stick to them and then fall away for a few seconds (hop off
+  quick!), haunted chairs, tables and wardrobes slide back and forth (they shove you out of the
+  way if they bump into you, but stick to one while it's stopped and it gives you a ride), spider
+  webs hold you still for a few seconds (but they're sticky spots in mid-air, too), and spooky
+  paintings watch you with their eyes (that's all they do!). There are secret bookcases that spin
+  you around into another room, chandeliers to swing on, dumbwaiters that carry you between
+  floors, bouncy four-poster beds, and glowing pumpkins to collect
+- **Inside the Computer:** a glowing circuit board full of chips and blinking lights. Computer
+  viruses crawl along floors and walls and chase you when you get close (a slime shot deletes one
+  for good), glitchy blocks flicker and then blink out for a couple of seconds, electric circuits
+  light up as a pulse of power runs along them and then zap, and in the last level the
+  **firewall**, a wall of fire, sweeps across the whole level after you. But data streams of 1s
+  and 0s carry you along, pop-up windows pop open for a few seconds to stand on, cables zoom you
+  from one plug to the other, a giant mouse cursor grabs you and drags you somewhere useful, and
+  copy-paste pads paste a copy of you somewhere else. The old you stays behind: eat it with your
+  tongue and you grow to **double size**!
+- **The Robot Factory:** a shiny robot assembly plant with steel girders and orange robot arms
+  building robots. Robot arms grab you when you come near (after a whirr and a blinking light)
+  and toss you away, welding torches glow and then shower sparks straight down, patrol robots
+  sweep their searchlights around (if one spots you, the alarm goes off and the alarm doors slam
+  shut for 8 seconds), and sniper robots put a red dot on you and fire a laser bolt where you were
+  (keep moving!). But spring pads launch you like a catapult, pneumatic tubes suck you in at one
+  end and whoosh you out of the other, friendly robot helpers give you a ride on their heads,
+  lifts go up and down, and conveyor belts and lasers are back. Power cores to collect, too. The
+  boss is **Boxer Bot**: he looks like a giant metal box until you try to eat him. Trick him into
+  punching one of the metal boxes in his arena, and while he's dizzy, lick him with your tongue.
+  After the first hit he squeezes you if you get too close (and you fly up toward the lava
+  ceiling!), and after the second his fists glow every 20 seconds: glowing punches never make him
+  dizzy. Beat him, eat the crate he leaves behind to get the last power core, and walk out the
+  door to win
 
 Bosses only show up in worlds that are multiples of 3. Beating a boss gives the slime new
 abilities:
@@ -66,9 +97,27 @@ abilities:
 - The big machine gives you **split**: getting hurt splits you into two half-size slimes (half the
   reach each) instead of killing you. The exit door won't open until you bring the halves back
   together. If a half gets hurt it's gone; get hurt as a half-size slime and you really die.
+  Inside the computer this grows into the **size system**: every piece of slime is double size,
+  regular or half size, and reaches (and looks) that big. Getting hurt splits a piece into two
+  pieces of half its size: double into two regular slimes, regular into two halves, and a half
+  that's hurt is gone (if it was your last piece, you really die and start again as one regular
+  slime). You move whichever piece is nearest your finger, and pieces that touch merge back,
+  adding up their sizes (never bigger than double). The door opens when you're in one piece, or
+  when every piece is at least regular size: two regular slimes can finish a level, but not two
+  halves. Eating the old you a copy-paste pad left behind adds its size to yours, so a regular
+  slime becomes double size until it gets hurt. (The rules live in `src/logic/sizes.js`.)
 - King Claw gives you **super stretch**: tap 🎯, then tap a wall or ceiling the slime can see in a
   straight line (up to 14 tiles away). The slime stretches super far over to it and sticks there.
   Then it needs 20 seconds to rest.
+- Boxer Bot gives you **Mega Slime**: tap 💪 and you turn into a giant slime person for 12
+  seconds (then it needs 60 seconds to rest). Walk with the big ◀ ▶ buttons and jump with ⬆ (or
+  the arrow keys): the jump is about 16 tiles high, enough to clear a whole flooding level in one
+  go! Nothing can hurt you, not even lava (walk and swim right through it), but water, chocolate
+  and other liquids still get you. Walking or jumping into metal boxes, crumbling rocks, creaky
+  floorboards, leafy traps or sleeping clouds smashes them (walls and ice never break), and
+  bumping into crabs, monkeys, computer viruses, alien plants, robot arms, patrol robots or sniper
+  robots smashes them for good (bosses are too tough). When it wears off you're a **double size**
+  slime until you get hurt. (The rules live in `src/logic/megaSlime.js`.)
 
 ## Running it
 
@@ -159,6 +208,20 @@ Levels live in `src/levels/levels.js`. Each one has a map drawn with letters:
 | `j`    | gumball machine (shoots gumballs at you)          |
 | `\|`   | candy cane (swings from the top of its cell)      |
 | `w`    | sour candy cloud (rains sour drops)               |
+| `/`    | creaky floorboard (falls soon after you stick)    |
+| `&`    | spider web (holds you still for 2.5 s)            |
+| `[`    | spooky painting (just watches you)                |
+| `4`    | bouncy bed (bounces you up high)                  |
+| `}`    | data stream flowing right (`{` flows left)        |
+| `?`    | glitchy block (blinks off for a while)            |
+| `e`    | computer virus (crawls along, chases you)         |
+| `;`    | electric circuit wire (zaps now and then)         |
+| `(`    | robot arm (grabs you and tosses you away)         |
+| `"`    | welding torch (on a ceiling; showers sparks)      |
+| `5`    | patrol robot (its searchlight sets off the alarm) |
+| `]`    | alarm door (slams shut while the alarm is on)     |
+| `6`    | sniper robot (fires a laser bolt where you were)  |
+| `,`    | spring pad (launches you like a catapult)         |
 | `.`    | empty space                                       |
 
 To put something inside metal boxes, add `boxItems` to the level, listing what's in each box in
@@ -210,6 +273,47 @@ the world, one-way platforms still only work from above, and only moon rocks bou
 Candyland's King Claw is `boss: 'kingclaw'`, with `R` where his head hangs and
 `iceWalls: [{ from: [0, 1], to: [0, 14] }]`: rectangles of walls that turn to ice in his last
 phase.
+
+Haunted House levels can have haunted furniture with
+`furniture: [{ kind: 'table', at: [13, 6], to: [20, 6] }]` (`kind` is `chair`, `table` (2 tiles
+wide) or `wardrobe` (2 tiles tall); it slides back and forth between `at` and `to`, where its
+top-left tile is, stopping for 2 seconds at each end; add `speed` or `pause` to change them),
+dumbwaiters with `dumbwaiters: [{ col: 4, from: 13, to: 6 }]` (a box 1 tile wide in column 4,
+going up and down between rows 13 and 6, like a space elevator), secret bookcases with
+`bookcases: [{ a: [4, 18], b: [17, 8] }]` (each stands on the floor in its empty cell and is drawn
+2 tiles tall; touch one and it spins you out of the other) and chandeliers with
+`chandeliers: [{ at: [10, 1], length: 4 }]` (they hang from the ceiling and swing just like
+vines).
+
+Inside the Computer levels can have pop-up windows with
+`popups: [{ at: [15, 13], width: 3 }]` (a platform 3 tiles wide that's open for 4 seconds, shaking
+for the last one, then closed for 3; add `open`, `closed` or `offset` to change its timing), cables
+with `cables: [{ a: [43, 11], b: [30, 7], path: [[43, 9], [30, 9]] }]` (a plug at `a` and at `b`,
+in empty cells; touch one and you zoom along the cable through its `path` bends and out of the
+other), mouse cursors with `cursors: [{ from: [19, 10], to: [24, 10], drop: [37, 10] }]` (the tip
+swoops back and forth between `from` and `to`; touch it and it drags you to `drop`) and copy-paste
+pads with `copyPads: [{ copy: [12, 15], paste: [17, 15] }]` (both on the floor; each pair works
+once per life). Each run of electric circuit cells (`;`) side by side is one wire: it lights up
+for 1 second, zaps for 1 second, and stays quiet for 3 (change that with
+`circuitTimings: [{ quiet: 4, offset: 1 }]`, one for each wire in reading order). Glitchy blocks are there for 3 seconds
+(flickering for the last bit) and gone for 2, each column a little later than the one before.
+The firewall is an escape level's chaser: `chaser: { kind: 'wall', dir: 1, delay: 5, speed: 34 }`
+sweeps across from the left edge (`dir: -1` for the right edge). A laser with
+`laserTimings: [{ on: 1, off: 0 }]` is always on.
+
+Robot Factory levels can have robot arms with `arms: [{ toss: 'up-left' }]` (which way each `(`
+tosses you, in reading order, like booster directions; default `up`, add `speed` to change how
+hard; a toss has to land you somewhere safe) and spring pads with `springs: ['up', 'up-right']`
+(which way each `,` points, in reading order). Welding torches are quiet for 2 seconds, glow for
+1 and shower sparks for 1.5 (change that with `sparkTimings: [{ quiet: 3, offset: 1 }]`).
+Pneumatic tubes work like cables: `tubes: [{ a: [2, 4], b: [24, 14], path: [[2, 2], [21, 2]] }]`.
+Lifts work like space elevators: `lifts: [{ col: 18, from: 14, to: 5 }]` (2 tiles wide). Robot
+helpers walk back and forth along a floor: `helpers: [{ at: [17, 14], to: 30 }]` (from `at` to
+column `to`; its path must be empty, with a floor under it). Boxer Bot is `boss: 'boxer'`, with
+`R` in the middle of the giant box and `arena: { from: [19, 7], to: [44, 15] }`, the rectangle he
+walks around in (its empty metal boxes come back after they're broken). A boss level can also
+have power cores and an exit door: then beating the boss gives you the last core, and you win by
+walking out of the door.
 
 Every row of a map must be the same length. Then run `npm test`: the tests play every level
 automatically and tell you if the exit or any token can't be reached.

@@ -6,7 +6,8 @@ import { dist } from './collision.js';
 // with half the reach) that you control one at a time. The exit door won't
 // open while you're split: bring the two halves together to merge back into
 // one. If a half gets hurt it's gone, and you carry on as one half-size slime.
-// Get hurt as a half-size slime and you really die.
+// Get hurt as a half-size slime and you really die. (The computer world grows
+// this into the size system, with double-size slimes too: see sizes.js.)
 
 export const SPLIT_REACH = 0.5;
 export const MERGE_DISTANCE = END_RADIUS * 2 + 8;
@@ -48,16 +49,38 @@ export class SafeTrail {
    * little way back along the trail (so you have to go and fetch it).
    */
   splitSpots(fallback) {
+    return this.spotsAlong(fallback, 2);
+  }
+
+  /**
+   * `n` spots for new pieces to appear at: the newest safe spot, then each
+   * one after that a little way (more than 2 tiles) further back along the
+   * trail. If the trail runs out, the rest share the oldest spot.
+   */
+  spotsAlong(fallback, n) {
     const spots = this.spots.length ? this.spots : [fallback];
-    const first = spots[spots.length - 1];
-    let second = first;
-    for (let i = spots.length - 2; i >= 0; i--) {
-      second = spots[i];
-      if (dist(second, first) > TILE * 2) {
-        break;
+    const out = [spots[spots.length - 1]];
+    let i = spots.length - 2;
+    while (out.length < n) {
+      const prev = out[out.length - 1];
+      let next = prev;
+      for (; i >= 0; i--) {
+        next = spots[i];
+        if (dist(next, prev) > TILE * 2) {
+          i--;
+          break;
+        }
       }
+      out.push(next);
     }
-    return [first, second];
+    return out;
+  }
+
+  /** A new trail that remembers the same spots (for a piece that just split off). */
+  clone() {
+    const trail = new SafeTrail();
+    trail.spots = this.spots.map(p => ({ x: p.x, y: p.y }));
+    return trail;
   }
 
   clear() {
